@@ -1,0 +1,18 @@
+{
+  "domain": "baxi_hybridapp_home",
+  "name": "BAXI HybridApp Integration",
+  "codeowners": [
+    "@Cm-8"
+  ], 
+  "config_flow": true,
+  "documentation": "https://github.com/Cm-8/baxi_hybridapp_home/",
+  "issue_tracker": "https://github.com/Cm-8/baxi_hybridapp_home/issues",
+  "requirements": [],
+  "ssdp": [],
+  "zeroconf": [],
+  "homekit": {},
+  "dependencies": [],
+  "integration_type": "device",
+  "iot_class": "cloud_polling",
+  "version": "0.1"
+}
