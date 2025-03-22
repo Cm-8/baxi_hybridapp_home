@@ -9,18 +9,25 @@ _For more information about the collaboration between Baxi and Servitly, see: [t
 
 Servitly offers complete documentation here: https://learn.servitly.com/apidocs/
 
-## The API
+# The API
 
-The API used by the Baxi HybridApp app is located at `https://baxi.servitly.com/api/`.
-
+## _Location:_
+The API used by the Baxi HybridApp app is located at:
+```
+https://baxi.servitly.com/api/
+```
+## _Headers:_
 All API requests should have the following two headers:
 ```
 Authorization: Bearer <token>
 x-semioty-tenant: baxi
 ```
+## _LogIn Endpoint:_
+<sup> Ref: https://learn.servitly.com/apidocs/user-login-credentials </sup>
+> [!NOTE]
+> To obtain the Bearer Token there is an endpoint to which you submit your credentials.
 
-***To obtain the Bearer Token there is an endpoint to which you submit your credentials***
-## POST `/identity/users/login?apiKey={{apikey}}`
+### POST `/identity/users/login?apiKey={{apikey}}`
 This endpoint is used to get the bearer token.
 
 _Request Body:_
@@ -50,9 +57,12 @@ _Response:_
     "tokenExpirationTimestamp": 1741236233774
 }
 ```
+## _LogOut Endpoint:_
+<sup> Ref: https://learn.servitly.com/apidocs/user-login-credentials </sup>
+> [!NOTE]
+> To logout there is an endpoint to which you submit the refreshToken.
 
-***To logout there is an endpoint to which you submit the refreshToken***
-## POST `/identity/users/me/logout`
+### POST `/identity/users/me/logout`
 This endpoint is used to logout the user.
 
 _Request Body:_
@@ -64,10 +74,14 @@ _Response:_
 1
 ```
 
-Each of the following sections gives an example of the output for the different endpoints.
+## _Data Endpoints:_
+<sup> Ref: https://learn.servitly.com/apidocs/get-thing-metric-value </sup>
+> [!NOTE]
+> Each of the following sections gives an example of the output for the different endpoints.
 
-## GET `/data/values?thingId={{thingId}}&pageSize=1&metricName={{metricName}}`
-This endpoint is used to get the system pressure.
+
+### GET `/data/values?thingId={{thingId}}&pageSize=1&metricName={{metricName}}`
+<sup>This endpoint is used to get the system pressure.</sup>
 
 Response:
 ```json
