@@ -1,6 +1,15 @@
 # Baxi HybridApp API
-__All of the following information was obtained by sniffing the app traffic.__
+__All the information provided has been gathered through analysis of the source code, traffic from the Baxi HybridApp, and the websites [altuofianco.baxi.it](https://altuofianco.baxi.it/) and [baxi.servitly.com](https://baxi.servitly.com/), along with extensive online research.__
 __Please use this information responsibly.__
+
+## Foreword
+
+_Unlike the MyBaxi app by BAXI (aka BDR Thermea Group), which already has a custom integration available for Home Assistant (see: [remeha_home](https://github.com/msvisser/remeha_home) — known through to [alessandromatera/baxi-node-red](https://github.com/alessandromatera/baxi-node-red)), Baxi's HybridApp relies on the Servitly platform to provide its services._
+_For more information about the collaboration between Baxi and Servitly, see: [thanks-to-digitalization-and-servitization-baxi-is-at-the-side-of-its-customers-and-partners](https://www.servitly.com/post/thanks-to-digitalization-and-servitization-baxi-is-at-the-side-of-its-customers-and-partners)_
+
+Servitly offers complete documentation here: https://learn.servitly.com/apidocs/
+
+## The API
 
 The API used by the Baxi HybridApp app is located at `https://baxi.servitly.com/api/`.
 
