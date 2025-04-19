@@ -1,54 +1,27 @@
-from homeassistant.components.sensor import SensorEntity
-from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
 from homeassistant.const import UnitOfTemperature, UnitOfPressure
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN, DATA_KEY_API
 
-import logging
-
-_LOGGER = logging.getLogger(__name__)
-
-
-async def async_setup_entry(hass, config_entry, async_add_entities):
-    """Setup dei sensori da config_entry."""
-    api = hass.data[DOMAIN][DATA_KEY_API]
-
-    # Creazione dei sensori
-    async_add_entities([
-        BaxiExternalTemperatureSensor(api),
-        BaxiInternalTemperatureSensor(api),
-        BaxiWaterPressureSensor(api),
-        BaxiBoilerFlowTempSensor(api),
-        BaxiDHWStorageTempSensor(api)
-    ], True)
-
-
-class BaxiTemperatureSensor(SensorEntity):
-    """Classe base per sensori di temperatura Baxi."""
-
-    def __init__(self, api, name, unique_id, fetch_method, value_attr):
+class BaxiBaseSensor(CoordinatorEntity, SensorEntity):
+    def __init__(self, coordinator, api, name, unique_id, value_key, unit, device_class, icon):
+        super().__init__(coordinator)
         self._api = api
+        self._attr_unique_id = unique_id
         self._name = name
-        self._unique_id = unique_id
-        self._fetch_method = fetch_method
-        self._value_attr = value_attr
-        self._attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
-        self._attr_icon = "mdi:thermometer"
-        self._attr_device_class = SensorDeviceClass.TEMPERATURE
+        self._value_key = value_key
+        self._attr_native_unit_of_measurement = unit
+        self._attr_device_class = device_class
         self._attr_state_class = SensorStateClass.MEASUREMENT
-        self._attr_native_value = None
+        self._attr_icon = icon
 
     @property
     def name(self):
         return self._name
 
     @property
-    def unique_id(self):
-        return self._unique_id
-
-    @property
     def available(self) -> bool:
-        return getattr(self._api, self._value_attr) is not None
+        return getattr(self._api, self._value_key) is not None
 
     @property
     def device_info(self):
@@ -59,95 +32,84 @@ class BaxiTemperatureSensor(SensorEntity):
             "model": "HybridApp Home",
         }
 
-    async def async_update(self):
-        """Aggiorna lo stato del sensore."""
-        _LOGGER.debug(f"🔄 Aggiornamento {self._name}")
-        await self.hass.async_add_executor_job(self._fetch_method)
-
-        value = getattr(self._api, self._value_attr)
-        if value is not None:
-            self._attr_native_value = value
-        else:
-            _LOGGER.warning(f"⚠️ Nessun valore ricevuto per {self._name}")
-
-
-class BaxiExternalTemperatureSensor(BaxiTemperatureSensor):
-    def __init__(self, api):
-        super().__init__(
-            api,
-            "Temperatura Esterna Baxi",
-            "baxi_external_temperature",
-            api.fetch_temperature_ext,
-            "temp_ext"
-        )
-
-
-class BaxiInternalTemperatureSensor(BaxiTemperatureSensor):
-    def __init__(self, api):
-        super().__init__(
-            api,
-            "Temperatura Interna Baxi",
-            "baxi_internal_temperature",
-            api.fetch_temperature_int,
-            "temp_int"
-        )
-
-
-class BaxiBoilerFlowTempSensor(BaxiTemperatureSensor):
-    def __init__(self, api):
-        super().__init__(
-            api,
-            "Temperatura Mandata Caldaia Baxi",
-            "baxi_boiler_flow_temperature",
-            api.fetch_boiler_flow_temp,
-            "boiler_flow_temp"
-        )
-
-
-class BaxiDHWStorageTempSensor(BaxiTemperatureSensor):
-    def __init__(self, api):
-        super().__init__(
-            api,
-            "Temperatura Accumulo Sanitario Baxi",
-            "baxi_dhw_storage_temperature",
-            api.fetch_dhw_storage_temp,
-            "dhw_storage_temp"
-        )
-
-        
-class BaxiWaterPressureSensor(SensorEntity):
-    """Sensore che mostra la pressione dell'acqua da Baxi."""
-
-    def __init__(self, api):
-        self._api = api
-        self._attr_name = "Pressione Impianto Baxi"
-        self._attr_native_unit_of_measurement = UnitOfPressure.BAR
-        self._attr_icon = "mdi:gauge"
-        self._attr_unique_id = "baxi_water_pressure"
-        self._attr_device_class = SensorDeviceClass.PRESSURE
-        self._attr_state_class = SensorStateClass.MEASUREMENT
-        self._attr_native_value = None
-
     @property
-    def available(self) -> bool:
-        return self._api.water_pressure is not None
+    def native_value(self):
+        return getattr(self._api, self._value_key)
 
-    @property
-    def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, "baxi_hybridapp_home")},
-            "name": "Baxi HybridApp Home",
-            "manufacturer": "Baxi",
-            "model": "HybridApp Home",
-        }
+class ExternalTemperatureSensor(BaxiBaseSensor):
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Temperatura Esterna Baxi",
+            unique_id="baxi_external_temperature",
+            value_key="temp_ext",
+            unit=UnitOfTemperature.CELSIUS,
+            device_class=SensorDeviceClass.TEMPERATURE,
+            icon="mdi:thermometer"
+        )
 
-    async def async_update(self):
-        _LOGGER.debug("🔄 Richiesta aggiornamento pressione acqua da Baxi")
-        await self.hass.async_add_executor_job(self._api.fetch_water_pressure)
-        if self._api.water_pressure is not None:
-            self._attr_native_value = self._api.water_pressure
-        else:
-            _LOGGER.warning("⚠️ Nessun valore di pressione ricevuto")        
-        
-        
-        
+class InternalTemperatureSensor(BaxiBaseSensor):
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Temperatura Interna Baxi",
+            unique_id="baxi_internal_temperature",
+            value_key="temp_int",
+            unit=UnitOfTemperature.CELSIUS,
+            device_class=SensorDeviceClass.TEMPERATURE,
+            icon="mdi:thermometer"
+        )
+
+class BoilerFlowTempSensor(BaxiBaseSensor):
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Temperatura Mandata Caldaia Baxi",
+            unique_id="baxi_boiler_flow_temperature",
+            value_key="boiler_flow_temp",
+            unit=UnitOfTemperature.CELSIUS,
+            device_class=SensorDeviceClass.TEMPERATURE,
+            icon="mdi:thermometer"
+        )
+
+class DHWStorageTempSensor(BaxiBaseSensor):
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Temperatura Accumulo Sanitario Baxi",
+            unique_id="baxi_dhw_storage_temperature",
+            value_key="dhw_storage_temp",
+            unit=UnitOfTemperature.CELSIUS,
+            device_class=SensorDeviceClass.TEMPERATURE,
+            icon="mdi:thermometer"
+        )
+
+class WaterPressureSensor(BaxiBaseSensor):
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Pressione Impianto Baxi",
+            unique_id="baxi_water_pressure",
+            value_key="water_pressure",
+            unit=UnitOfPressure.BAR,
+            device_class=SensorDeviceClass.PRESSURE,
+            icon="mdi:gauge"
+        )
+
+async def async_setup_entry(hass, entry, async_add_entities):
+    api = hass.data[DOMAIN][DATA_KEY_API]
+    coordinator = hass.data[DOMAIN]["coordinator"]
+
+    sensors = [
+        ExternalTemperatureSensor(coordinator, api),
+        InternalTemperatureSensor(coordinator, api),
+        BoilerFlowTempSensor(coordinator, api),
+        DHWStorageTempSensor(coordinator, api),
+        WaterPressureSensor(coordinator, api),
+    ]
+    async_add_entities(sensors)
