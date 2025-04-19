@@ -1,9 +1,11 @@
 # Baxi HybridApp Home
 
-**Baxi HybridApp integration for Home Assistant**
+**Unofficial integration for Baxi HybridApp in Home Assistant**
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
 [![GitHub Release](https://img.shields.io/github/v/release/Cm-8/baxi_hybridapp_home.svg)](https://github.com/Cm-8/baxi_hybridapp_home/releases)
+
+> **Disclaimer:** This is an unofficial integration and is not affiliated with or endorsed by Baxi in any way.
 
 Custom integration for Home Assistant to monitor data from your Baxi system through the **HybridApp** cloud API.
 
