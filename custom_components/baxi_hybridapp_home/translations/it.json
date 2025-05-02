@@ -1,0 +1,46 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configurazione Baxi HybridApp",
+        "description": "Inserisci le credenziali del tuo account Baxi HybridApp.",
+        "data": {
+          "username": "Email",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Connessione non riuscita",
+      "invalid_auth": "Autenticazione non valida",
+      "unknown": "Errore sconosciuto"
+    },
+    "abort": {
+      "already_configured": "Questa integrazione è già configurata."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "baxi_external_temperature": {
+        "name": "Temperatura Esterna",
+        "device_class": "temperature"
+      },
+      "baxi_internal_temperature": {
+        "name": "Temperatura Interna",
+        "device_class": "temperature"
+      },
+      "baxi_boiler_flow_temperature": {
+        "name": "Temperatura Mandata Caldaia",
+        "device_class": "temperature"
+      },
+      "baxi_dhw_storage_temperature": {
+        "name": "Temperatura Accumulo Sanitario",
+        "device_class": "temperature"
+      },
+      "baxi_water_pressure": {
+        "name": "Pressione Impianto",
+        "device_class": "pressure"
+      }
+    }
+  }
+}
