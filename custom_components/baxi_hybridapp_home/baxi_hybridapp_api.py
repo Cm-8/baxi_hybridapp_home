@@ -27,6 +27,10 @@ class BaxiHybridAppAPI:
         self.boiler_flow_temp_timestamp = None
         self.dhw_storage_temp = None
         self.dhw_storage_temp_timestamp = None
+        self.system_mode = None
+        self.system_mode_timestamp = None
+        self.season_mode = None
+        self.season_mode_timestamp = None
 
     def authenticate(self):
         payload = json.dumps({
@@ -191,3 +195,56 @@ class BaxiHybridAppAPI:
             _LOGGER.info("🌡️ DHW storage temperature: %s °C at %s", self.dhw_storage_temp, self.dhw_storage_temp_timestamp)
         except (KeyError, IndexError, ValueError) as e:
             _LOGGER.warning("⚠️ Parsing fallito accumulo sanitario: %s", e)
+
+    def fetch_system_mode(self):
+        data = self._make_request(self._metric_url("Modo impianto"))
+        if not data:
+            return
+        try:
+            item = data["data"][0]
+            raw = item["values"][0]["value"]
+            # Se raw è None, consideralo come "0000" (Standby)
+            code = raw or "0000"
+            mapping = {
+                None: "N/A",
+                "0000": "Standby",
+                "0005": "Solo Sanitario",
+            }
+            self.system_mode = mapping.get(code, f"Sconosciuto ({code})")
+            self.system_mode_timestamp = item["timestamp"]
+            _LOGGER.info(
+                "🔄 System Mode: %s at %s",
+                self.system_mode,
+                self.system_mode_timestamp
+            )
+        except (KeyError, IndexError) as e:
+            _LOGGER.warning("⚠️ Parsing fallito Modo Impianto: %s", e)
+
+    def fetch_season_mode(self):
+        data = self._make_request(self._metric_url("Modo Stagione"))
+        if not data:
+            return
+        try:
+            item = data["data"][0]
+            raw = item["values"][0]["value"]
+            mapping = {
+                "0001": "Inverno",
+                "0002": "Estate",
+                "0003": "Estate/Inverno automatico",
+                "0004": "Estate/Inverno remoto",
+            }
+            # salva la stringa leggibile (o il codice se non è previsto)
+            self.season_mode = mapping.get(raw, f"Sconosciuto ({raw})")
+            self.season_mode_timestamp = item["timestamp"]
+            _LOGGER.info("❄️️ Season Mode: %s at %s",
+                         self.season_mode, self.season_mode_timestamp)
+        except (KeyError, IndexError, ValueError) as e:
+            _LOGGER.warning("⚠️ Parsing fallito Modo Stagione: %s", e)
+            
+            
+            
+            
+            
+            
+            
+            

@@ -101,6 +101,65 @@ class WaterPressureSensor(BaxiBaseSensor):
             icon="mdi:gauge"
         )
 
+class SystemModeSensor(BaxiBaseSensor):
+    # indichiamo subito che non è un sensore numerico
+    _attr_state_class = None
+
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Modalità Impianto Baxi",
+            unique_id="baxi_system_mode",
+            value_key="system_mode",
+            unit=None,
+            device_class=None,
+            icon="mdi:engine"
+        )
+        # assicuriamoci che non sia preso come misura
+        self._attr_native_unit_of_measurement = None
+        self._attr_device_class = None
+
+    @property
+    def native_value(self):
+        # ritorna la stringa mappata ("Standby" o "Solo Sanitario")
+        return getattr(self._api, self._value_key)
+
+    @property
+    def state_class(self):
+        # override per non ereditare Measurement
+        return None
+        
+        
+class SeasonModeSensor(BaxiBaseSensor):
+    # override a livello di classe: niente state_class
+    _attr_state_class = None
+
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Modalità Stagione Baxi",
+            unique_id="baxi_season_mode",
+            value_key="season_mode",
+            unit=None,
+            device_class=None,
+            icon="mdi:sun-snowflake-variant"
+        )
+        # Assicuriamoci anche che non venga ereditato nulla di numerico
+        self._attr_native_unit_of_measurement = None
+        self._attr_device_class = None
+
+    @property
+    def native_value(self):
+        # ritorna la stringa mappata: "Inverno", "Estate", etc.
+        return getattr(self._api, self._value_key)
+
+    @property
+    def state_class(self):
+        # nessuna state_class: Home Assistant non lo vede come "measurement"
+        return None
+
 async def async_setup_entry(hass, entry, async_add_entities):
     api = hass.data[DOMAIN][DATA_KEY_API]
     coordinator = hass.data[DOMAIN]["coordinator"]
@@ -111,5 +170,15 @@ async def async_setup_entry(hass, entry, async_add_entities):
         BoilerFlowTempSensor(coordinator, api),
         DHWStorageTempSensor(coordinator, api),
         WaterPressureSensor(coordinator, api),
+        SeasonModeSensor(coordinator, api),
+        SystemModeSensor(coordinator, api),
     ]
     async_add_entities(sensors)
+    
+    
+    
+    
+    
+    
+    
+    
