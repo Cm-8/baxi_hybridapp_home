@@ -262,11 +262,13 @@ class BaxiHybridAppAPI:
         except (KeyError, IndexError, ValueError) as e:
             _LOGGER.warning("⚠️ Parsing fallito Modo Stagione: %s", e)
             
-            
-            
-            
-            
-            
-            
-            
-            
+
+
+
+
+
+
+
+
+
+
