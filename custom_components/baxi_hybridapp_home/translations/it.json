@@ -40,7 +40,19 @@
       "baxi_water_pressure": {
         "name": "Pressione Impianto",
         "device_class": "pressure"
-      }
+      },
+      "baxi_sanitary_on": {
+          "name": "Sanitario On",
+          "device_class": null
+      },
+      "baxi_system_mode": {
+          "name": "Modalità Impianto",
+          "device_class": null
+       },
+      "baxi_season_mode": {
+          "name": "Modalità Stagione",
+          "device_class": null
+       }
     }
   }
 }

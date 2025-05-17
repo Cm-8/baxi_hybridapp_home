@@ -100,6 +100,34 @@ class WaterPressureSensor(BaxiBaseSensor):
             device_class=SensorDeviceClass.PRESSURE,
             icon="mdi:gauge"
         )
+        
+class SanitaryOnSensor(BaxiBaseSensor):
+    # Non è un sensore numerico: niente state_class
+    _attr_state_class = None
+
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Sanitario On Baxi",
+            unique_id="baxi_sanitary_on",
+            value_key="sanitary_on",
+            unit=None,
+            device_class=None,
+            icon="mdi:water-boiler"
+        )
+        # Assicuriamoci di non ereditare unità o device_class numerica
+        self._attr_native_unit_of_measurement = None
+        self._attr_device_class = None
+
+    @property
+    def native_value(self):
+        # Restituisce la stringa "On" o "Off" già mappata dall’API
+        return getattr(self._api, self._value_key)
+
+    @property
+    def state_class(self):
+        return None
 
 class SystemModeSensor(BaxiBaseSensor):
     # indichiamo subito che non è un sensore numerico
@@ -170,6 +198,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         BoilerFlowTempSensor(coordinator, api),
         DHWStorageTempSensor(coordinator, api),
         WaterPressureSensor(coordinator, api),
+        SanitaryOnSensor(coordinator, api),
         SeasonModeSensor(coordinator, api),
         SystemModeSensor(coordinator, api),
     ]

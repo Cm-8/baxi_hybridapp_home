@@ -23,6 +23,8 @@ class BaxiHybridAppAPI:
         self.temp_int_timestamp = None
         self.water_pressure = None
         self.water_pressure_timestamp = None
+        self.sanitary_on = None
+        self.sanitary_on_timestamp = None
         self.boiler_flow_temp = None
         self.boiler_flow_temp_timestamp = None
         self.dhw_storage_temp = None
@@ -172,6 +174,24 @@ class BaxiHybridAppAPI:
         except (KeyError, IndexError, ValueError) as e:
             _LOGGER.warning("⚠️ Parsing fallito pressione impianto: %s", e)
 
+    def fetch_sanitary_on(self):
+        data = self._make_request(self._metric_url("Sanitario on"))
+        if not data:
+            return
+        try:
+            item = data["data"][0]
+            raw = item["values"][0]["value"]  # sarà "0" o "1"
+            # 0 = Spento, 1 = Acceso
+            mapping = {
+                "0": "Off",
+                "1": "On",
+            }
+            self.sanitary_on = mapping.get(raw, f"Sconosciuto ({raw})")
+            self.sanitary_on_timestamp = item["timestamp"]
+            _LOGGER.info("🚿️ Sanitario: %s", self.sanitary_on)
+        except (KeyError, IndexError, ValueError) as e:
+            _LOGGER.warning("⚠️ Parsing fallito sanitario on: %s — response was: %s", e, data)
+
     def fetch_boiler_flow_temp(self):
         data = self._make_request(self._metric_url("Temperatura di mandata"))
         if not data:
@@ -197,28 +217,29 @@ class BaxiHybridAppAPI:
             _LOGGER.warning("⚠️ Parsing fallito accumulo sanitario: %s", e)
 
     def fetch_system_mode(self):
-        data = self._make_request(self._metric_url("Modo impianto"))
+        data = self._make_request(self._metric_url("Modo Impianto"))
         if not data:
             return
         try:
             item = data["data"][0]
             raw = item["values"][0]["value"]
-            # Se raw è None, consideralo come "0000" (Standby)
-            code = raw or "0000"
             mapping = {
-                None: "N/A",
+                None: "Automatico",
                 "0000": "Standby",
                 "0005": "Solo Sanitario",
             }
-            self.system_mode = mapping.get(code, f"Sconosciuto ({code})")
+            # salva la stringa leggibile (o il codice se non è previsto)
+            self.system_mode = mapping.get(raw, f"Sconosciuto ({raw})")
             self.system_mode_timestamp = item["timestamp"]
-            _LOGGER.info(
-                "🔄 System Mode: %s at %s",
-                self.system_mode,
-                self.system_mode_timestamp
+            _LOGGER.info("🔄️ System Mode: %s",
+                         self.system_mode)
+        except (KeyError, IndexError, ValueError) as e:
+            # logga l’errore e tutta la risposta 'data'
+            _LOGGER.warning(
+                "⚠️ Parsing fallito Modo Impianto: %s — response was: %s",
+                e,
+                data
             )
-        except (KeyError, IndexError) as e:
-            _LOGGER.warning("⚠️ Parsing fallito Modo Impianto: %s", e)
 
     def fetch_season_mode(self):
         data = self._make_request(self._metric_url("Modo Stagione"))
@@ -240,6 +261,7 @@ class BaxiHybridAppAPI:
                          self.season_mode, self.season_mode_timestamp)
         except (KeyError, IndexError, ValueError) as e:
             _LOGGER.warning("⚠️ Parsing fallito Modo Stagione: %s", e)
+            
             
             
             

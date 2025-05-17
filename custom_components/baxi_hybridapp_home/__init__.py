@@ -23,6 +23,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         await hass.async_add_executor_job(api.fetch_temperature_ext)
         await hass.async_add_executor_job(api.fetch_temperature_int)
         await hass.async_add_executor_job(api.fetch_water_pressure)
+        await hass.async_add_executor_job(api.fetch_sanitary_on)
         await hass.async_add_executor_job(api.fetch_boiler_flow_temp)
         await hass.async_add_executor_job(api.fetch_dhw_storage_temp)
         await hass.async_add_executor_job(api.fetch_system_mode)
