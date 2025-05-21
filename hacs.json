@@ -4,5 +4,5 @@
   "homeassistant": "2025.1.4",
   "render_readme": true,
   "country": "IT",
-  "zip_release": true
+  "zip_release": false
 }
