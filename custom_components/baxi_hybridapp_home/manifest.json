@@ -1,14 +1,14 @@
 {
   "domain": "baxi_hybridapp_home",
   "name": "Baxi HybridApp Home",
-  "version": "0.1.3",
-  "documentation": "https://github.com/Cm-8/baxi_hybridapp_home",
-  "issue_tracker": "https://github.com/Cm-8/baxi_hybridapp_home/issues",
-  "requirements": [],
-  "dependencies": [],
   "codeowners": ["@Cm-8"],
   "config_flow": true,
-  "single_config_entry": true,
+  "dependencies": [],
+  "documentation": "https://github.com/Cm-8/baxi_hybridapp_home",
   "integration_type": "device",
-  "iot_class": "cloud_polling"
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/Cm-8/baxi_hybridapp_home/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.1.3"
 }
