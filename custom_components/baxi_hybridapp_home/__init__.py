@@ -41,7 +41,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         _LOGGER,
         name="baxi_hybridapp_home",
         update_method=async_update_data,
-        update_interval=timedelta(minutes=10),
+        update_interval=timedelta(minutes=5),
     )
 
     # First refresh to populate data
