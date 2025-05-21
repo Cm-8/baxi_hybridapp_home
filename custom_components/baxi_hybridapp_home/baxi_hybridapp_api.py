@@ -2,7 +2,7 @@ import requests
 import json
 import logging
 from urllib.parse import quote_plus
-from .const import APIKEY, DEV_BROWSER
+from .const import APIKEY, TENANT, DEV_BROWSER, DEV_MODEL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,6 +29,18 @@ class BaxiHybridAppAPI:
         self.boiler_flow_temp_timestamp = None
         self.dhw_storage_temp = None
         self.dhw_storage_temp_timestamp = None
+        self.dhw_aux_storage_temp = None
+        self.dhw_aux_storage_temp_timestamp = None
+        self.pdc_exit_temp = None
+        self.pdc_exit_temp_timestamp = None
+        self.pdc_return_temp = None
+        self.pdc_return_temp_timestamp = None
+        self.setpoint_instant_temp = None
+        self.setpoint_instant_temp_timestamp = None
+        self.setpoint_comfort_temp = None
+        self.setpoint_comfort_temp_timestamp = None
+        self.setpoint_eco_temp = None
+        self.setpoint_eco_temp_timestamp = None
         self.system_mode = None
         self.system_mode_timestamp = None
         self.season_mode = None
@@ -40,7 +52,7 @@ class BaxiHybridAppAPI:
             "password": self.password,
             "devices": [{
                 "deviceId": "d26611220fb0ca70",
-                "model": "sdk_gphone64_x86_64",
+                "model": DEV_MODEL,
                 "platform": "Android",
                 "platformVersion": "12",
                 "browser": DEV_BROWSER,
@@ -49,7 +61,7 @@ class BaxiHybridAppAPI:
         })
 
         headers = {
-            'x-semioty-tenant': 'baxi',
+            'x-semioty-tenant': TENANT,
             'content-type': 'application/json',
             'user-agent': DEV_BROWSER,
             'x-requested-with': 'it.baxi.HybridApp'
@@ -76,7 +88,7 @@ class BaxiHybridAppAPI:
                 return None
                 
         headers = {
-            'x-semioty-tenant': 'baxi',
+            'x-semioty-tenant': TENANT,
             'authorization': f'Bearer {self.token}',
             'user-agent': DEV_BROWSER,
             'x-requested-with': 'it.baxi.HybridApp'
@@ -107,7 +119,7 @@ class BaxiHybridAppAPI:
                 return None
 
         headers = {
-            'x-semioty-tenant': 'baxi',
+            'x-semioty-tenant': TENANT,
             'authorization': f'Bearer {self.token}',
             'user-agent': DEV_BROWSER,
             'x-requested-with': 'it.baxi.HybridApp'
@@ -184,7 +196,8 @@ class BaxiHybridAppAPI:
             # 0 = Spento, 1 = Acceso
             mapping = {
                 "0": "Off",
-                "1": "On",
+                "0_1": "On 0_1",
+                "1": "On 1",
             }
             self.sanitary_on = mapping.get(raw, f"Sconosciuto ({raw})")
             self.sanitary_on_timestamp = item["timestamp"]
@@ -215,6 +228,82 @@ class BaxiHybridAppAPI:
             _LOGGER.info("🌡️ DHW storage temperature: %s °C at %s", self.dhw_storage_temp, self.dhw_storage_temp_timestamp)
         except (KeyError, IndexError, ValueError) as e:
             _LOGGER.warning("⚠️ Parsing fallito accumulo sanitario: %s", e)
+
+    def fetch_dhw_aux_storage_temp(self):
+        data = self._make_request(self._metric_url("Sonda accumulo ausiliario"))
+        if not data:
+            return
+        try:
+            item = data["data"][0]
+            self.dhw_aux_storage_temp = float(item["values"][0]["value"])
+            self.dhw_aux_storage_temp_timestamp = item["timestamp"]
+            _LOGGER.info("🌡️ DHW aux storage temperature: %s °C", self.dhw_storage_temp)
+        except (KeyError, IndexError, ValueError) as e:
+            _LOGGER.warning("⚠️ Parsing fallito accumulo ausigliario sanitario: %s", e)
+
+    def fetch_pdc_exit_temp(self):
+        data = self._make_request(self._metric_url("Temperatura uscita pdc"))
+        if not data:
+            return
+        try:
+            item = data["data"][0]
+            self.pdc_exit_temp = float(item["values"][0]["value"])
+            self.pdc_exit_temp_timestamp = item["timestamp"]
+            _LOGGER.info("🌡️ PDC exit temperature: %s °C", self.pdc_exit_temp)
+        except (KeyError, IndexError, ValueError) as e:
+            _LOGGER.warning("⚠️ Parsing fallito temperatura uscita PDC: %s", e)
+
+    def fetch_pdc_return_temp(self):
+        data = self._make_request(self._metric_url("Temperatura ritorno pdc"))
+        if not data:
+            return
+        try:
+            item = data["data"][0]
+            self.pdc_return_temp = float(item["values"][0]["value"])
+            self.pdc_return_temp_timestamp = item["timestamp"]
+            _LOGGER.info("🌡️ PDC return temperature: %s °C", self.pdc_return_temp)
+        except (KeyError, IndexError, ValueError) as e:
+            _LOGGER.warning("⚠️ Parsing fallito temperatura ritorno PDC: %s", e)
+
+
+
+    def fetch_setpoint_instant_temp(self):
+        data = self._make_request(self._metric_url("Set-point sanitario istantaneo"))
+        if not data:
+            return
+        try:
+            item = data["data"][0]
+            self.setpoint_instant_temp = float(item["values"][0]["value"])
+            self.setpoint_instant_temp_timestamp = item["timestamp"]
+            _LOGGER.info("🌡️ Setpoint Istant temperature: %s °C", self.setpoint_instant_temp)
+        except (KeyError, IndexError, ValueError) as e:
+            _LOGGER.warning("⚠️ Parsing fallito Set-point Istantaneo: %s", e)
+
+    def fetch_setpoint_comfort_temp(self):
+        data = self._make_request(self._metric_url("Set-point sanitario comfort"))
+        if not data:
+            return
+        try:
+            item = data["data"][0]
+            self.setpoint_comfort_temp = float(item["values"][0]["value"])
+            self.setpoint_comfort_temp_timestamp = item["timestamp"]
+            _LOGGER.info("🌡️ Setpoint Comfort temperature: %s °C", self.setpoint_comfort_temp)
+        except (KeyError, IndexError, ValueError) as e:
+            _LOGGER.warning("⚠️ Parsing fallito Set-point Comfort: %s", e)
+
+    def fetch_setpoint_eco_temp(self):
+        data = self._make_request(self._metric_url("Set-point sanitario eco"))
+        if not data:
+            return
+        try:
+            item = data["data"][0]
+            self.setpoint_eco_temp = float(item["values"][0]["value"])
+            self.setpoint_eco_temp_timestamp = item["timestamp"]
+            _LOGGER.info("🌡️ Setpoint Eco temperature: %s °C", self.setpoint_eco_temp)
+        except (KeyError, IndexError, ValueError) as e:
+            _LOGGER.warning("⚠️ Parsing fallito Set-point Eco: %s", e)
+
+
 
     def fetch_system_mode(self):
         data = self._make_request(self._metric_url("Modo Impianto"))
@@ -257,18 +346,15 @@ class BaxiHybridAppAPI:
             # salva la stringa leggibile (o il codice se non è previsto)
             self.season_mode = mapping.get(raw, f"Sconosciuto ({raw})")
             self.season_mode_timestamp = item["timestamp"]
-            _LOGGER.info("❄️️ Season Mode: %s at %s",
-                         self.season_mode, self.season_mode_timestamp)
+            _LOGGER.info("❄️️ Season Mode: %s", self.season_mode)
         except (KeyError, IndexError, ValueError) as e:
             _LOGGER.warning("⚠️ Parsing fallito Modo Stagione: %s", e)
             
-
-
-
-
-
-
-
-
-
-
+            
+            
+            
+            
+            
+            
+            
+            

@@ -26,6 +26,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         await hass.async_add_executor_job(api.fetch_sanitary_on)
         await hass.async_add_executor_job(api.fetch_boiler_flow_temp)
         await hass.async_add_executor_job(api.fetch_dhw_storage_temp)
+        await hass.async_add_executor_job(api.fetch_dhw_aux_storage_temp)
+        await hass.async_add_executor_job(api.fetch_pdc_exit_temp)
+        await hass.async_add_executor_job(api.fetch_pdc_return_temp)
+        await hass.async_add_executor_job(api.fetch_setpoint_instant_temp)
+        await hass.async_add_executor_job(api.fetch_setpoint_comfort_temp)
+        await hass.async_add_executor_job(api.fetch_setpoint_eco_temp)
         await hass.async_add_executor_job(api.fetch_system_mode)
         await hass.async_add_executor_job(api.fetch_season_mode)
         return True
@@ -35,7 +41,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         _LOGGER,
         name="baxi_hybridapp_home",
         update_method=async_update_data,
-        update_interval=timedelta(minutes=5),
+        update_interval=timedelta(minutes=10),
     )
 
     # First refresh to populate data

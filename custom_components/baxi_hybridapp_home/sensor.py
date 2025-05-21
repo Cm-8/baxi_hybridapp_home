@@ -87,6 +87,84 @@ class DHWStorageTempSensor(BaxiBaseSensor):
             device_class=SensorDeviceClass.TEMPERATURE,
             icon="mdi:thermometer"
         )
+        
+class DHWAuxStorageTempSensor(BaxiBaseSensor):
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Temperatura Accumulo Ausiliario Baxi",
+            unique_id="baxi_dhw_aux_storage_temperature",
+            value_key="dhw_aux_storage_temp",
+            unit=UnitOfTemperature.CELSIUS,
+            device_class=SensorDeviceClass.TEMPERATURE,
+            icon="mdi:thermometer"
+        )
+
+class PDCExitTempSensor(BaxiBaseSensor):
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Temperatura Uscita PDC Baxi",
+            unique_id="baxi_pdc_exit_temperature",
+            value_key="pdc_exit_temp",
+            unit=UnitOfTemperature.CELSIUS,
+            device_class=SensorDeviceClass.TEMPERATURE,
+            icon="mdi:thermometer"
+        )
+
+class PDCReturnTempSensor(BaxiBaseSensor):
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Temperatura Ritorno PDC Baxi",
+            unique_id="baxi_pdc_return_temperature",
+            value_key="pdc_return_temp",
+            unit=UnitOfTemperature.CELSIUS,
+            device_class=SensorDeviceClass.TEMPERATURE,
+            icon="mdi:thermometer"
+        )
+
+class SetpointInstantTempSensor(BaxiBaseSensor):
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Setpoint Sanitario Istantaneo Baxi",
+            unique_id="baxi_setpoint_instant_temperature",
+            value_key="setpoint_instant_temp",
+            unit=UnitOfTemperature.CELSIUS,
+            device_class=SensorDeviceClass.TEMPERATURE,
+            icon="mdi:target"
+        )
+
+class SetpointComfortTempSensor(BaxiBaseSensor):
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Setpoint Sanitario Comfort Baxi",
+            unique_id="baxi_setpoint_comfort_temperature",
+            value_key="setpoint_comfort_temp",
+            unit=UnitOfTemperature.CELSIUS,
+            device_class=SensorDeviceClass.TEMPERATURE,
+            icon="mdi:target"
+        )
+
+class SetpointEcoTempSensor(BaxiBaseSensor):
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Setpoint Sanitario Eco Baxi",
+            unique_id="baxi_setpoint_eco_temperature",
+            value_key="setpoint_eco_temp",
+            unit=UnitOfTemperature.CELSIUS,
+            device_class=SensorDeviceClass.TEMPERATURE,
+            icon="mdi:target"
+        )
 
 class WaterPressureSensor(BaxiBaseSensor):
     def __init__(self, coordinator, api):
@@ -201,6 +279,12 @@ async def async_setup_entry(hass, entry, async_add_entities):
         SanitaryOnSensor(coordinator, api),
         SeasonModeSensor(coordinator, api),
         SystemModeSensor(coordinator, api),
+        DHWAuxStorageTempSensor(coordinator, api),
+        PDCExitTempSensor(coordinator, api),
+        PDCReturnTempSensor(coordinator, api),
+        SetpointInstantTempSensor(coordinator, api),
+        SetpointComfortTempSensor(coordinator, api),
+        SetpointEcoTempSensor(coordinator, api),
     ]
     async_add_entities(sensors)
     

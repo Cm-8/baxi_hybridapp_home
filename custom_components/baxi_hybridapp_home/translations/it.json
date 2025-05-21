@@ -52,7 +52,31 @@
       "baxi_season_mode": {
           "name": "Modalità Stagione",
           "device_class": null
-       }
+       },
+       "baxi_dhw_aux_storage_temperature": {
+          "name": "Temperatura Accumulo Ausiliario",
+          "device_class": "temperature"
+        },
+        "baxi_pdc_exit_temperature": {
+          "name": "Temperatura Uscita PDC",
+          "device_class": "temperature"
+        },
+        "baxi_pdc_return_temperature": {
+          "name": "Temperatura Ritorno PDC",
+          "device_class": "temperature"
+        },
+        "baxi_setpoint_instant_temperature": {
+          "name": "Setpoint Sanitario Istantaneo",
+          "device_class": "temperature"
+        },
+        "baxi_setpoint_comfort_temperature": {
+          "name": "Setpoint Sanitario Comfort",
+          "device_class": "temperature"
+        },
+        "baxi_setpoint_eco_temperature": {
+          "name": "Setpoint Sanitario Eco",
+          "device_class": "temperature"
+        }
     }
   }
 }
