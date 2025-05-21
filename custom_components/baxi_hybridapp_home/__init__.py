@@ -1,13 +1,17 @@
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers import config_validation as cv
 from datetime import timedelta
 from .const import DOMAIN, DATA_KEY_API
 from .baxi_hybridapp_api import BaxiHybridAppAPI
+import voluptuous as vol
 import logging
 
 _LOGGER = logging.getLogger(__name__)
 PLATFORMS = ["sensor"]
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 async def async_setup(hass: HomeAssistant, config: dict):
     return True
@@ -41,7 +45,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         _LOGGER,
         name="baxi_hybridapp_home",
         update_method=async_update_data,
-        update_interval=timedelta(minutes=5),
+        update_interval=timedelta(minutes=10),
     )
 
     # First refresh to populate data
