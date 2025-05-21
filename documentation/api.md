@@ -1,5 +1,5 @@
 # Baxi HybridApp API
-__All the information provided has been gathered through analysis of the source code, traffic from the Baxi HybridApp, and the websites [altuofianco.baxi.it](https://altuofianco.baxi.it/), [hybridweb.baxi.it](https://hybridweb.baxi.it/) and [baxi.servitly.com](https://baxi.servitly.com/), along with extensive online research.__<br>
+__All the following information was obtained by analyzing traffic on the Baxi HybridApp app and on the websites [altuofianco.baxi.it](https://altuofianco.baxi.it/), [hybridweb.baxi.it](https://hybridweb.baxi.it/) and [baxi.servitly.com](https://baxi.servitly.com/), as well as extensive online research.__<br>
 __Please use this information responsibly.__
 
 ## Foreword
