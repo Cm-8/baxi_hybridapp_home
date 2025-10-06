@@ -148,11 +148,9 @@ class BaxiHybridAppAPI:
         if not self.thingId:
             raise RuntimeError("thingId non inizializzato")
         return (
-            # introdotto f"&aggregation=Last"
             f"{self.BASE_URL}/data/values?"
             f"thingId={self.thingId}"
             f"&pageSize=1"
-            f"&aggregation=Last"
             f"&metricName={quote_plus(metric_name)}"
         )
 
@@ -380,6 +378,7 @@ class BaxiHybridAppAPI:
             # logga l’errore e tutta la risposta 'data'
             _LOGGER.warning("⚠️ Parsing fallito (Modo Stagione): %s — response 📦: %s", e, json.dumps(data)[:300])
             _LOGGER.debug("📦 Contenuto data (Modo Stagione): %s", data)
+
 
 
 
