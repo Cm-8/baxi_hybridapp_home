@@ -68,12 +68,14 @@ class BaxiHybridAppAPI:
         }
 
         try:
-            response = requests.post(self.LOGIN_URL, headers=headers, data=payload)
+            response = requests.post(self.LOGIN_URL, headers=headers, data=payload, timeout=15)
             if response.ok:
                 data = response.json()
                 self.token = data.get("token")
                 self.refreshToken = data.get("refreshToken")
-                _LOGGER.info("✅ BAXI Login successful: %s", data)
+                # safe token
+                safe = {**data, "token": "***", "refreshToken": "***"}
+                _LOGGER.info("✅ BAXI Login successful: %s", json.dumps(safe)[:300])
             else:
                 _LOGGER.error("❌ BAXI Login failed: %s", response.text)
         except Exception as e:
@@ -95,7 +97,7 @@ class BaxiHybridAppAPI:
         }
         
         try:
-            response = requests.get(self.THINGS_URL, headers=headers)
+            response = requests.get(self.THINGS_URL, headers=headers, timeout=15)
             if response.ok:
                 data = response.json()
                 content = data.get("content", [])
@@ -126,12 +128,12 @@ class BaxiHybridAppAPI:
         }
 
         try:
-            response = requests.get(url, headers=headers)
+            response = requests.get(url, headers=headers, timeout=15)
             if response.status_code == 401:
                 _LOGGER.warning("🔐 Token scaduto, riprovo autenticazione...")
                 self.authenticate()
                 headers['authorization'] = f'Bearer {self.token}'
-                response = requests.get(url, headers=headers)
+                response = requests.get(url, headers=headers, timeout=15)
 
             if response.ok:
                 return response.json()
@@ -146,8 +148,12 @@ class BaxiHybridAppAPI:
         if not self.thingId:
             raise RuntimeError("thingId non inizializzato")
         return (
+            # introdotto f"&aggregation=Last"
             f"{self.BASE_URL}/data/values?"
-            f"thingId={self.thingId}&pageSize=1&metricName={quote_plus(metric_name)}"
+            f"thingId={self.thingId}"
+            f"&pageSize=1"
+            f"&aggregation=Last"
+            f"&metricName={quote_plus(metric_name)}"
         )
 
     def fetch_temperature_ext(self):
@@ -160,7 +166,9 @@ class BaxiHybridAppAPI:
             self.temp_ext_timestamp = item["timestamp"]
             _LOGGER.info("🌡️ External temperature: %s °C at %s", self.temp_ext, self.temp_ext_timestamp)
         except (KeyError, IndexError, ValueError) as e:
-            _LOGGER.warning("⚠️ Parsing fallito temperatura esterna: %s", e)
+            # logga l’errore e tutta la risposta 'data'
+            _LOGGER.warning("⚠️ Parsing fallito (temperatura esterna): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (temperatura esterna): %s", data)
 
     def fetch_temperature_int(self):
         data = self._make_request(self._metric_url("Zona 1 - Temperatura ambiente"))
@@ -172,7 +180,9 @@ class BaxiHybridAppAPI:
             self.temp_int_timestamp = item["timestamp"]
             _LOGGER.info("🌡️ Internal temperature: %s °C at %s", self.temp_int, self.temp_int_timestamp)
         except (KeyError, IndexError, ValueError) as e:
-            _LOGGER.warning("⚠️ Parsing fallito temperatura interna: %s", e)
+            # logga l’errore e tutta la risposta 'data'
+            _LOGGER.warning("⚠️ Parsing fallito (temperatura interna): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (temperatura interna): %s", data)
 
     def fetch_water_pressure(self):
         data = self._make_request(self._metric_url("Pressione impianto"))
@@ -184,7 +194,9 @@ class BaxiHybridAppAPI:
             self.water_pressure_timestamp = item["timestamp"]
             _LOGGER.info("🚿📊️ Water pressure: %s Bar at %s", self.water_pressure, self.water_pressure_timestamp)
         except (KeyError, IndexError, ValueError) as e:
-            _LOGGER.warning("⚠️ Parsing fallito pressione impianto: %s", e)
+            # logga l’errore e tutta la risposta 'data'
+            _LOGGER.warning("⚠️ Parsing fallito (pressione impianto): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (pressione impianto): %s", data)
 
     def fetch_sanitary_on(self):
         data = self._make_request(self._metric_url("Sanitario on"))
@@ -203,7 +215,9 @@ class BaxiHybridAppAPI:
             self.sanitary_on_timestamp = item["timestamp"]
             _LOGGER.info("🚿️ Sanitario: %s", self.sanitary_on)
         except (KeyError, IndexError, ValueError) as e:
-            _LOGGER.warning("⚠️ Parsing fallito sanitario on: %s — response was: %s", e, data)
+            # logga l’errore e tutta la risposta 'data'
+            _LOGGER.warning("⚠️ Parsing fallito (sanitario on): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (sanitario on): %s", data)
 
     def fetch_boiler_flow_temp(self):
         data = self._make_request(self._metric_url("Temperatura di mandata"))
@@ -215,7 +229,9 @@ class BaxiHybridAppAPI:
             self.boiler_flow_temp_timestamp = item["timestamp"]
             _LOGGER.info("🌡️ Boiler flow temperature: %s °C at %s", self.boiler_flow_temp, self.boiler_flow_temp_timestamp)
         except (KeyError, IndexError, ValueError) as e:
-            _LOGGER.warning("⚠️ Parsing fallito temperatura mandata: %s", e)
+            # logga l’errore e tutta la risposta 'data'
+            _LOGGER.warning("⚠️ Parsing fallito (temperatura mandata): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (temperatura mandata): %s", data)
 
     def fetch_dhw_storage_temp(self):
         data = self._make_request(self._metric_url("Temperatura accumulo sanitario"))
@@ -227,7 +243,11 @@ class BaxiHybridAppAPI:
             self.dhw_storage_temp_timestamp = item["timestamp"]
             _LOGGER.info("🌡️ DHW storage temperature: %s °C at %s", self.dhw_storage_temp, self.dhw_storage_temp_timestamp)
         except (KeyError, IndexError, ValueError) as e:
-            _LOGGER.warning("⚠️ Parsing fallito accumulo sanitario: %s", e)
+            # Azzera il campo, logga l’errore, tutta la risposta 'data'
+            self.dhw_storage_temp = None
+            self.dhw_storage_temp_timestamp = None    
+            _LOGGER.warning("⚠️ Parsing fallito (accumulo sanitario): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (accumulo sanitario): %s", data)
 
     def fetch_dhw_aux_storage_temp(self):
         data = self._make_request(self._metric_url("Sonda accumulo ausiliario"))
@@ -237,9 +257,11 @@ class BaxiHybridAppAPI:
             item = data["data"][0]
             self.dhw_aux_storage_temp = float(item["values"][0]["value"])
             self.dhw_aux_storage_temp_timestamp = item["timestamp"]
-            _LOGGER.info("🌡️ DHW aux storage temperature: %s °C", self.dhw_storage_temp)
+            _LOGGER.info("🌡️ DHW aux storage temperature: %s °C", self.dhw_aux_storage_temp)
         except (KeyError, IndexError, ValueError) as e:
-            _LOGGER.warning("⚠️ Parsing fallito accumulo ausigliario sanitario: %s", e)
+            # logga l’errore e tutta la risposta 'data'
+            _LOGGER.warning("⚠️ Parsing fallito (accumulo ausigliario sanitario): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (accumulo ausigliario sanitario): %s", data)
 
     def fetch_pdc_exit_temp(self):
         data = self._make_request(self._metric_url("Temperatura uscita pdc"))
@@ -251,7 +273,9 @@ class BaxiHybridAppAPI:
             self.pdc_exit_temp_timestamp = item["timestamp"]
             _LOGGER.info("🌡️ PDC exit temperature: %s °C", self.pdc_exit_temp)
         except (KeyError, IndexError, ValueError) as e:
-            _LOGGER.warning("⚠️ Parsing fallito temperatura uscita PDC: %s", e)
+            # logga l’errore e tutta la risposta 'data'
+            _LOGGER.warning("⚠️ Parsing fallito (temperatura uscita PDC): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (temperatura uscita PDC): %s", data)
 
     def fetch_pdc_return_temp(self):
         data = self._make_request(self._metric_url("Temperatura ritorno pdc"))
@@ -263,7 +287,9 @@ class BaxiHybridAppAPI:
             self.pdc_return_temp_timestamp = item["timestamp"]
             _LOGGER.info("🌡️ PDC return temperature: %s °C", self.pdc_return_temp)
         except (KeyError, IndexError, ValueError) as e:
-            _LOGGER.warning("⚠️ Parsing fallito temperatura ritorno PDC: %s", e)
+            # logga l’errore e tutta la risposta 'data'
+            _LOGGER.warning("⚠️ Parsing fallito (temperatura ritorno PDC): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (temperatura ritorno PDC): %s", data)
 
 
 
@@ -277,7 +303,9 @@ class BaxiHybridAppAPI:
             self.setpoint_instant_temp_timestamp = item["timestamp"]
             _LOGGER.info("🌡️ Setpoint Istant temperature: %s °C", self.setpoint_instant_temp)
         except (KeyError, IndexError, ValueError) as e:
-            _LOGGER.warning("⚠️ Parsing fallito Set-point Istantaneo: %s", e)
+            # logga l’errore e tutta la risposta 'data'
+            _LOGGER.warning("⚠️ Parsing fallito (Set-point Istantaneo): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (Set-point Istantaneo): %s", data)
 
     def fetch_setpoint_comfort_temp(self):
         data = self._make_request(self._metric_url("Set-point sanitario comfort"))
@@ -289,7 +317,9 @@ class BaxiHybridAppAPI:
             self.setpoint_comfort_temp_timestamp = item["timestamp"]
             _LOGGER.info("🌡️ Setpoint Comfort temperature: %s °C", self.setpoint_comfort_temp)
         except (KeyError, IndexError, ValueError) as e:
-            _LOGGER.warning("⚠️ Parsing fallito Set-point Comfort: %s", e)
+            # logga l’errore e tutta la risposta 'data'
+            _LOGGER.warning("⚠️ Parsing fallito (Set-point Comfort): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (Set-point Comfort): %s", data)
 
     def fetch_setpoint_eco_temp(self):
         data = self._make_request(self._metric_url("Set-point sanitario eco"))
@@ -301,7 +331,9 @@ class BaxiHybridAppAPI:
             self.setpoint_eco_temp_timestamp = item["timestamp"]
             _LOGGER.info("🌡️ Setpoint Eco temperature: %s °C", self.setpoint_eco_temp)
         except (KeyError, IndexError, ValueError) as e:
-            _LOGGER.warning("⚠️ Parsing fallito Set-point Eco: %s", e)
+            # logga l’errore e tutta la risposta 'data'
+            _LOGGER.warning("⚠️ Parsing fallito (Set-point Eco): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (Set-point Eco): %s", data)
 
 
 
@@ -324,11 +356,8 @@ class BaxiHybridAppAPI:
                          self.system_mode)
         except (KeyError, IndexError, ValueError) as e:
             # logga l’errore e tutta la risposta 'data'
-            _LOGGER.warning(
-                "⚠️ Parsing fallito Modo Impianto: %s — response was: %s",
-                e,
-                data
-            )
+            _LOGGER.warning("⚠️ Parsing fallito (Modo Impianto): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (Modo Impianto): %s", data)
 
     def fetch_season_mode(self):
         data = self._make_request(self._metric_url("Modo Stagione"))
@@ -348,13 +377,12 @@ class BaxiHybridAppAPI:
             self.season_mode_timestamp = item["timestamp"]
             _LOGGER.info("❄️️ Season Mode: %s", self.season_mode)
         except (KeyError, IndexError, ValueError) as e:
-            _LOGGER.warning("⚠️ Parsing fallito Modo Stagione: %s", e)
-            
-            
-            
-            
-            
-            
-            
-            
-            
+            # logga l’errore e tutta la risposta 'data'
+            _LOGGER.warning("⚠️ Parsing fallito (Modo Stagione): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (Modo Stagione): %s", data)
+
+
+
+
+
+
