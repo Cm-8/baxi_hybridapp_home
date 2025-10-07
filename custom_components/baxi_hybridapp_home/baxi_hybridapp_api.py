@@ -164,7 +164,9 @@ class BaxiHybridAppAPI:
             self.temp_ext_timestamp = item["timestamp"]
             _LOGGER.info("🌡️ External temperature: %s °C at %s", self.temp_ext, self.temp_ext_timestamp)
         except (KeyError, IndexError, ValueError) as e:
-            # logga l’errore e tutta la risposta 'data'
+            # Azzera il campo, warning + debug 'data'
+            self.temp_ext = None
+            self.temp_ext_timestamp = None
             _LOGGER.warning("⚠️ Parsing fallito (temperatura esterna): %s — response 📦: %s", e, json.dumps(data)[:300])
             _LOGGER.debug("📦 Contenuto data (temperatura esterna): %s", data)
 
@@ -178,7 +180,9 @@ class BaxiHybridAppAPI:
             self.temp_int_timestamp = item["timestamp"]
             _LOGGER.info("🌡️ Internal temperature: %s °C at %s", self.temp_int, self.temp_int_timestamp)
         except (KeyError, IndexError, ValueError) as e:
-            # logga l’errore e tutta la risposta 'data'
+            # Azzera il campo, warning + debug 'data'
+            self.temp_int = None
+            self.temp_int_timestamp = None
             _LOGGER.warning("⚠️ Parsing fallito (temperatura interna): %s — response 📦: %s", e, json.dumps(data)[:300])
             _LOGGER.debug("📦 Contenuto data (temperatura interna): %s", data)
 
@@ -192,7 +196,9 @@ class BaxiHybridAppAPI:
             self.water_pressure_timestamp = item["timestamp"]
             _LOGGER.info("🚿📊️ Water pressure: %s Bar at %s", self.water_pressure, self.water_pressure_timestamp)
         except (KeyError, IndexError, ValueError) as e:
-            # logga l’errore e tutta la risposta 'data'
+            # Azzera il campo, warning + debug 'data'
+            self.water_pressure = None
+            self.water_pressure_timestamp = None
             _LOGGER.warning("⚠️ Parsing fallito (pressione impianto): %s — response 📦: %s", e, json.dumps(data)[:300])
             _LOGGER.debug("📦 Contenuto data (pressione impianto): %s", data)
 
@@ -213,7 +219,9 @@ class BaxiHybridAppAPI:
             self.sanitary_on_timestamp = item["timestamp"]
             _LOGGER.info("🚿️ Sanitario: %s", self.sanitary_on)
         except (KeyError, IndexError, ValueError) as e:
-            # logga l’errore e tutta la risposta 'data'
+            # Azzera il campo, warning + debug 'data'
+            self.sanitary_on = None
+            self.sanitary_on_timestamp = None
             _LOGGER.warning("⚠️ Parsing fallito (sanitario on): %s — response 📦: %s", e, json.dumps(data)[:300])
             _LOGGER.debug("📦 Contenuto data (sanitario on): %s", data)
 
@@ -227,7 +235,9 @@ class BaxiHybridAppAPI:
             self.boiler_flow_temp_timestamp = item["timestamp"]
             _LOGGER.info("🌡️ Boiler flow temperature: %s °C at %s", self.boiler_flow_temp, self.boiler_flow_temp_timestamp)
         except (KeyError, IndexError, ValueError) as e:
-            # logga l’errore e tutta la risposta 'data'
+            # Azzera il campo, warning + debug 'data'
+            self.boiler_flow_temp = None
+            self.boiler_flow_temp_timestamp = None
             _LOGGER.warning("⚠️ Parsing fallito (temperatura mandata): %s — response 📦: %s", e, json.dumps(data)[:300])
             _LOGGER.debug("📦 Contenuto data (temperatura mandata): %s", data)
 
@@ -241,7 +251,7 @@ class BaxiHybridAppAPI:
             self.dhw_storage_temp_timestamp = item["timestamp"]
             _LOGGER.info("🌡️ DHW storage temperature: %s °C at %s", self.dhw_storage_temp, self.dhw_storage_temp_timestamp)
         except (KeyError, IndexError, ValueError) as e:
-            # Azzera il campo, logga l’errore, tutta la risposta 'data'
+            # Azzera il campo, warning + debug 'data'
             self.dhw_storage_temp = None
             self.dhw_storage_temp_timestamp = None    
             _LOGGER.warning("⚠️ Parsing fallito (accumulo sanitario): %s — response 📦: %s", e, json.dumps(data)[:300])
@@ -257,7 +267,9 @@ class BaxiHybridAppAPI:
             self.dhw_aux_storage_temp_timestamp = item["timestamp"]
             _LOGGER.info("🌡️ DHW aux storage temperature: %s °C", self.dhw_aux_storage_temp)
         except (KeyError, IndexError, ValueError) as e:
-            # logga l’errore e tutta la risposta 'data'
+            # Azzera il campo, warning + debug 'data'
+            self.dhw_aux_storage_temp = None
+            self.dhw_aux_storage_temp_timestamp = None
             _LOGGER.warning("⚠️ Parsing fallito (accumulo ausigliario sanitario): %s — response 📦: %s", e, json.dumps(data)[:300])
             _LOGGER.debug("📦 Contenuto data (accumulo ausigliario sanitario): %s", data)
 
@@ -271,7 +283,9 @@ class BaxiHybridAppAPI:
             self.pdc_exit_temp_timestamp = item["timestamp"]
             _LOGGER.info("🌡️ PDC exit temperature: %s °C", self.pdc_exit_temp)
         except (KeyError, IndexError, ValueError) as e:
-            # logga l’errore e tutta la risposta 'data'
+            # Azzera il campo, warning + debug 'data'
+            self.pdc_exit_temp = None
+            self.pdc_exit_temp_timestamp = None
             _LOGGER.warning("⚠️ Parsing fallito (temperatura uscita PDC): %s — response 📦: %s", e, json.dumps(data)[:300])
             _LOGGER.debug("📦 Contenuto data (temperatura uscita PDC): %s", data)
 
@@ -285,7 +299,9 @@ class BaxiHybridAppAPI:
             self.pdc_return_temp_timestamp = item["timestamp"]
             _LOGGER.info("🌡️ PDC return temperature: %s °C", self.pdc_return_temp)
         except (KeyError, IndexError, ValueError) as e:
-            # logga l’errore e tutta la risposta 'data'
+            # Azzera il campo, warning + debug 'data'
+            self.pdc_return_temp = None
+            self.pdc_return_temp_timestamp = None
             _LOGGER.warning("⚠️ Parsing fallito (temperatura ritorno PDC): %s — response 📦: %s", e, json.dumps(data)[:300])
             _LOGGER.debug("📦 Contenuto data (temperatura ritorno PDC): %s", data)
 
@@ -301,7 +317,9 @@ class BaxiHybridAppAPI:
             self.setpoint_instant_temp_timestamp = item["timestamp"]
             _LOGGER.info("🌡️ Setpoint Istant temperature: %s °C", self.setpoint_instant_temp)
         except (KeyError, IndexError, ValueError) as e:
-            # logga l’errore e tutta la risposta 'data'
+            # Azzera il campo, warning + debug 'data'
+            self.setpoint_instant_temp = None
+            self.setpoint_instant_temp_timestamp = None
             _LOGGER.warning("⚠️ Parsing fallito (Set-point Istantaneo): %s — response 📦: %s", e, json.dumps(data)[:300])
             _LOGGER.debug("📦 Contenuto data (Set-point Istantaneo): %s", data)
 
@@ -315,7 +333,9 @@ class BaxiHybridAppAPI:
             self.setpoint_comfort_temp_timestamp = item["timestamp"]
             _LOGGER.info("🌡️ Setpoint Comfort temperature: %s °C", self.setpoint_comfort_temp)
         except (KeyError, IndexError, ValueError) as e:
-            # logga l’errore e tutta la risposta 'data'
+            # Azzera il campo, warning + debug 'data'
+            self.setpoint_comfort_temp = None
+            self.setpoint_comfort_temp_timestamp = None
             _LOGGER.warning("⚠️ Parsing fallito (Set-point Comfort): %s — response 📦: %s", e, json.dumps(data)[:300])
             _LOGGER.debug("📦 Contenuto data (Set-point Comfort): %s", data)
 
@@ -329,7 +349,9 @@ class BaxiHybridAppAPI:
             self.setpoint_eco_temp_timestamp = item["timestamp"]
             _LOGGER.info("🌡️ Setpoint Eco temperature: %s °C", self.setpoint_eco_temp)
         except (KeyError, IndexError, ValueError) as e:
-            # logga l’errore e tutta la risposta 'data'
+            # Azzera il campo, warning + debug 'data'
+            self.setpoint_eco_temp = None
+            self.setpoint_eco_temp_timestamp = None
             _LOGGER.warning("⚠️ Parsing fallito (Set-point Eco): %s — response 📦: %s", e, json.dumps(data)[:300])
             _LOGGER.debug("📦 Contenuto data (Set-point Eco): %s", data)
 
@@ -353,7 +375,9 @@ class BaxiHybridAppAPI:
             _LOGGER.info("🔄️ System Mode: %s",
                          self.system_mode)
         except (KeyError, IndexError, ValueError) as e:
-            # logga l’errore e tutta la risposta 'data'
+            # Azzera il campo, warning + debug 'data'
+            self.system_mode = None
+            self.system_mode_timestamp = None
             _LOGGER.warning("⚠️ Parsing fallito (Modo Impianto): %s — response 📦: %s", e, json.dumps(data)[:300])
             _LOGGER.debug("📦 Contenuto data (Modo Impianto): %s", data)
 
@@ -375,7 +399,9 @@ class BaxiHybridAppAPI:
             self.season_mode_timestamp = item["timestamp"]
             _LOGGER.info("❄️️ Season Mode: %s", self.season_mode)
         except (KeyError, IndexError, ValueError) as e:
-            # logga l’errore e tutta la risposta 'data'
+            # Azzera il campo, warning + debug 'data'
+            self.season_mode = None
+            self.season_mode_timestamp = None
             _LOGGER.warning("⚠️ Parsing fallito (Modo Stagione): %s — response 📦: %s", e, json.dumps(data)[:300])
             _LOGGER.debug("📦 Contenuto data (Modo Stagione): %s", data)
 
