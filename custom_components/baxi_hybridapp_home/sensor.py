@@ -41,7 +41,7 @@ class ExternalTemperatureSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Temperatura Esterna Baxi",
+            name="Temperatura Esterna",
             unique_id="baxi_external_temperature",
             value_key="temp_ext",
             unit=UnitOfTemperature.CELSIUS,
@@ -54,7 +54,7 @@ class InternalTemperatureSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Temperatura Interna Baxi",
+            name="Temperatura Interna",
             unique_id="baxi_internal_temperature",
             value_key="temp_int",
             unit=UnitOfTemperature.CELSIUS,
@@ -67,7 +67,7 @@ class BoilerFlowTempSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Temperatura Mandata Caldaia Baxi",
+            name="Temperatura Mandata Caldaia",
             unique_id="baxi_boiler_flow_temperature",
             value_key="boiler_flow_temp",
             unit=UnitOfTemperature.CELSIUS,
@@ -80,7 +80,7 @@ class DHWStorageTempSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Temperatura Accumulo Sanitario Baxi",
+            name="Temperatura Accumulo Sanitario",
             unique_id="baxi_dhw_storage_temperature",
             value_key="dhw_storage_temp",
             unit=UnitOfTemperature.CELSIUS,
@@ -93,7 +93,7 @@ class DHWAuxStorageTempSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Temperatura Accumulo Ausiliario Baxi",
+            name="Temperatura Accumulo Ausiliario",
             unique_id="baxi_dhw_aux_storage_temperature",
             value_key="dhw_aux_storage_temp",
             unit=UnitOfTemperature.CELSIUS,
@@ -106,7 +106,7 @@ class PDCExitTempSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Temperatura Uscita PDC Baxi",
+            name="Temperatura Uscita PDC",
             unique_id="baxi_pdc_exit_temperature",
             value_key="pdc_exit_temp",
             unit=UnitOfTemperature.CELSIUS,
@@ -119,7 +119,7 @@ class PDCReturnTempSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Temperatura Ritorno PDC Baxi",
+            name="Temperatura Ritorno PDC",
             unique_id="baxi_pdc_return_temperature",
             value_key="pdc_return_temp",
             unit=UnitOfTemperature.CELSIUS,
@@ -132,7 +132,7 @@ class SetpointInstantTempSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Setpoint Sanitario Istantaneo Baxi",
+            name="Setpoint Sanitario Istantaneo",
             unique_id="baxi_setpoint_instant_temperature",
             value_key="setpoint_instant_temp",
             unit=UnitOfTemperature.CELSIUS,
@@ -145,7 +145,7 @@ class SetpointComfortTempSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Setpoint Sanitario Comfort Baxi",
+            name="Setpoint Sanitario Comfort",
             unique_id="baxi_setpoint_comfort_temperature",
             value_key="setpoint_comfort_temp",
             unit=UnitOfTemperature.CELSIUS,
@@ -158,7 +158,7 @@ class SetpointEcoTempSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Setpoint Sanitario Eco Baxi",
+            name="Setpoint Sanitario Eco",
             unique_id="baxi_setpoint_eco_temperature",
             value_key="setpoint_eco_temp",
             unit=UnitOfTemperature.CELSIUS,
@@ -171,7 +171,7 @@ class WaterPressureSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Pressione Impianto Baxi",
+            name="Pressione Impianto",
             unique_id="baxi_water_pressure",
             value_key="water_pressure",
             unit=UnitOfPressure.BAR,
@@ -187,7 +187,7 @@ class SanitaryOnSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Sanitario On Baxi",
+            name="Sanitario On",
             unique_id="baxi_sanitary_on",
             value_key="sanitary_on",
             unit=None,
@@ -215,7 +215,7 @@ class SystemModeSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Modalità Impianto Baxi",
+            name="Modalità Impianto",
             unique_id="baxi_system_mode",
             value_key="system_mode",
             unit=None,
@@ -245,7 +245,7 @@ class SeasonModeSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Modalità Stagione Baxi",
+            name="Modalità Stagione",
             unique_id="baxi_season_mode",
             value_key="season_mode",
             unit=None,
