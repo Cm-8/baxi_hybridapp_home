@@ -1,6 +1,8 @@
 import requests
 import json
+from datetime import datetime, time, timedelta
 import logging
+import pytz
 from urllib.parse import quote_plus
 from .const import APIKEY, TENANT, DEV_BROWSER, DEV_MODEL
 
@@ -45,6 +47,14 @@ class BaxiHybridAppAPI:
         self.system_mode_timestamp = None
         self.season_mode = None
         self.season_mode_timestamp = None
+        self.flame_status = None
+        self.flame_status_timestamp = None
+        self.sanitary_scheduler_raw = None           # JSON string proveniente dall’API
+        self.sanitary_mode_now = None                # "Comfort" | "Eco"
+        self.sanitary_next_change = None             # datetime (tz-aware) del prossimo cambio
+        self.sanitary_today_summary = None           # "Comfort fino alle HH:MM" | "Eco fino alle HH:MM"
+        self.sanitary_scheduler_status = None        # "ok" | "empty" | "error"
+        self.setpoint_eco_fallback = None           # int/str se presente nel fallback ECO
 
     def authenticate(self):
         payload = json.dumps({
@@ -404,6 +414,173 @@ class BaxiHybridAppAPI:
             self.season_mode_timestamp = None
             _LOGGER.warning("⚠️ Parsing fallito (Modo Stagione): %s — response 📦: %s", e, json.dumps(data)[:300])
             _LOGGER.debug("📦 Contenuto data (Modo Stagione): %s", data)
+   
+    def fetch_flame_status(self):
+        data = self._make_request(self._metric_url("Flame status"))
+        if not data:
+            return
+        try:
+            item = data["data"][0]
+            raw = str(item["values"][0]["value"]).strip().lower()
+            mapping = {
+                "0": "Off", "1": "On",
+                "false": "Off", "true": "On"
+            }
+            self.flame_status = mapping.get(raw, f"Sconosciuto ({raw})")
+            self.flame_status_timestamp = item["timestamp"]
+            _LOGGER.info("🔥 Flame status: %s (raw=%s)", self.flame_status, raw)
+        except (KeyError, IndexError, ValueError) as e:
+            # Azzera il campo, warning + debug 'data'
+            self.flame_status = None
+            self.flame_status_timestamp = None
+            _LOGGER.warning("⚠️ Parsing fallito (Flame status): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (Flame status): %s", data)
+
+    def fetch_sanitary_scheduler(self):
+        data = self._make_request(self._metric_url("Schedulatore - Sanitario"))
+        if not data:
+            self.sanitary_scheduler_status = "error"
+            return
+        try:
+            item = data["data"][0]
+            raw_str = item["values"][0]["value"]  # è una stringa JSON
+            self.sanitary_scheduler_raw = raw_str
+            self._compute_sanitary_schedule_state(raw_str)
+            self.sanitary_scheduler_status = "ok"
+        except (KeyError, IndexError, ValueError, TypeError) as e:
+            # Azzera il campo, warning + debug 'data'
+            self.sanitary_scheduler_raw = None
+            self.sanitary_scheduler_status = "error"
+            _LOGGER.warning("⚠️ Parsing fallito (Schedulatore sanitario): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (Schedulatore sanitario): %s", data)
+    
+    def _compute_sanitary_schedule_state(self, raw_str, now_dt: datetime | None = None):
+        """
+        Converte lo scheduler in segmenti giornalieri e calcola:
+          - modalità attuale (Comfort/Eco)
+          - prossimo cambio
+          - riepilogo 'oggi: Comfort fino alle HH:MM' / 'Eco fino alle HH:MM'
+        Assume che gli intervalli con start/end siano Comfort.
+        Il resto del tempo (start=null) è Eco, da cui estraiamo eventuale setpoint eco.
+        """
+        # Timezone: Europa/Roma (puoi cambiarla se preferisci leggere quella di HA)
+        tz = pytz.timezone("Europe/Rome")
+        now_dt = now_dt.astimezone(tz) if now_dt else datetime.now(tz)
+
+        j = json.loads(raw_str) if isinstance(raw_str, str) else raw_str
+
+        # Mappatura weekday python (0=lun .. 6=dom) -> chiavi italiane Baxi
+        day_keys = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"]
+        today_key = day_keys[now_dt.weekday()]
+        tomorrow_key = day_keys[(now_dt.weekday() + 1) % 7]
+
+        def parse_hhmm(s: str) -> time:
+            hh, mm = s.split(":")
+            return time(int(hh), int(mm))
+
+        def build_segments_for_day(day_key: str):
+            """
+            Costruisce segmenti ordinati per il giorno:
+            - lista di dict: { 'start': datetime, 'end': datetime, 'mode': 'Comfort'|'Eco' }
+            Copre 00:00 → 24:00. Comfort dagli intervalli espliciti; Eco il resto.
+            Estrae setpoint eco dal blocco params con start=null.
+            """
+            items = j.get(day_key, []) or []
+            # comfort blocks (start/end valorizzati)
+            comfort_ranges = []
+            eco_setpoint_local = None
+
+            for it in items:
+                s = it.get("start")
+                e = it.get("end")
+                params = it.get("params") or {}
+                if s and e:
+                    comfort_ranges.append((parse_hhmm(s), parse_hhmm(e)))
+                else:
+                    # fallback eco per il resto
+                    eco_sp = params.get("Set-point sanitario eco")
+                    if eco_sp is not None:
+                        eco_setpoint_local = eco_sp
+
+            # ordina i comfort per ora di inizio
+            comfort_ranges.sort(key=lambda t: t[0])
+
+            # costruisci segmenti pieni 00:00-24:00
+            day_date = now_dt.date()  # useremo solo l'orario; la data non importa per "oggi"
+            start_cursor = datetime.combine(day_date, time(0, 0), tz)
+
+            segments = []
+            for (c_start_t, c_end_t) in comfort_ranges:
+                c_start = datetime.combine(day_date, c_start_t, tz)
+                c_end = datetime.combine(day_date, c_end_t, tz)
+                # eco prima della fascia comfort (se c'è gap)
+                if c_start > start_cursor:
+                    segments.append({"start": start_cursor, "end": c_start, "mode": "Eco"})
+                # comfort
+                if c_end > c_start:
+                    segments.append({"start": c_start, "end": c_end, "mode": "Comfort"})
+                start_cursor = max(start_cursor, c_end)
+            # coda Eco fino a 24:00
+            end_of_day = datetime.combine(day_date, time(23, 59, 59), tz) + timedelta(seconds=1)
+            if start_cursor < end_of_day:
+                segments.append({"start": start_cursor, "end": end_of_day, "mode": "Eco"})
+
+            return segments, eco_setpoint_local
+
+        # Costruisci i segmenti di oggi e domani
+        today_segments, eco_sp_today = build_segments_for_day(today_key)
+        tomorrow_segments, eco_sp_tom = build_segments_for_day(tomorrow_key)
+
+        # scegli eco setpoint se presente
+        self.sanitary_eco_setpoint = eco_sp_today if eco_sp_today is not None else eco_sp_tom
+
+        # trova il segmento corrente e il prossimo cambio
+        def find_current_and_next(segments, ref_dt: datetime):
+            cur = None
+            nxt = None
+            for seg in segments:
+                if seg["start"] <= ref_dt < seg["end"]:
+                    cur = seg
+                    # prossimo cambio è la fine del segmento corrente (se < 24:00)
+                    if seg["end"] > ref_dt:
+                        nxt = seg["end"]
+                    break
+            # se non trovato (edge case), prossimo è il primo segmento del giorno successivo
+            return cur, nxt
+
+        cur_seg, next_change = find_current_and_next(today_segments, now_dt)
+        if cur_seg is None:
+            # fuori range? fallback: prendi il primo di domani
+            self.sanitary_mode_now = None
+            self.sanitary_next_change = tomorrow_segments[0]["start"] if tomorrow_segments else None
+            self.sanitary_today_summary = "N/D"
+            return
+
+        # Modalità attuale
+        self.sanitary_mode_now = cur_seg["mode"]
+
+        # Prossimo cambio: se non c’è più oggi, prendi il primo di domani
+        if not next_change:
+            self.sanitary_next_change = tomorrow_segments[0]["start"] if tomorrow_segments else None
+        else:
+            self.sanitary_next_change = next_change
+
+        # Riepilogo “oggi … fino alle HH:MM”
+        until_dt = self.sanitary_next_change
+        # se il prossimo cambio è domani, il riepilogo di oggi va fino alle 24:00
+        if until_dt and until_dt.date() != now_dt.date():
+            until_txt = "24:00"
+        else:
+            until_txt = until_dt.strftime("%H:%M") if until_dt else "24:00"
+
+        self.sanitary_today_summary = f"{self.sanitary_mode_now} fino alle {until_txt}"
+
+
+
+
+
+
+
 
 
 

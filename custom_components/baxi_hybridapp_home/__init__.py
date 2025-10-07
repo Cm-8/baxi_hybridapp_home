@@ -9,7 +9,7 @@ import voluptuous as vol
 import logging
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS = ["sensor"]
+PLATFORMS = ["sensor", "water_heater"]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -38,6 +38,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         await hass.async_add_executor_job(api.fetch_setpoint_eco_temp)
         await hass.async_add_executor_job(api.fetch_system_mode)
         await hass.async_add_executor_job(api.fetch_season_mode)
+        await hass.async_add_executor_job(api.fetch_flame_status)
+        await hass.async_add_executor_job(api.fetch_sanitary_scheduler)
         return True
 
     coordinator = DataUpdateCoordinator(

@@ -1,6 +1,7 @@
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
 from homeassistant.const import UnitOfTemperature, UnitOfPressure
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 from .const import DOMAIN, DATA_KEY_API
 
 class BaxiBaseSensor(CoordinatorEntity, SensorEntity):
@@ -265,6 +266,96 @@ class SeasonModeSensor(BaxiBaseSensor):
     def state_class(self):
         # nessuna state_class: Home Assistant non lo vede come "measurement"
         return None
+   
+class FlameStatusSensor(BaxiBaseSensor):
+    _attr_state_class = None  # non è una misura
+
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Stato Fiamma",
+            unique_id="baxi_flame_status",
+            value_key="flame_status",
+            unit=None,
+            device_class=None,
+            icon="mdi:fire"
+        )
+        self._attr_native_unit_of_measurement = None
+        self._attr_device_class = None
+
+    @property
+    def native_value(self):
+        return getattr(self._api, self._value_key)
+
+    @property
+    def icon(self):
+        val = (getattr(self._api, self._value_key) or "").lower()
+        return "mdi:fire" if val == "on" else "mdi:fire-off"
+
+    @property
+    def state_class(self):
+        return None
+
+class SanitaryScheduleStateSensor(BaxiBaseSensor, SensorEntity):
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Schedulatore Sanitario (stato)",
+            unique_id="baxi_sanitary_schedule_state",
+            value_key="sanitary_mode_now",  # stringa: "Comfort" | "Eco"
+            unit=None,
+            device_class=None,
+            icon="mdi:calendar-clock",
+        )
+        # 🔒 forza NON numerico (sovrascrivi eventuali default del base)
+        self._attr_native_unit_of_measurement = None
+        self._attr_device_class = None
+        self._attr_state_class = None
+        # Evita che HA lo tratti come numerico
+        if hasattr(self, "_attr_suggested_display_precision"):
+            self._attr_suggested_display_precision = None
+
+    @property
+    def native_value(self):
+        # stringa, non numero
+        return getattr(self._api, "sanitary_mode_now", None)
+
+    @property
+    def state_class(self):
+        # sovrascrivi eventuali default del base
+        return None
+
+    @property
+    def available(self):
+        # opzionale: disponibile solo se parsing ok
+        return (
+            getattr(self._api, "sanitary_scheduler_status", None) == "ok"
+            and getattr(self._api, "sanitary_mode_now", None) is not None
+        )
+
+    @property
+    def extra_state_attributes(self):
+        nxt = getattr(self._api, "sanitary_next_change", None)
+        if nxt:
+            # formatta “oggi alle HH:MM” / “domani alle HH:MM”
+            from homeassistant.util import dt as dt_util
+            hhmm = nxt.astimezone(dt_util.DEFAULT_TIME_ZONE).strftime("%H:%M")
+            label = "oggi alle " + hhmm if nxt.date() == dt_util.now().date() else "domani alle " + hhmm
+        else:
+            label = None
+        return {
+            "prossimo_cambio": label,
+            "prossimo_cambio_iso": nxt.isoformat() if nxt else None,
+            "oggi_riepilogo": getattr(self._api, "sanitary_today_summary", None),
+            "eco_setpoint": getattr(self._api, "sanitary_eco_setpoint", None),
+            "scheduler_status": getattr(self._api, "sanitary_scheduler_status", None),
+        }
+
+
+
+
 
 async def async_setup_entry(hass, entry, async_add_entities):
     api = hass.data[DOMAIN][DATA_KEY_API]
@@ -285,6 +376,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
         SetpointInstantTempSensor(coordinator, api),
         SetpointComfortTempSensor(coordinator, api),
         SetpointEcoTempSensor(coordinator, api),
+        FlameStatusSensor(coordinator, api),
+        SanitaryScheduleStateSensor(coordinator, api)
     ]
     async_add_entities(sensors)
     
