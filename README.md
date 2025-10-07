@@ -2,8 +2,9 @@
 
 **Unofficial integration for Baxi HybridApp in Home Assistant**
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
-[![GitHub Release](https://img.shields.io/github/v/release/Cm-8/baxi_hybridapp_home.svg)](https://github.com/Cm-8/baxi_hybridapp_home/releases)
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://hacs.xyz/)
+[![GitHub Release](https://img.shields.io/github/v/release/Cm-8/baxi_hybridapp_home.svg?style=for-the-badge&color=blue)](https://github.com/Cm-8/baxi_hybridapp_home/releases)
+[![Integration Usage](https://img.shields.io/badge/dynamic/json?color=41BDF5&style=for-the-badge&logo=home-assistant&label=usage&suffix=%20installs&cacheSeconds=15600&url=https://analytics.home-assistant.io/custom_integrations.json&query=$.baxi_hybridapp_home.total)](https://analytics.home-assistant.io/)
 
 > **Disclaimer:** This is an unofficial integration and is not affiliated with or endorsed by Baxi in any way.
 
