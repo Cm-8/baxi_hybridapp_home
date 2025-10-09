@@ -45,6 +45,8 @@ class BaxiHybridAppAPI:
         self.setpoint_eco_temp_timestamp = None
         self.system_mode = None
         self.system_mode_timestamp = None
+        self.system_icon = None
+        self.system_icon_timestamp = None
         self.season_mode = None
         self.season_mode_timestamp = None
         self.flame_status = None
@@ -414,7 +416,28 @@ class BaxiHybridAppAPI:
             self.season_mode_timestamp = None
             _LOGGER.warning("⚠️ Parsing fallito (Modo Stagione): %s — response 📦: %s", e, json.dumps(data)[:300])
             _LOGGER.debug("📦 Contenuto data (Modo Stagione): %s", data)
-   
+
+    def fetch_system_icon(self):
+        data = self._make_request(self._metric_url("Icona funzionamento sistema"))
+        if not data:
+            return
+        try:
+            item = data["data"][0]
+            raw = str(item["values"][0]["value"]).strip().lower()
+            mapping = {
+                "0": "0", "1": "1",
+                "false": "Off", "true": "On"
+            }
+            self.system_icon = mapping.get(raw, f"Sconosciuto ({raw})")
+            self.system_icon_timestamp = item["timestamp"]
+            _LOGGER.info("🔥 Icona Funzionamento: %s (raw=%s)", self.system_icon, raw)
+        except (KeyError, IndexError, ValueError) as e:
+            # Azzera il campo, warning + debug 'data'
+            self.system_icon = None
+            self.system_icon_timestamp = None
+            _LOGGER.warning("⚠️ Parsing fallito (Icona Funzionamento): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (Icona Funzionamento): %s", data)
+
     def fetch_flame_status(self):
         data = self._make_request(self._metric_url("Flame status"))
         if not data:

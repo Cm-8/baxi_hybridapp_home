@@ -277,7 +277,36 @@ class SeasonModeSensor(BaxiBaseSensor):
     def state_class(self):
         # nessuna state_class: Home Assistant non lo vede come "measurement"
         return None
-   
+
+class BaxiSystemIconSensor(SensorEntity):
+    _attr_name = "Icona Funzionamento Sistema"
+    _attr_unique_id = "baxi_system_icon"
+
+    def __init__(self, coordinator, api):
+        self._api = api
+        self._coordinator = coordinator
+
+    @property
+    def available(self):
+        return self._api.system_icon is not None
+
+    @property
+    def native_value(self):
+        return self._api.system_icon
+
+    @property
+    def icon(self):
+        """Puoi cambiare dinamicamente l’icona in base al valore"""
+        value = self._api.system_icon
+        if value is None:
+            return "mdi:help-circle-outline"
+        elif value == "Spento":
+            return "mdi:power-off"
+        elif value == "In funzione":
+            return "mdi:fire"
+        else:
+            return "mdi:alert-circle"
+
 class FlameStatusSensor(BaxiBaseSensor):
     _attr_state_class = None  # non è una misura
 
@@ -387,6 +416,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         SetpointInstantTempSensor(coordinator, api),
         SetpointComfortTempSensor(coordinator, api),
         SetpointEcoTempSensor(coordinator, api),
+        BaxiSystemIconSensor(coordinator, api),
         FlameStatusSensor(coordinator, api),
         SanitaryScheduleStateSensor(coordinator, api)
     ]
