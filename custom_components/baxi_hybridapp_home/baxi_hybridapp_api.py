@@ -384,8 +384,7 @@ class BaxiHybridAppAPI:
             # salva la stringa leggibile (o il codice se non è previsto)
             self.system_mode = mapping.get(raw, f"Sconosciuto ({raw})")
             self.system_mode_timestamp = item["timestamp"]
-            _LOGGER.info("🔄️ System Mode: %s",
-                         self.system_mode)
+            _LOGGER.info("🔄️ System Mode: %s", self.system_mode)
         except (KeyError, IndexError, ValueError) as e:
             # Azzera il campo, warning + debug 'data'
             self.system_mode = None
@@ -449,6 +448,7 @@ class BaxiHybridAppAPI:
             self.sanitary_scheduler_raw = raw_str
             self._compute_sanitary_schedule_state(raw_str)
             self.sanitary_scheduler_status = "ok"
+            _LOGGER.info("📅 Schedulatore Sanitario: %s", self.sanitary_scheduler_raw)
         except (KeyError, IndexError, ValueError, TypeError) as e:
             # Azzera il campo, warning + debug 'data'
             self.sanitary_scheduler_raw = None
