@@ -13,7 +13,7 @@ Custom integration for Home Assistant to monitor data from your Baxi system thro
 
 ## References
 
-<img src="/assets/pannello-di-controllo-wi-fi-da-esterno.png" alt="Pannello Controllo Wifi Esterno" width="250" height="auto" align="right">
+<img src="https://raw.githubusercontent.com/Cm-8/baxi_hybridapp_home/main/assets/pannello-di-controllo-wi-fi-da-esterno.png" alt="Pannello Controllo Wifi Esterno" width="250" height="auto" align="right">
 
 This extension is only compatible with devices:
 - [CSI IN Alya / Auriga H WI-FI (Baxi website)](https://www.baxi.it/prodotti/pompe-di-calore/sistemi-ad-incasso-in-pompa-di-calore-con-integrazione-solo-elettrica/csi-in-auriga-e-wi-fi)
