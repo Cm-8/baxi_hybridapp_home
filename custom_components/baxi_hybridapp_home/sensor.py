@@ -278,31 +278,6 @@ class SeasonModeSensor(BaxiBaseSensor):
         # nessuna state_class: Home Assistant non lo vede come "measurement"
         return None
 
-class BaxiSystemIconSensor(SensorEntity):
-    _attr_state_class = None
-
-    _attr_name = "Icona Funzionamento Sistema"
-    _attr_unique_id = "baxi_system_icon"
-
-    def __init__(self, coordinator, api):
-        super().__init__(
-            coordinator,
-            api,
-            name="Icona Funzionamento Sistema",
-            unique_id="baxi_system_icon",
-            value_key="system_icon",
-            unit=None,
-            device_class=None,
-            icon="mdi:information-outline"
-        )
-        self._attr_native_unit_of_measurement = None
-        self._attr_device_class = None
-
-    @property
-    def native_value(self):
-        return getattr(self._api, self._value_key)
-
-
 class FlameStatusSensor(BaxiBaseSensor):
     _attr_state_class = None  # non è una misura
 
@@ -412,7 +387,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
         SetpointInstantTempSensor(coordinator, api),
         SetpointComfortTempSensor(coordinator, api),
         SetpointEcoTempSensor(coordinator, api),
-        BaxiSystemIconSensor(coordinator, api),
         FlameStatusSensor(coordinator, api),
         SanitaryScheduleStateSensor(coordinator, api)
     ]
