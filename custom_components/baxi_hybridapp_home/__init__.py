@@ -9,7 +9,7 @@ import voluptuous as vol
 import logging
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS = ["sensor", "water_heater"]
+PLATFORMS = ["sensor", "water_heater", "button"]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 

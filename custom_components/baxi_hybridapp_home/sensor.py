@@ -205,6 +205,17 @@ class SanitaryOnSensor(BaxiBaseSensor):
         return getattr(self._api, self._value_key)
 
     @property
+    def icon(self):
+        raw = getattr(self._api, self._value_key)
+        val = (raw or "").strip().lower()
+        if val.startswith("on"):
+            return "mdi:water-boiler"
+        if val == "off":
+            return "mdi:water-boiler-off"
+        # Fallback per valori sconosciuti: icona neutra
+        return "mdi:water-boiler"
+
+    @property
     def state_class(self):
         return None
 

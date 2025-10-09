@@ -579,6 +579,67 @@ class BaxiHybridAppAPI:
 
 
 
+    # API di scrittura (PUT)
+    def set_configuration_parameter(self, parameter_id: str, value: float | int | str):
+        """
+        Esegue una chiamata PUT per aggiornare un parametro configurabile
+        (es. setpoint eco, comfort, ecc.)
+        """
+        if not self.token:
+            _LOGGER.warning("⚠️ Nessun token, provo a ri-autenticare...")
+            self.authenticate()
+            if not self.token:
+                _LOGGER.error("❌ Impossibile autenticarsi per PUT.")
+                return False
+
+        if not self.thingId:
+            _LOGGER.warning("⚠️ Nessun thingId, provo a recuperarlo...")
+            self.get_thingid()
+            if not self.thingId:
+                _LOGGER.error("❌ Impossibile ottenere il thingId per PUT.")
+                return False
+
+        url = f"{self.BASE_URL}/data/configurationParameters?thingId={self.thingId}"
+
+        payload = json.dumps([
+            {
+                "parameterId": parameter_id,
+                "value": value,
+                "content": ""
+            }
+        ])
+
+        headers = {
+            'x-semioty-tenant': TENANT,
+            'authorization': f'Bearer {self.token}',
+            'content-type': 'application/json',
+            'user-agent': DEV_BROWSER,
+            'x-requested-with': 'it.baxi.HybridApp'
+        }
+
+        try:
+            response = requests.put(url, headers=headers, data=payload, timeout=15)
+            if response.status_code == 401:
+                _LOGGER.warning("🔐 Token scaduto, ri-autentico...")
+                self.authenticate()
+                headers['authorization'] = f'Bearer {self.token}'
+                response = requests.put(url, headers=headers, data=payload, timeout=15)
+
+            if response.ok:
+                _LOGGER.info("✅ PUT parametro %s impostato a %s", parameter_id, value)
+                return True
+            else:
+                _LOGGER.error("❌ Errore PUT parametro %s → %s", parameter_id, response.text)
+                return False
+        except Exception as e:
+            _LOGGER.exception("❌ Eccezione nella PUT parametro %s: %s", parameter_id, e)
+            return False
+
+
+
+
+
+
 
 
 
