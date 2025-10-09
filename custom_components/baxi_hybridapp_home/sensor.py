@@ -279,33 +279,29 @@ class SeasonModeSensor(BaxiBaseSensor):
         return None
 
 class BaxiSystemIconSensor(SensorEntity):
+    _attr_state_class = None
+
     _attr_name = "Icona Funzionamento Sistema"
     _attr_unique_id = "baxi_system_icon"
 
     def __init__(self, coordinator, api):
-        self._api = api
-        self._coordinator = coordinator
-
-    @property
-    def available(self):
-        return self._api.system_icon is not None
+        super().__init__(
+            coordinator,
+            api,
+            name="Icona Funzionamento Sistema",
+            unique_id="baxi_system_icon",
+            value_key="system_icon",
+            unit=None,
+            device_class=None,
+            icon="mdi:information-outline"
+        )
+        self._attr_native_unit_of_measurement = None
+        self._attr_device_class = None
 
     @property
     def native_value(self):
-        return self._api.system_icon
+        return getattr(self._api, self._value_key)
 
-    @property
-    def icon(self):
-        """Puoi cambiare dinamicamente l’icona in base al valore"""
-        value = self._api.system_icon
-        if value is None:
-            return "mdi:help-circle-outline"
-        elif value == "Spento":
-            return "mdi:power-off"
-        elif value == "In funzione":
-            return "mdi:fire"
-        else:
-            return "mdi:alert-circle"
 
 class FlameStatusSensor(BaxiBaseSensor):
     _attr_state_class = None  # non è una misura
