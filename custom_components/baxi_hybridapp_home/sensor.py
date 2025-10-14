@@ -42,7 +42,7 @@ class ExternalTemperatureSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Temperatura Esterna",
+            name="Temp. Esterna",
             unique_id="baxi_external_temperature",
             value_key="temp_ext",
             unit=UnitOfTemperature.CELSIUS,
@@ -55,7 +55,7 @@ class InternalTemperatureSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Temperatura Interna",
+            name="Temp. Interna",
             unique_id="baxi_internal_temperature",
             value_key="temp_int",
             unit=UnitOfTemperature.CELSIUS,
@@ -68,7 +68,7 @@ class BoilerFlowTempSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Temperatura Mandata Caldaia",
+            name="Temp. Mandata Caldaia",
             unique_id="baxi_boiler_flow_temperature",
             value_key="boiler_flow_temp",
             unit=UnitOfTemperature.CELSIUS,
@@ -81,7 +81,7 @@ class DHWStorageTempSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Temperatura Accumulo Sanitario",
+            name="Temp. Accumulo Sanitario",
             unique_id="baxi_dhw_storage_temperature",
             value_key="dhw_storage_temp",
             unit=UnitOfTemperature.CELSIUS,
@@ -94,7 +94,7 @@ class DHWAuxStorageTempSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Temperatura Accumulo Ausiliario",
+            name="Temp. Accumulo Ausiliario",
             unique_id="baxi_dhw_aux_storage_temperature",
             value_key="dhw_aux_storage_temp",
             unit=UnitOfTemperature.CELSIUS,
@@ -107,7 +107,7 @@ class PDCExitTempSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Temperatura Uscita PDC",
+            name="Temp. Uscita PDC",
             unique_id="baxi_pdc_exit_temperature",
             value_key="pdc_exit_temp",
             unit=UnitOfTemperature.CELSIUS,
@@ -120,7 +120,7 @@ class PDCReturnTempSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Temperatura Ritorno PDC",
+            name="Temp. Ritorno PDC",
             unique_id="baxi_pdc_return_temperature",
             value_key="pdc_return_temp",
             unit=UnitOfTemperature.CELSIUS,
