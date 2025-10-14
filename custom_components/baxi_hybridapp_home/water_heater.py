@@ -82,33 +82,45 @@ class BaxiSanitaryComfort(WaterHeaterEntity):
         self.async_write_ha_state()
 
     # ---------------- Target Temperature (setpoint) ----------------
+    self.PARAM_ID_SETPOINT_COMFORT = "5bec6274dbdf4f0008a6e012"
+    
     @property
     def target_temperature(self):
-        # mostra il setpoint della modalità corrente
-        return (
-            self._api.setpoint_comfort_temp
-        )
+        return self._api.setpoint_comfort_temp
 
     @property
     def target_temperature_step(self) -> float:
-        # step di 1°C
-        return 1.0
+        return 1.0  # step a 1°C
 
     async def async_set_temperature(self, **kwargs) -> None:
-        """Aggiorna il setpoint della modalità corrente (solo in memoria)."""
+        """Scrive il setpoint Comfort o Eco su Baxi (PUT) e aggiorna l'entità."""
         new_t = kwargs.get("temperature")
         if new_t is None:
             return
         # clamp 30..52
         new_t = max(self.min_temp, min(self.max_temp, float(new_t)))
-
-        if self._current_mode() == "comfort":
+    
+        # Se l’utente sta agendo sull’entità "Comfort", scegliamo sempre il parametro Comfort.
+        # (Se vuoi che scriva l'altro in base allo scheduler, cambia questa logica.)
+        param_id = PARAM_ID_SETPOINT_COMFORT
+    
+        # fallback sicurezza
+        if not param_id:
+            # Se non hai ancora messo gli ID, aggiorna solo localmente per test UI
             self._api.setpoint_comfort_temp = new_t
-        else:
-            self._api.setpoint_eco_temp = new_t
-
-        # Aggiorna subito lo stato dell'entità
-        self.async_write_ha_state()
+            self.async_write_ha_state()
+            return
+    
+        ok = await self.hass.async_add_executor_job(
+            self._api.set_configuration_parameter, param_id, int(new_t)
+        )
+    
+        if ok:
+            # aggiorna immediatamente lo stato locale
+            self._api.setpoint_comfort_temp = new_t
+            self.async_write_ha_state()
+            # rinfresca tutti i sensori/entità da cloud
+            await self._coordinator.async_request_refresh()
 
     # ---------------- Extra ----------------
     @property
@@ -204,33 +216,40 @@ class BaxiSanitaryEco(WaterHeaterEntity):
         self.async_write_ha_state()
 
     # ---------------- Target Temperature (setpoint) ----------------
+    self.PARAM_ID_SETPOINT_ECO     = "5bec6275dbdf4f0008a6e013"
+    
     @property
     def target_temperature(self):
-        # mostra il setpoint della modalità corrente
-        return (
-            self._api.setpoint_eco_temp
-        )
+        return self._api.setpoint_eco_temp
 
     @property
     def target_temperature_step(self) -> float:
-        # step di 1°C
-        return 1.0
+        return 1.0  # step a 1°C
 
     async def async_set_temperature(self, **kwargs) -> None:
-        """Aggiorna il setpoint della modalità corrente (solo in memoria)."""
+        """Scrive il setpoint Eco su Baxi (PUT) e aggiorna l'entità."""
         new_t = kwargs.get("temperature")
         if new_t is None:
             return
         # clamp 30..52
         new_t = max(self.min_temp, min(self.max_temp, float(new_t)))
-
-        if self._current_mode() == "comfort":
-            self._api.setpoint_comfort_temp = new_t
-        else:
+    
+        param_id = PARAM_ID_SETPOINT_ECO
+    
+        if not param_id:
+            # Se non hai ancora messo gli ID, aggiorna solo localmente per test UI
             self._api.setpoint_eco_temp = new_t
-
-        # Aggiorna subito lo stato dell'entità
-        self.async_write_ha_state()
+            self.async_write_ha_state()
+            return
+    
+        ok = await self.hass.async_add_executor_job(
+            self._api.set_configuration_parameter, param_id, int(new_t)
+        )
+    
+        if ok:
+            self._api.setpoint_eco_temp = new_t
+            self.async_write_ha_state()
+            await self._coordinator.async_request_refresh()
 
     # ---------------- Extra ----------------
     @property
