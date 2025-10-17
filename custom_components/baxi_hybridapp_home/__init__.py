@@ -22,8 +22,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     async def async_update_data():
         """Fetch all metrics from Baxi API."""
         # Authentication and fetching all values
-        await hass.async_add_executor_job(api.authenticate)
-        await hass.async_add_executor_job(api.get_thingid)
+        # await hass.async_add_executor_job(api.authenticate)
+        # await hass.async_add_executor_job(api.get_thingid)
         await hass.async_add_executor_job(api.fetch_temperature_ext)
         await hass.async_add_executor_job(api.fetch_temperature_int)
         await hass.async_add_executor_job(api.fetch_water_pressure)
