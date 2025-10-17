@@ -628,7 +628,7 @@ class BaxiHybridAppAPI:
                 response = requests.put(url, headers=headers, data=payload, timeout=15)
 
             if response.ok:
-                _LOGGER.info("✅ PUT parametro %s impostato a %s", parameter_id, value)
+                _LOGGER.info("📤✅ PUT parametro %s impostato a %s", parameter_id, value)
                 return True
             else:
                 _LOGGER.error("❌ Errore PUT parametro %s → %s", parameter_id, response.text)
