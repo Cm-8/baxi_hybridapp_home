@@ -116,7 +116,7 @@ class BaxiSanitaryComfort(WaterHeaterEntity):
             self.async_write_ha_state()
 
             # 2) Grace period per dare tempo al backend Baxi di persistere
-            await asyncio.sleep(1.5)
+            await asyncio.sleep(4)
 
             # 3) Poi rinfresca dal cloud (ora coerente)
             await self._coordinator.async_request_refresh()
@@ -244,7 +244,7 @@ class BaxiSanitaryEco(WaterHeaterEntity):
             self.async_write_ha_state()
 
             # 2) Grace period per dare tempo al backend Baxi di persistere
-            await asyncio.sleep(1.5)
+            await asyncio.sleep(4)
 
             # 3) Poi rinfresca dal cloud (ora coerente)
             await self._coordinator.async_request_refresh()
