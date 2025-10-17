@@ -6,6 +6,7 @@ from homeassistant.components.water_heater import (
     WaterHeaterEntityFeature,
 )
 from homeassistant.const import UnitOfTemperature
+import asyncio
 from .const import (
     DOMAIN, DATA_KEY_API,
     PARAM_ID_SETPOINT_COMFORT, PARAM_ID_SETPOINT_ECO,
@@ -110,10 +111,14 @@ class BaxiSanitaryComfort(WaterHeaterEntity):
         )
     
         if ok:
-            # aggiorna immediatamente lo stato locale
+            # 1) Aggiorna subito in locale (optimistic UI)
             self._api.setpoint_comfort_temp = new_t
             self.async_write_ha_state()
-            # rinfresca tutti i sensori/entità da cloud
+
+            # 2) Grace period per dare tempo al backend Baxi di persistere
+            await asyncio.sleep(1.5)
+
+            # 3) Poi rinfresca dal cloud (ora coerente)
             await self._coordinator.async_request_refresh()
 
     # ---------------- Extra ----------------
@@ -234,8 +239,14 @@ class BaxiSanitaryEco(WaterHeaterEntity):
         )
     
         if ok:
+            # 1) Aggiorna subito in locale (optimistic UI)
             self._api.setpoint_eco_temp = new_t
             self.async_write_ha_state()
+
+            # 2) Grace period per dare tempo al backend Baxi di persistere
+            await asyncio.sleep(1.5)
+
+            # 3) Poi rinfresca dal cloud (ora coerente)
             await self._coordinator.async_request_refresh()
 
     # ---------------- Extra ----------------
