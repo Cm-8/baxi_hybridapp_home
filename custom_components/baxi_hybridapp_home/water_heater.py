@@ -6,7 +6,10 @@ from homeassistant.components.water_heater import (
     WaterHeaterEntityFeature,
 )
 from homeassistant.const import UnitOfTemperature
-from .const import DOMAIN, DATA_KEY_API
+from .const import (
+    DOMAIN, DATA_KEY_API,
+    PARAM_ID_SETPOINT_COMFORT, PARAM_ID_SETPOINT_ECO,
+)
 
 
 # COMFORT
@@ -18,10 +21,7 @@ class BaxiSanitaryComfort(WaterHeaterEntity):
     _attr_name = "Sanitario Comfort"
     _attr_unique_id = "baxi_water_heater_comfort"
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
-    _attr_supported_features = (
-        WaterHeaterEntityFeature.TARGET_TEMPERATURE
-        | WaterHeaterEntityFeature.OPERATION_MODE
-    )
+    _attr_supported_features = WaterHeaterEntityFeature.TARGET_TEMPERATURE
 
     def __init__(self, coordinator, api):
         self._api = api
@@ -63,9 +63,7 @@ class BaxiSanitaryComfort(WaterHeaterEntity):
 
     @property
     def icon(self) -> str:
-        if self._mode_override in ("eco", "comfort"):
-            return self._mode_override
-        mode = (self._api.sanitary_mode_now or "").strip().lower()
+        mode = self._mode_override or (self._api.sanitary_mode_now or "").strip().lower()
         return "mdi:water-boiler" if mode == "comfort" else "mdi:water-boiler-off"
 
     # ---------------- Operation Mode ----------------
@@ -81,9 +79,7 @@ class BaxiSanitaryComfort(WaterHeaterEntity):
         self._mode_override = mode
         self.async_write_ha_state()
 
-    # ---------------- Target Temperature (setpoint) ----------------
-    self.PARAM_ID_SETPOINT_COMFORT = "5bec6274dbdf4f0008a6e012"
-    
+    # ---------------- Target Temperature (setpoint) ----------------   
     @property
     def target_temperature(self):
         return self._api.setpoint_comfort_temp
@@ -100,8 +96,6 @@ class BaxiSanitaryComfort(WaterHeaterEntity):
         # clamp 30..52
         new_t = max(self.min_temp, min(self.max_temp, float(new_t)))
     
-        # Se l’utente sta agendo sull’entità "Comfort", scegliamo sempre il parametro Comfort.
-        # (Se vuoi che scriva l'altro in base allo scheduler, cambia questa logica.)
         param_id = PARAM_ID_SETPOINT_COMFORT
     
         # fallback sicurezza
@@ -152,10 +146,7 @@ class BaxiSanitaryEco(WaterHeaterEntity):
     _attr_name = "Sanitario Eco"
     _attr_unique_id = "baxi_water_heater_eco"
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
-    _attr_supported_features = (
-        WaterHeaterEntityFeature.TARGET_TEMPERATURE
-        | WaterHeaterEntityFeature.OPERATION_MODE
-    )
+    _attr_supported_features = WaterHeaterEntityFeature.TARGET_TEMPERATURE
 
     def __init__(self, coordinator, api):
         self._api = api
@@ -197,9 +188,7 @@ class BaxiSanitaryEco(WaterHeaterEntity):
 
     @property
     def icon(self) -> str:
-        if self._mode_override in ("eco", "comfort"):
-            return self._mode_override
-        mode = (self._api.sanitary_mode_now or "").strip().lower()
+        mode = self._mode_override or (self._api.sanitary_mode_now or "").strip().lower()
         return "mdi:water-boiler-off" if mode == "comfort" else "mdi:water-boiler"
 
     # ---------------- Operation Mode ----------------
@@ -215,9 +204,7 @@ class BaxiSanitaryEco(WaterHeaterEntity):
         self._mode_override = mode
         self.async_write_ha_state()
 
-    # ---------------- Target Temperature (setpoint) ----------------
-    self.PARAM_ID_SETPOINT_ECO     = "5bec6275dbdf4f0008a6e013"
-    
+    # ---------------- Target Temperature (setpoint) ----------------  
     @property
     def target_temperature(self):
         return self._api.setpoint_eco_temp
