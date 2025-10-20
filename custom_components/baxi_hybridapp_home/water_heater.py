@@ -11,10 +11,39 @@ from .const import (
     DOMAIN, DATA_KEY_API,
     PARAM_ID_SETPOINT_COMFORT, PARAM_ID_SETPOINT_ECO,
 )
+from homeassistant.util import dt as dt_util
 
+# ---------------------------------------------------------
+# Classe base con helper comuni per Comfort/Eco
+# ---------------------------------------------------------
+class BaxiSanitaryBase:
+    #"""Metodi e utility comuni per entità Comfort/Eco."""
+
+    async def _log_put(self, mode: str, value: float):
+        #"""Scrive un evento nel registro attività (Logbook) e sul bus."""
+        await self.hass.services.async_call(
+            "logbook",
+            "log",
+            {
+                "name": f"Sanitario {mode}",
+                "message": f"impostato a {value:.0f}°C",
+                "entity_id": self.entity_id,
+            },
+            blocking=False,
+        )
+        # Evento personalizzato utile per automazioni
+        self.hass.bus.async_fire(
+            "baxi_hybridapp_put",
+            {
+                "entity_id": self.entity_id,
+                "mode": mode,
+                "value": value,
+                "when": dt_util.utcnow().isoformat(),
+            },
+        )
 
 # COMFORT
-class BaxiSanitaryComfort(WaterHeaterEntity):
+class BaxiSanitaryComfort(BaxiSanitaryBase, WaterHeaterEntity):
     """
     Entità Comfort
     """
@@ -115,8 +144,11 @@ class BaxiSanitaryComfort(WaterHeaterEntity):
             self._api.setpoint_comfort_temp = new_t
             self.async_write_ha_state()
 
+            mode = "comfort" 
+            await self._log_put(mode, new_t) # vedi nelle attività
+
             # 2) Grace period per dare tempo al backend Baxi di persistere
-            await asyncio.sleep(4)
+            await asyncio.sleep(8)
 
             # 3) Poi rinfresca dal cloud (ora coerente)
             await self._coordinator.async_request_refresh()
@@ -143,7 +175,7 @@ class BaxiSanitaryComfort(WaterHeaterEntity):
 
 
 # ECO
-class BaxiSanitaryEco(WaterHeaterEntity):
+class BaxiSanitaryEco(BaxiSanitaryBase, WaterHeaterEntity):
     """
     Entità Eco
     """
@@ -243,8 +275,11 @@ class BaxiSanitaryEco(WaterHeaterEntity):
             self._api.setpoint_eco_temp = new_t
             self.async_write_ha_state()
 
+            mode = "eco" 
+            await self._log_put(mode, new_t) # vedi nelle attività
+
             # 2) Grace period per dare tempo al backend Baxi di persistere
-            await asyncio.sleep(4)
+            await asyncio.sleep(8)
 
             # 3) Poi rinfresca dal cloud (ora coerente)
             await self._coordinator.async_request_refresh()
