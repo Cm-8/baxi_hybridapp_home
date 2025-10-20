@@ -86,5 +86,33 @@
         "device_class": null
       }
     }
+  },
+  "device_automation": {
+    "action_type": {
+      "set_comfort": "Imposta Sanitario Comfort",
+      "set_eco": "Imposta Sanitario Eco"
+    }
+  },
+  "services": {
+    "set_comfort": {
+      "name": "Imposta Sanitario Comfort",
+      "description": "Imposta la temperatura dell’acqua sanitaria in modalità Comfort (°C).",
+      "fields": {
+        "value": {
+          "name": "Temperatura",
+          "description": "Valore desiderato per la temperatura comfort (30–52 °C)."
+        }
+      }
+    },
+    "set_eco": {
+      "name": "Imposta Sanitario Eco",
+      "description": "Imposta la temperatura dell’acqua sanitaria in modalità Eco (°C).",
+      "fields": {
+        "value": {
+          "name": "Temperatura",
+          "description": "Valore desiderato per la temperatura eco (30–52 °C)."
+        }
+      }
+    }
   }
 }

@@ -10,6 +10,7 @@ import asyncio
 from .const import (
     DOMAIN, DATA_KEY_API,
     PARAM_ID_SETPOINT_COMFORT, PARAM_ID_SETPOINT_ECO,
+    SANITARY_MIN_TEMP, SANITARY_MAX_TEMP,
 )
 from homeassistant.util import dt as dt_util
 
@@ -71,12 +72,11 @@ class BaxiSanitaryComfort(BaxiSanitaryBase, WaterHeaterEntity):
 
     @property
     def min_temp(self):
-        return 30
+        return SANITARY_MIN_TEMP
 
     @property
     def max_temp(self):
-        # richiesto: max 52°C
-        return 52
+        return SANITARY_MAX_TEMP
 
     def _current_mode(self) -> str:
         """eco|comfort (usa override locale se impostato, altrimenti lo stato calcolato)."""
@@ -203,12 +203,11 @@ class BaxiSanitaryEco(BaxiSanitaryBase, WaterHeaterEntity):
 
     @property
     def min_temp(self):
-        return 30
+        return SANITARY_MIN_TEMP
 
     @property
     def max_temp(self):
-        # richiesto: max 52°C
-        return 52
+        return SANITARY_MAX_TEMP
 
     def _current_mode(self) -> str:
         """eco|comfort (usa override locale se impostato, altrimenti lo stato calcolato)."""

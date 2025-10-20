@@ -6,7 +6,12 @@ TENANT = 'baxi'
 
 DEV_BROWSER = "Mozilla/5.0"
 DEV_MODEL = "sdk_gphone64_x86_64"
+PLATFORM = "Android"
 
 # Parameter IDs
 PARAM_ID_SETPOINT_COMFORT = "5bec6274dbdf4f0008a6e012"
 PARAM_ID_SETPOINT_ECO     = "5bec6275dbdf4f0008a6e013"
+
+# Sanitary temperature limits
+SANITARY_MIN_TEMP = 30
+SANITARY_MAX_TEMP = 52

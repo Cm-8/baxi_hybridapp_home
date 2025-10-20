@@ -8,9 +8,9 @@
   "integration_type": "device",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/Cm-8/baxi_hybridapp_home/issues",
-  "requirements": [],
+  "requirements": ["requests>=2.31.0"],
   "single_config_entry": true,
-  "version": "0.2.6"
+  "version": "0.2.7"
 }
 
 

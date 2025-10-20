@@ -2,10 +2,9 @@ import requests
 import json
 from datetime import datetime, time, timedelta
 import logging
-# import pytz # sostituito pytx con zoneinfo
 from zoneinfo import ZoneInfo
 from urllib.parse import quote_plus
-from .const import APIKEY, TENANT, DEV_BROWSER, DEV_MODEL
+from .const import APIKEY, TENANT, DEV_BROWSER, DEV_MODEL, PLATFORM
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,7 +65,7 @@ class BaxiHybridAppAPI:
             "devices": [{
                 "deviceId": "d26611220fb0ca70",
                 "model": DEV_MODEL,
-                "platform": "Android",
+                "platform": PLATFORM,
                 "platformVersion": "12",
                 "browser": DEV_BROWSER,
                 "notificationDeviceId": "dummy"
@@ -467,7 +466,6 @@ class BaxiHybridAppAPI:
         Il resto del tempo (start=null) è Eco, da cui estraiamo eventuale setpoint eco.
         """
         # Timezone: Europa/Roma (puoi cambiarla se preferisci leggere quella di HA)
-        # tz = pytz.timezone("Europe/Rome") # sostituito pytx con zoneinfo
         tz = ZoneInfo("Europe/Rome")
         now_dt = now_dt.astimezone(tz) if now_dt else datetime.now(tz)
 
@@ -511,14 +509,11 @@ class BaxiHybridAppAPI:
 
             # costruisci segmenti pieni 00:00-24:00
             day_date = now_dt.date()  # useremo solo l'orario; la data non importa per "oggi"
-            # start_cursor = datetime.combine(day_date, time(0, 0), tz) # sostituito pytx con zoneinfo
             start_cursor = datetime.combine(day_date, time(0, 0), tzinfo=tz)
 
             segments = []
             for (c_start_t, c_end_t) in comfort_ranges:
-                # c_start = datetime.combine(day_date, c_start_t, tz) # sostituito pytx con zoneinfo
                 c_start = datetime.combine(day_date, c_start_t, tzinfo=tz)
-                # c_end = datetime.combine(day_date, c_end_t, tz) # sostituito pytx con zoneinfo
                 c_end = datetime.combine(day_date, c_end_t, tzinfo=tz)
                 # eco prima della fascia comfort (se c'è gap)
                 if c_start > start_cursor:
@@ -528,7 +523,6 @@ class BaxiHybridAppAPI:
                     segments.append({"start": c_start, "end": c_end, "mode": "Comfort"})
                 start_cursor = max(start_cursor, c_end)
             # coda Eco fino a 24:00
-            # end_of_day = datetime.combine(day_date, time(23, 59, 59), tz) + timedelta(seconds=1) # sostituito pytx con zoneinfo
             end_of_day = datetime.combine(day_date, time(23, 59, 59), tzinfo=tz) + timedelta(seconds=1)
             if start_cursor < end_of_day:
                 segments.append({"start": start_cursor, "end": end_of_day, "mode": "Eco"})
@@ -642,18 +636,4 @@ class BaxiHybridAppAPI:
         except Exception as e:
             _LOGGER.exception("❌ Eccezione nella PUT parametro %s: %s", parameter_id, e)
             return False
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

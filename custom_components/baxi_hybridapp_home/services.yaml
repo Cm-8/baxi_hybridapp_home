@@ -1,0 +1,33 @@
+set_comfort:
+  name: Imposta Sanitario Comfort
+  description: Imposta la temperatura dell’acqua sanitaria in modalità Comfort (°C).
+  fields:
+    value:
+      name: Temperatura
+      description: Valore desiderato per la temperatura comfort (30–52 °C).
+      required: true
+      example: 45
+      selector:
+        number:
+          min: 30
+          max: 52
+          step: 1
+          mode: slider
+          unit_of_measurement: "°C"
+
+set_eco:
+  name: Imposta Sanitario Eco
+  description: Imposta la temperatura dell’acqua sanitaria in modalità Eco (°C).
+  fields:
+    value:
+      name: Temperatura
+      description: Valore desiderato per la temperatura eco (30–52 °C).
+      required: true
+      example: 40
+      selector:
+        number:
+          min: 30
+          max: 52
+          step: 1
+          mode: slider
+          unit_of_measurement: "°C"
