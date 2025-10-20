@@ -28,27 +28,46 @@ This extension is only compatible with devices:
 
 This integration provides the following sensors:
 
-🌡️ Temperature Sensors
-- External Temperature
-- Internal Temperature
-- Boiler Flow Temperature
-- DHW Storage Temperature
-- DHW Auxiliary Storage Temperature
-- PDC Exit Temperature
-- PDC Return Temperature
-- Sanitary Setpoint Instantaneous
-- Sanitary Setpoint Comfort
-- Sanitary Setpoint Eco
+**🌡️ Temperature Sensors**
+- **External Temperature** — ambient outdoor temperature
+- **Internal Temperature** — indoor room temperature (if available)
+- **Boiler Flow Temperature** — heating circuit flow temperature
+- **Boiler Return Temperature** — heating circuit return temperature
+- **DHW Storage Temperature** — domestic hot water storage temperature
+- **DHW Auxiliary Storage Temperature** — auxiliary tank temperature
+- **PDC Exit Temperature** — heat pump outlet temperature
+- **PDC Return Temperature** — heat pump return temperature
+- **Sanitary Setpoint Instantaneous** — current target DHW temperature
+- **Sanitary Setpoint Comfort** — comfort mode setpoint
+- **Sanitary Setpoint Eco** — eco mode setpoint
 
-🧭 Mode / Status Sensors
-- System Mode
-- Season Mode
-- Sanitary Mode On
+**🧭 Mode / Status Sensors**
+- **System Mode** — current system state (e.g., Standby, Heating, Cooling)
+- **Season Mode** — current seasonal configuration (Winter, Summer)
+- **Sanitary Mode On** — indicates if sanitary mode is active
+- **Scheduler Status** — indicates if DHW scheduler is active or in error
+- **Scheduler Raw JSON** — raw data used for diagnostic and automation parsing
+- **Flame Status** — shows if boiler flame is currently active
+- **Compressor Status** — shows if heat pump compressor is running
 
-💧 Pressure Sensor
-- Water Pressure
+**💧 Pressure Sensor**
+- **Water Pressure** — hydraulic circuit pressure (in bar)
 
-Data is fetched from the Baxi cloud every 5 minutes via polling.
+**🔘 Control Entities**
+- **Water Heater – Comfort Setpoint** — adjustable DHW comfort temperature
+- **Water Heater – Eco Setpoint** — adjustable DHW eco temperature
+- **Buttons / Actions** — triggerable service calls:
+  - **set_comfort** — set new comfort temperature
+  - **set_eco** — set new eco temperature
+
+**⚙️ Coordinator & Update**
+- Data is fetched from the Baxi Servitly Cloud API every **10 minutes** via polling
+- Smart error handling and logging for unavailable data
+- Async-compatible API layer (BaxiHybridAppAPI) with rate-limit protection
+- Data is fetched from the Baxi cloud every 10 minutes via polling.
+
+**🧩 Planned / Experimental**
+- Support for **Heating/Cooling** setpoints (climate entity)
 
 ---
 
