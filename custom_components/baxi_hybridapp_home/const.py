@@ -1,3 +1,9 @@
+"""
+Constants for Baxi Hybrid App custom integration for Home Assistant.
+
+custom_components/baxi_hybridapp_home/const.py
+"""
+
 DOMAIN = "baxi_hybridapp_home"
 DATA_KEY_API = "api"
 

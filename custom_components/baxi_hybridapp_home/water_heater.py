@@ -1,4 +1,9 @@
-# custom_components/baxi_hybridapp_home/water_heater.py
+"""
+Water heater platform for Baxi Hybrid App custom integration for Home Assistant.
+
+custom_components/baxi_hybridapp_home/water_heater.py
+"""
+
 from __future__ import annotations
 
 from homeassistant.components.water_heater import (

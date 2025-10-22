@@ -1,3 +1,9 @@
+"""
+Config flow for Baxi Hybrid App custom integration for Home Assistant.
+
+custom_components/baxi_hybridapp_home/config_flow.py
+"""
+
 from homeassistant import config_entries
 import voluptuous as vol
 from .const import DOMAIN

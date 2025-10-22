@@ -1,3 +1,9 @@
+"""
+Sensor platform for Baxi Hybrid App custom integration for Home Assistant.
+
+custom_components/baxi_hybridapp_home/sensor.py
+"""
+
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
 from homeassistant.const import UnitOfTemperature, UnitOfPressure
 from homeassistant.helpers.update_coordinator import CoordinatorEntity

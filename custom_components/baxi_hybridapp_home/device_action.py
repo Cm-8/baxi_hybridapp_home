@@ -1,4 +1,9 @@
-# custom_components/baxi_hybridapp_home/device_action.py
+"""
+Device action for Baxi Hybrid App custom integration for Home Assistant.
+
+custom_components/baxi_hybridapp_home/device_action.py
+"""
+
 from __future__ import annotations
 
 from typing import Any

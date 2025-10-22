@@ -1,3 +1,8 @@
+"""
+Button platform for Baxi Hybrid App custom integration.
+
+"""
+
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
 from homeassistant.helpers.entity import EntityCategory
 from .const import DOMAIN, DATA_KEY_API

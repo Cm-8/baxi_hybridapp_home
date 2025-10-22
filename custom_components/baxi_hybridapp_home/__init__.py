@@ -1,3 +1,11 @@
+"""
+Custom integration for Baxi Hybrid App devices with Home Assistant.
+For more details about this integration, please refer to
+https://github.com/Cm-8/baxi_hybridapp_home
+
+custom_components/baxi_hybridapp_home/_init_.py
+"""
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator

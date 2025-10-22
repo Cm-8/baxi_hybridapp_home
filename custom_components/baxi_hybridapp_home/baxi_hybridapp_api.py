@@ -1,3 +1,9 @@
+"""
+API client for Baxi Hybrid App custom integration for Home Assistant.
+
+custom_components/baxi_hybridapp_home/baxi_hybridapp_api.py
+"""
+
 import requests
 import json
 from datetime import datetime, time, timedelta
