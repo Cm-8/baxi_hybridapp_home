@@ -57,6 +57,8 @@ class BaxiHybridAppAPI:
         self.season_mode_timestamp = None
         self.flame_status = None
         self.flame_status_timestamp = None
+        self.system_operation_icon = None
+        self.system_operation_icon_timestamp = None
         self.sanitary_scheduler_raw = None           # JSON string proveniente dall’API
         self.sanitary_mode_now = None                # "Comfort" | "Eco"
         self.sanitary_next_change = None             # datetime (tz-aware) del prossimo cambio
@@ -442,6 +444,27 @@ class BaxiHybridAppAPI:
             self.flame_status_timestamp = None
             _LOGGER.warning("⚠️ Parsing fallito (Flame status): %s — response 📦: %s", e, json.dumps(data)[:300])
             _LOGGER.debug("📦 Contenuto data (Flame status): %s", data)
+
+    def fetch_system_operation_icon(self):
+        data = self._make_request(self._metric_url("Icona funzionamento sistema"))
+        if not data:
+            return
+        try:
+            item = data["data"][0]
+            raw = str(item["values"][0]["value"]).strip().lower()
+            mapping = {
+                "0": "Off", "1": "On",
+                "false": "Off", "true": "On"
+            }
+            self.system_operation_icon = item["values"][0]["value"]
+            self.system_operation_icon_timestamp = item["timestamp"]
+            _LOGGER.info("💡 Icona Funzionamento Sistema: %s (raw=%s)", self.system_operation_icon, raw)
+        except (KeyError, IndexError, ValueError) as e:
+            # Azzera il campo, warning + debug 'data'
+            self.system_operation_icon = None
+            self.system_operation_icon_timestamp = None
+            _LOGGER.warning("⚠️ Parsing fallito (Icona Funzionamento Sistema): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (Icona Funzionamento Sistema): %s", data)
 
     def fetch_sanitary_scheduler(self):
         data = self._make_request(self._metric_url("Schedulatore - Sanitario"))

@@ -313,6 +313,36 @@ class FlameStatusSensor(BaxiBaseSensor):
     @property
     def state_class(self):
         return None
+    
+class SystemOperationIcon(BaxiBaseSensor):
+    _attr_state_class = None  # non è una misura
+
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Icona Funzionamento Sistema",
+            unique_id="baxi_system_operation_icon",
+            value_key="system_operation_icon",
+            unit=None,
+            device_class=None,
+            icon="mdi:information-outline"
+        )
+        self._attr_native_unit_of_measurement = None
+        self._attr_device_class = None
+
+    @property
+    def native_value(self):
+        return getattr(self._api, self._value_key)
+
+    @property
+    def icon(self):
+        val = (getattr(self._api, self._value_key) or "").lower()
+        return "mdi:information-outline" if val == "on" else "mdi:information-outline"
+
+    @property
+    def state_class(self):
+        return None
 
 class SanitaryScheduleStateSensor(BaxiBaseSensor, SensorEntity):
     def __init__(self, coordinator, api):
@@ -394,6 +424,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         SetpointComfortTempSensor(coordinator, api),
         SetpointEcoTempSensor(coordinator, api),
         FlameStatusSensor(coordinator, api),
+        SystemOperationIcon(coordinator, api),
         SanitaryScheduleStateSensor(coordinator, api)
     ]
     async_add_entities(sensors)
