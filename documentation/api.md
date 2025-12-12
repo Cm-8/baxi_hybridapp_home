@@ -74,7 +74,43 @@ _Response:_
 1
 ```
 
-## _Data Endpoints:_
+## _Metrics Endpoints:_
+<sup> Ref: https://learn.servitly.com/apidocs/get-metrics-by-thing-definition?highlight=thingDefinitionId </sup>
+> [!NOTE]
+> Each of the following sections gives an example of the output for the different endpoints.
+
+
+### GET `/inventory/thingDefinitions/{{thingDefinitionId}}/metrics`
+<sup>This endpoint is used to get the list of available metrics.</sup>
+
+Response:
+```json
+[
+    {
+        "id": "5a8ed957a0526200097caed7",
+        "tenantId": {{tenantId}},
+        "name": "Pressione impianto",
+        "label": "Pressione impianto",
+        "unit": "bar",
+        "valueType": "STRING",
+        "thingDefinition": {},
+        "mapping": {
+            "path": "measures",
+            "name": "P02A2331",
+            "valueTransformer": {},
+            "connectionStatusMode": null
+        },
+        "functionInputs": false,
+        "type": "SIMPLE",
+        "samplingReset": false,
+        "dictionary": [],
+        "consecutiveEqualValuesDiscarded": true,
+        "metricSetIds": []
+    }
+]
+```
+
+## _Data Endpoints - Metric Values:_
 <sup> Ref: https://learn.servitly.com/apidocs/get-thing-metric-value </sup>
 > [!NOTE]
 > Each of the following sections gives an example of the output for the different endpoints.
