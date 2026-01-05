@@ -52,6 +52,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         await hass.async_add_executor_job(api.fetch_season_mode)
         await hass.async_add_executor_job(api.fetch_flame_status)
         await hass.async_add_executor_job(api.fetch_system_operation_icon)
+        # inizio nuovi fetch caldaia
+        await hass.async_add_executor_job(api.fetch_status_boiler)
+        await hass.async_add_executor_job(api.fetch_status_pdc)
+        await hass.async_add_executor_job(api.fetch_power_boiler)
+        await hass.async_add_executor_job(api.fetch_power_pdc)
+        await hass.async_add_executor_job(api.fetch_system_operation_mode)
+        await hass.async_add_executor_job(api.fetch_sanitary_request_status)
+        # fine nuovi fetch caldaia
         await hass.async_add_executor_job(api.fetch_sanitary_scheduler)
         return True
 

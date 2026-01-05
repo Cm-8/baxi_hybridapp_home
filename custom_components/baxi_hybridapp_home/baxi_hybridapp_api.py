@@ -10,7 +10,7 @@ from datetime import datetime, time, timedelta
 import logging
 from zoneinfo import ZoneInfo
 from urllib.parse import quote_plus
-from .const import APIKEY, TENANT, DEV_BROWSER, DEV_MODEL, PLATFORM
+from .const import APIKEY, TENANT, DEV_BROWSER, DEV_MODEL, DEV_ID, PLATFORM
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,6 +25,9 @@ class BaxiHybridAppAPI:
         self.token = None
         self.refreshToken = None
         self.thingId = None
+        self.thingModel = None
+        self.thingSwVersion = None
+        self.thingFirmware = None
         self.temp_ext = None
         self.temp_ext_timestamp = None
         self.temp_int = None
@@ -59,6 +62,20 @@ class BaxiHybridAppAPI:
         self.flame_status_timestamp = None
         self.system_operation_icon = None
         self.system_operation_icon_timestamp = None
+        # inizio nuovi sensori caldaia
+        self.status_boiler = None
+        self.status_boiler_timestamp = None
+        self.status_pdc = None
+        self.status_pdc_timestamp = None
+        self.power_boiler = None
+        self.power_boiler_timestamp = None
+        self.power_pdc = None
+        self.power_pdc_timestamp = None
+        self.system_operation_mode = None
+        self.system_operation_mode_timestamp = None
+        self.sanitary_request_status = None
+        self.sanitary_request_status_timestamp = None
+        # fine nuovi sensori caldaia
         self.sanitary_scheduler_raw = None           # JSON string proveniente dall’API
         self.sanitary_mode_now = None                # "Comfort" | "Eco"
         self.sanitary_next_change = None             # datetime (tz-aware) del prossimo cambio
@@ -71,7 +88,7 @@ class BaxiHybridAppAPI:
             "email": self.username,
             "password": self.password,
             "devices": [{
-                "deviceId": "d26611220fb0ca70",
+                "deviceId": DEV_ID,
                 "model": DEV_MODEL,
                 "platform": PLATFORM,
                 "platformVersion": "12",
@@ -123,7 +140,14 @@ class BaxiHybridAppAPI:
                 content = data.get("content", [])
                 
                 self.thingId = content[0].get("id") if content else None
+                self.thingModel = content[0].get("thingDefinition", {}).get("name") if content else None
+                self.thingSwVersion = content[0].get("properties", {}).get("versione_software_msc") if content else None
+                self.thingFirmware = content[0].get("properties", {}).get("firmware") if content else None
+
                 _LOGGER.info("✅ Thing ID ottenuto: %s", self.thingId)
+                _LOGGER.info("✅ Model ottenuto: %s", self.thingModel)
+                _LOGGER.info("✅ SwVersion ottenuto: %s", self.thingSwVersion)
+                _LOGGER.info("✅ Firmware ottenuto: %s", self.thingFirmware)
                 return self.thingId
             else:
                 _LOGGER.error("❌ Questo Account Baxi non ha un impianto(ThingId) associato: %s", response.text)
@@ -232,8 +256,8 @@ class BaxiHybridAppAPI:
             # 0 = Spento, 1 = Acceso
             mapping = {
                 "0": "Off",
-                "0_1": "On 0_1",
-                "1": "On 1",
+                "0_1": "On",
+                "1": "On",
             }
             self.sanitary_on = mapping.get(raw, f"Sconosciuto ({raw})")
             self.sanitary_on_timestamp = item["timestamp"]
@@ -465,6 +489,115 @@ class BaxiHybridAppAPI:
             self.system_operation_icon_timestamp = None
             _LOGGER.warning("⚠️ Parsing fallito (Icona Funzionamento Sistema): %s — response 📦: %s", e, json.dumps(data)[:300])
             _LOGGER.debug("📦 Contenuto data (Icona Funzionamento Sistema): %s", data)
+
+# Inizio Sensori Aggiuntivi Caldaia
+    def fetch_status_boiler(self):
+        data = self._make_request(self._metric_url("Stato caldaia"))
+        if not data:
+            return
+        try:
+            item = data["data"][0]
+            raw = str(item["values"][0]["value"]).strip().lower()
+            mapping = {
+                "0": "Off", "1": "On",
+                "false": "Off", "true": "On"
+            }
+            self.status_boiler = item["values"][0]["value"]
+            self.status_boiler_timestamp = item["timestamp"]
+            _LOGGER.info("🌡️ Status boiler: %s", self.status_boiler)
+        except (KeyError, IndexError, ValueError) as e:
+            # Azzera il campo, warning + debug 'data'
+            self.status_boiler = None
+            self.status_boiler_timestamp = None
+            _LOGGER.warning("⚠️ Parsing fallito (Stato caldaia): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (Stato caldaia): %s", data)
+
+    def fetch_status_pdc(self):
+        data = self._make_request(self._metric_url("Stato PDC"))
+        if not data:
+            return
+        try:
+            item = data["data"][0]
+            raw = str(item["values"][0]["value"]).strip().lower()
+            mapping = {
+                "0": "Off", "1": "On",
+                "false": "Off", "true": "On"
+            }
+            self.status_pdc = item["values"][0]["value"]
+            self.status_pdc_timestamp = item["timestamp"]
+            _LOGGER.info("🌡️ Status PDC: %s", self.status_pdc)
+        except (KeyError, IndexError, ValueError) as e:
+            # Azzera il campo, warning + debug 'data'
+            self.status_pdc = None
+            self.status_pdc_timestamp = None
+            _LOGGER.warning("⚠️ Parsing fallito (Stato PDC): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (Stato PDC): %s", data)
+
+    def fetch_power_boiler(self):
+        data = self._make_request(self._metric_url("Potenza caldaia - istantanea"))
+        if not data:
+            return
+        try:
+            item = data["data"][0]
+            self.power_boiler = float(item["values"][0]["value"])
+            self.power_boiler_timestamp = item["timestamp"]
+            _LOGGER.info("🌡️ Power boiler: %s", self.power_boiler)
+        except (KeyError, IndexError, ValueError) as e:
+            # Azzera il campo, warning + debug 'data'
+            self.power_boiler = None
+            self.power_boiler_timestamp = None
+            _LOGGER.warning("⚠️ Parsing fallito (Potenza caldaia): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (Potenza caldaia): %s", data)
+
+    def fetch_power_pdc(self):
+        data = self._make_request(self._metric_url("Potenza PDC - istantanea"))
+        if not data:
+            return
+        try:
+            item = data["data"][0]
+            self.power_pdc = float(item["values"][0]["value"])
+            self.power_pdc_timestamp = item["timestamp"]
+            _LOGGER.info("🌡️ Power PDC: %s", self.power_pdc)
+        except (KeyError, IndexError, ValueError) as e:
+            # Azzera il campo, warning + debug 'data'
+            self.power_pdc = None
+            self.power_pdc_timestamp = None
+            _LOGGER.warning("⚠️ Parsing fallito (Potenza PDC): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (Potenza PDC): %s", data)
+
+    def fetch_system_operation_mode(self):
+        data = self._make_request(self._metric_url("Modo funzionamento sistema"))
+        if not data:
+            return
+        try:
+            item = data["data"][0]
+            self.system_operation_mode = float(item["values"][0]["value"])
+            self.system_operation_mode_timestamp = item["timestamp"]
+            _LOGGER.info("🌡️ System operation mode: %s", self.system_operation_mode)
+        except (KeyError, IndexError, ValueError) as e:
+            # Azzera il campo, warning + debug 'data'
+            self.system_operation_mode = None
+            self.system_operation_mode_timestamp = None
+            _LOGGER.warning("⚠️ Parsing fallito (Modo funzionamento sistema): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (Modo funzionamento sistema): %s", data)
+
+    def fetch_sanitary_request_status(self):
+        data = self._make_request(self._metric_url("Stato richiesta sanitario"))
+        if not data:
+            return
+        try:
+            item = data["data"][0]
+            self.sanitary_request_status = float(item["values"][0]["value"])
+            self.sanitary_request_status_timestamp = item["timestamp"]
+            _LOGGER.info("🌡️ Sanitary request status: %s", self.sanitary_request_status)
+        except (KeyError, IndexError, ValueError) as e:
+            # Azzera il campo, warning + debug 'data'
+            self.sanitary_request_status = None
+            self.sanitary_request_status_timestamp = None
+            _LOGGER.warning("⚠️ Parsing fallito (Stato richiesta sanitario): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug("📦 Contenuto data (Stato richiesta sanitario): %s", data)
+
+# Fine Sensori Aggiuntivi Caldaia
 
     def fetch_sanitary_scheduler(self):
         data = self._make_request(self._metric_url("Schedulatore - Sanitario"))

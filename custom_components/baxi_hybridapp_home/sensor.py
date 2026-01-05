@@ -5,7 +5,7 @@ custom_components/baxi_hybridapp_home/sensor.py
 """
 
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
-from homeassistant.const import UnitOfTemperature, UnitOfPressure
+from homeassistant.const import UnitOfTemperature, UnitOfPressure, PERCENTAGE
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 from .const import DOMAIN, DATA_KEY_API
@@ -34,9 +34,13 @@ class BaxiBaseSensor(CoordinatorEntity, SensorEntity):
     def device_info(self):
         return {
             "identifiers": {(DOMAIN, "baxi_hybridapp_home")},
-            "name": "Baxi HybridApp Home",
-            "manufacturer": "Baxi",
-            "model": "HybridApp Home",
+            "name": "Baxi HybridApp Home",                      # Nome generico del dispositivo o dell'estensione
+            "manufacturer": "Baxi",                             # Casa produttrice  
+            "model": self._api.thingModel or "HybridApp",       # Modello del dispositivo old: "HybridApp Home"
+            "model_id": self._api.thingModel,                   # ID modello
+            "serial_number": "n.d.",                            # Numero di serie
+            "hw_version": "n.d.",                               # Versione hardware
+            "sw_version" : self._api.thingFirmware,             # Versione firmware
         }
 
     @property
@@ -194,7 +198,7 @@ class SanitaryOnSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Sanitario On",
+            name="Sanitario",
             unique_id="baxi_sanitary_on",
             value_key="sanitary_on",
             unit=None,
@@ -344,6 +348,173 @@ class SystemOperationIcon(BaxiBaseSensor):
     def state_class(self):
         return None
 
+# Inizio nuovi sensori caldaia
+class StatusBoiler(BaxiBaseSensor):
+    _attr_state_class = None  # non è una misura
+
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Stato caldaia",
+            unique_id="baxi_status_boiler",
+            value_key="status_boiler",
+            unit=None,
+            device_class=None,
+            icon="mdi:water-boiler"
+        )
+        self._attr_native_unit_of_measurement = None
+        self._attr_device_class = None
+
+    @property
+    def native_value(self):
+        return getattr(self._api, self._value_key)
+
+    @property
+    def icon(self):
+        val = (getattr(self._api, self._value_key) or "").lower()
+        return "mdi:water-boiler" if val == "on" else "mdi:water-boiler-off"
+
+    @property
+    def state_class(self):
+        return None
+
+class StatusPDC(BaxiBaseSensor):
+    _attr_state_class = None  # non è una misura
+
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Stato PDC",
+            unique_id="baxi_status_pdc",
+            value_key="status_pdc",
+            unit=None,
+            device_class=None,
+            icon="mdi:heat-pump"
+        )
+        self._attr_native_unit_of_measurement = None
+        self._attr_device_class = None
+
+    @property
+    def native_value(self):
+        return getattr(self._api, self._value_key)
+
+    @property
+    def icon(self):
+        val = (getattr(self._api, self._value_key) or "").lower()
+        return "mdi:heat-pump" if val == "on" else "mdi:heat-pump-outline"
+
+    @property
+    def state_class(self):
+        return None
+    
+class PowerBoiler(BaxiBaseSensor):
+    _attr_state_class = SensorStateClass.MEASUREMENT # percentuale
+
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Potenza Caldaia",
+            unique_id="baxi_power_boiler",
+            value_key="power_boiler",
+            unit=PERCENTAGE,
+            device_class=SensorDeviceClass.POWER_FACTOR,  # usa %
+            icon="mdi:fire"
+        )
+
+    @property
+    def native_value(self):
+        raw = getattr(self._api, self._value_key, None)
+        if raw is None:
+            return None
+
+        if isinstance(raw, (int, float)):
+            val = float(raw)
+        else:
+            s = str(raw).strip().lower().replace("%", "").replace(",", ".")
+            # se ti arrivano on/off
+            if s in {"on", "true"}:
+                return 100
+            if s in {"off", "false"}:
+                return 0
+            try:
+                val = float(s)
+            except ValueError:
+                return None
+
+        # clamp 0..100
+        val = max(0.0, min(100.0, val))
+        return int(val) if val.is_integer() else round(val, 1)
+
+    @property
+    def icon(self):
+        val = self.native_value
+        if val is None:
+            return "mdi:fire-off"
+        return "mdi:fire" if val > 0 else "mdi:heat-pump-outline"
+
+class PowerPDC(BaxiBaseSensor):
+    _attr_state_class = SensorStateClass.MEASUREMENT # percentuale
+
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Potenza PDC",
+            unique_id="baxi_power_pdc",
+            value_key="power_pdc",
+            unit=PERCENTAGE,
+            device_class=SensorDeviceClass.POWER_FACTOR,  # usa %
+            icon="mdi:fire"
+        )
+
+    @property
+    def native_value(self):
+        raw = getattr(self._api, self._value_key, None)
+        if raw is None:
+            return None
+
+        if isinstance(raw, (int, float)):
+            val = float(raw)
+        else:
+            s = str(raw).strip().lower().replace("%", "").replace(",", ".")
+            # se ti arrivano on/off
+            if s in {"on", "true"}:
+                return 100
+            if s in {"off", "false"}:
+                return 0
+            try:
+                val = float(s)
+            except ValueError:
+                return None
+
+        # clamp 0..100
+        val = max(0.0, min(100.0, val))
+        return int(val) if val.is_integer() else round(val, 1)
+
+    @property
+    def icon(self):
+        val = self.native_value
+        if val is None:
+            return "mdi:heat-pump-outline"
+        return "mdi:percent" if val > 0 else "mdi:percent-box-outline"
+
+class SystemOperationMode(BaxiBaseSensor):
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Modo funzionamento sistema",
+            unique_id="baxi_system_operation_mode",
+            value_key="system_operation_mode",
+            unit=None,
+            device_class=None,
+            icon="mdi:target"
+        )
+
+# Sensor per la schedulazione del Schedulatore Sanitario
 class SanitaryScheduleStateSensor(BaxiBaseSensor, SensorEntity):
     def __init__(self, coordinator, api):
         super().__init__(
@@ -425,6 +596,13 @@ async def async_setup_entry(hass, entry, async_add_entities):
         SetpointEcoTempSensor(coordinator, api),
         FlameStatusSensor(coordinator, api),
         SystemOperationIcon(coordinator, api),
+        # Inizio nuovi sensori caldaia
+        StatusBoiler(coordinator, api),
+        StatusPDC(coordinator, api),
+        PowerBoiler(coordinator, api),
+        PowerPDC(coordinator, api),
+        SystemOperationMode(coordinator, api),
+        # fine nuovi sensori caldaia
         SanitaryScheduleStateSensor(coordinator, api)
     ]
     async_add_entities(sensors)
