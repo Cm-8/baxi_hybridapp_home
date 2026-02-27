@@ -7,10 +7,15 @@ custom_components/baxi_hybridapp_home/baxi_hybridapp_api.py
 import requests
 import json
 from datetime import datetime, time, timedelta
+from homeassistant.util import dt as dt_util
 import logging
 from zoneinfo import ZoneInfo
 from urllib.parse import quote_plus
-from .const import APIKEY, TENANT, DEV_BROWSER, DEV_MODEL, DEV_ID, PLATFORM
+from .const import (
+    APIKEY, TENANT, DEV_BROWSER, 
+    DEV_MODEL, DEV_ID, PLATFORM,
+    APPLIANCE_SENSOR_TYPES
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,6 +33,7 @@ class BaxiHybridAppAPI:
         self.thingModel = None
         self.thingSwVersion = None
         self.thingFirmware = None
+        self.serialNumber = None
         self.temp_ext = None
         self.temp_ext_timestamp = None
         self.temp_int = None
@@ -82,6 +88,16 @@ class BaxiHybridAppAPI:
         self.sanitary_today_summary = None           # "Comfort fino alle HH:MM" | "Eco fino alle HH:MM"
         self.sanitary_scheduler_status = None        # "ok" | "empty" | "error"
         self.setpoint_eco_fallback = None           # int/str se presente nel fallback ECO
+        # sensori energia
+        self.energia_totale_pdc = None
+        self.energia_totale_caldaia = None
+        self.energia_totale_resistenze = None
+        self.energia_totale_globale = None
+        self.energia_totale_globale_day = None
+        self.energia_parziale_caldaia = None
+        self.energia_parziale_pdc = None
+        self.energia_parziale_resistenze = None
+        self.energy_timestamp = {}
 
     def authenticate(self):
         payload = json.dumps({
@@ -140,14 +156,16 @@ class BaxiHybridAppAPI:
                 content = data.get("content", [])
                 
                 self.thingId = content[0].get("id") if content else None
-                self.thingModel = content[0].get("thingDefinition", {}).get("name") if content else None
+                self.thingModel = content[0].get("properties", {}).get("model") if content else None
                 self.thingSwVersion = content[0].get("properties", {}).get("versione_software_msc") if content else None
                 self.thingFirmware = content[0].get("properties", {}).get("firmware") if content else None
+                self.serialNumber = content[0].get("serialNumber") if content else None
 
                 _LOGGER.info("✅ Thing ID ottenuto: %s", self.thingId)
                 _LOGGER.info("✅ Model ottenuto: %s", self.thingModel)
                 _LOGGER.info("✅ SwVersion ottenuto: %s", self.thingSwVersion)
                 _LOGGER.info("✅ Firmware ottenuto: %s", self.thingFirmware)
+                _LOGGER.info("✅ serialNumber ottenuto: %s", self.serialNumber)
                 return self.thingId
             else:
                 _LOGGER.error("❌ Questo Account Baxi non ha un impianto(ThingId) associato: %s", response.text)
@@ -599,6 +617,55 @@ class BaxiHybridAppAPI:
 
 # Fine Sensori Aggiuntivi Caldaia
 
+# 🔴 Sensori energia
+    def fetch_energy_metrics(self):
+        """
+        Legge tutte le metriche energia definite in APPLIANCE_SENSOR_TYPES.
+        Salva i valori su self.<key> e (opzionale) i timestamp su self.energy_timestamp[key].
+        """
+        for desc in APPLIANCE_SENSOR_TYPES:
+            try:
+                data = self._make_request(self._metric_url(desc.metric_name))
+                if not data:
+                    setattr(self, desc.key, None)
+                    self.energy_timestamp[desc.key] = None
+                    continue
+
+                item = data["data"][0]
+                raw_val = item["values"][0]["value"]
+                ts = item.get("timestamp")
+
+                # prova a convertire in float (Servitly spesso manda stringhe)
+                try:
+                    val = float(str(raw_val).replace(",", "."))
+                except (TypeError, ValueError):
+                    val = None
+
+                # ✅ WORKAROUND SOLO per "energia_totale_globale_day"
+                if val is not None and ts and desc.key == "energia_totale_globale_day":
+                    sample_local_date = datetime.fromtimestamp(
+                        ts / 1000, tz=dt_util.DEFAULT_TIME_ZONE
+                    ).date()
+                    today_local_date = dt_util.now().date()
+                
+                    # Se il campione non è di oggi, forza 0 finché non arriva il nuovo giorno
+                    if sample_local_date != today_local_date:
+                        val = 0.0
+
+                setattr(self, desc.key, val)
+                self.energy_timestamp[desc.key] = ts
+
+                _LOGGER.debug("⚡ %s = %s kWh at %s", desc.metric_name, val, ts)
+
+            except (KeyError, IndexError, TypeError) as e:
+                setattr(self, desc.key, None)
+                self.energy_timestamp[desc.key] = None
+                _LOGGER.warning(
+                    "⚠️ Parsing fallito (energia: %s): %s — response 📦: %s",
+                    desc.metric_name, e, json.dumps(data)[:300] if 'data' in locals() and data else "None"
+                )
+
+
     def fetch_sanitary_scheduler(self):
         data = self._make_request(self._metric_url("Schedulatore - Sanitario"))
         if not data:
@@ -743,7 +810,7 @@ class BaxiHybridAppAPI:
 
 
 
-    # API di scrittura (PUT)
+    # 🔴🔴 API di scrittura (PUT)
     def set_configuration_parameter(self, parameter_id: str, value: float | int | str):
         """
         Esegue una chiamata PUT per aggiornare un parametro configurabile

@@ -8,7 +8,9 @@ from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, Sen
 from homeassistant.const import UnitOfTemperature, UnitOfPressure, PERCENTAGE
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
-from .const import DOMAIN, DATA_KEY_API
+from homeassistant.util import slugify
+from datetime import datetime, timezone
+from .const import DOMAIN, DATA_KEY_API, APPLIANCE_SENSOR_TYPES
 
 class BaxiBaseSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator, api, name, unique_id, value_key, unit, device_class, icon):
@@ -21,6 +23,14 @@ class BaxiBaseSensor(CoordinatorEntity, SensorEntity):
         self._attr_device_class = device_class
         self._attr_state_class = SensorStateClass.MEASUREMENT
         self._attr_icon = icon
+        
+        #sensorName
+        prefix = "baxi"
+        serial_number = getattr(self._api, "serialNumber", None) or "unknown"
+        serial_slug = slugify(str(serial_number))
+        key_slug = slugify(str(value_key))
+
+        self._attr_suggested_object_id = f"{prefix}_{serial_slug}_{key_slug}"
 
     @property
     def name(self):
@@ -28,24 +38,25 @@ class BaxiBaseSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def available(self) -> bool:
-        return getattr(self._api, self._value_key) is not None
+        return getattr(self._api, self._value_key, None) is not None
 
     @property
     def device_info(self):
         return {
             "identifiers": {(DOMAIN, "baxi_hybridapp_home")},
-            "name": "Baxi HybridApp Home",                      # Nome generico del dispositivo o dell'estensione
-            "manufacturer": "Baxi",                             # Casa produttrice  
-            "model": self._api.thingModel or "HybridApp",       # Modello del dispositivo old: "HybridApp Home"
-            "model_id": self._api.thingModel,                   # ID modello
-            "serial_number": "n.d.",                            # Numero di serie
-            "hw_version": "n.d.",                               # Versione hardware
-            "sw_version" : self._api.thingFirmware,             # Versione firmware
+            "name": "Baxi HybridApp Home",                                   # Nome generico del dispositivo o dell'estensione
+            "manufacturer": "Baxi",                                          # Casa produttrice  
+            "model": getattr(self._api, "thingModel", None) or "HybridApp",  # Modello del dispositivo old: "HybridApp Home"
+            "model_id": getattr(self._api, "thingModel", None),              # ID modello
+            "serial_number": getattr(self._api, "serialNumber", None),       # Numero di serie
+            "hw_version": "n.d.",                                            # Versione hardware
+            "sw_version": getattr(self._api, "thingFirmware", None),         # Versione firmware
+            "configuration_url": "https://altuofianco.baxi.it/login",  
         }
 
     @property
     def native_value(self):
-        return getattr(self._api, self._value_key)
+        return getattr(self._api, self._value_key, None)
 
 class ExternalTemperatureSensor(BaxiBaseSensor):
     def __init__(self, coordinator, api):
@@ -212,7 +223,7 @@ class SanitaryOnSensor(BaxiBaseSensor):
     @property
     def native_value(self):
         # Restituisce la stringa "On" o "Off" già mappata dall’API
-        return getattr(self._api, self._value_key)
+        return getattr(self._api, self._value_key, None)
 
     @property
     def icon(self):
@@ -515,7 +526,7 @@ class SystemOperationMode(BaxiBaseSensor):
         )
 
 # Sensor per la schedulazione del Schedulatore Sanitario
-class SanitaryScheduleStateSensor(BaxiBaseSensor, SensorEntity):
+class SanitaryScheduleStateSensor(BaxiBaseSensor):
     def __init__(self, coordinator, api):
         super().__init__(
             coordinator,
@@ -571,8 +582,47 @@ class SanitaryScheduleStateSensor(BaxiBaseSensor, SensorEntity):
             "scheduler_status": getattr(self._api, "sanitary_scheduler_status", None),
         }
 
+# 🔒 Classe sensori energia
+class BaxiEnergySensor(BaxiBaseSensor):
+    def __init__(self, coordinator, api, description):
+        super().__init__(
+            coordinator,
+            api,
+            name=description.name,
+            unique_id=f"baxi_{description.key}",
+            value_key=description.key,
+            unit=getattr(description, "native_unit_of_measurement", None),
+            device_class=getattr(description, "device_class", None),
+            icon=getattr(description, "icon", None),
+        )
+        self.entity_description = description
+        self._attr_has_entity_name = True
+        
+        sc = getattr(description, "state_class", None)
+        if sc is not None:
+            self._attr_state_class = sc
 
+    @property
+    def native_value(self):
+        return getattr(self._api, self.entity_description.key, None)
 
+    @property
+    def available(self) -> bool:
+        return self.coordinator.last_update_success and (
+            getattr(self._api, self.entity_description.key, None) is not None
+        )
+    
+    @property
+    def extra_state_attributes(self):
+        ts = getattr(self._api, "energy_timestamp", {}).get(self.entity_description.key)
+        if ts is None:
+            return {}
+
+        dt_utc = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
+        return {
+            "metric_timestamp_ms": ts,
+            "metric_timestamp_utc": dt_utc.isoformat(),
+        }
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -605,6 +655,11 @@ async def async_setup_entry(hass, entry, async_add_entities):
         # fine nuovi sensori caldaia
         SanitaryScheduleStateSensor(coordinator, api)
     ]
+    # affianco i nuovi sensori energia
+    sensors.extend(
+        BaxiEnergySensor(coordinator, api, d)
+        for d in APPLIANCE_SENSOR_TYPES
+    )
     async_add_entities(sensors)
     
     

@@ -15,6 +15,7 @@ from .const import (
     DOMAIN, DATA_KEY_API,
     PARAM_ID_SETPOINT_COMFORT, PARAM_ID_SETPOINT_ECO,
     SANITARY_MIN_TEMP, SANITARY_MAX_TEMP,
+    APPLIANCE_SENSOR_TYPES
 )
 from .baxi_hybridapp_api import BaxiHybridAppAPI
 import voluptuous as vol
@@ -34,8 +35,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     async def async_update_data():
         """Fetch all metrics from Baxi API."""
         # Authentication and fetching all values
-        await hass.async_add_executor_job(api.authenticate)
-        await hass.async_add_executor_job(api.get_thingid)
+        # await hass.async_add_executor_job(api.authenticate)
+        # await hass.async_add_executor_job(api.get_thingid)
+        # Authentication and thingId (solo se serve)
+        if not api.token:
+            await hass.async_add_executor_job(api.authenticate)
+        if not api.thingId:
+            await hass.async_add_executor_job(api.get_thingid)
         await hass.async_add_executor_job(api.fetch_temperature_ext)
         await hass.async_add_executor_job(api.fetch_temperature_int)
         await hass.async_add_executor_job(api.fetch_water_pressure)
@@ -61,6 +67,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         await hass.async_add_executor_job(api.fetch_sanitary_request_status)
         # fine nuovi fetch caldaia
         await hass.async_add_executor_job(api.fetch_sanitary_scheduler)
+        # sensori energia
+        await hass.async_add_executor_job(api.fetch_energy_metrics)
         return True
 
     coordinator = DataUpdateCoordinator(
