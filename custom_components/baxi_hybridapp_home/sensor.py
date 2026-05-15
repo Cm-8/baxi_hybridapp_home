@@ -10,7 +10,8 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 from datetime import datetime, timezone
-from .const import DOMAIN, DATA_KEY_API, APPLIANCE_SENSOR_TYPES
+from .const import DOMAIN, DATA_KEY_API
+from .metrics import ENERGY_SENSOR_TYPES
 
 class BaxiBaseSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator, api, name, unique_id, value_key, unit, device_class, icon):
@@ -301,6 +302,7 @@ class SeasonModeSensor(BaxiBaseSensor):
 
 class FlameStatusSensor(BaxiBaseSensor):
     _attr_state_class = None  # non è una misura
+    _attr_entity_registry_enabled_default = False  # disabilitata di default
 
     def __init__(self, coordinator, api):
         super().__init__(
@@ -658,7 +660,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     # affianco i nuovi sensori energia
     sensors.extend(
         BaxiEnergySensor(coordinator, api, d)
-        for d in APPLIANCE_SENSOR_TYPES
+        for d in ENERGY_SENSOR_TYPES
     )
     async_add_entities(sensors)
     

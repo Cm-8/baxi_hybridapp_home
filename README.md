@@ -32,7 +32,6 @@ This integration provides the following sensors:
 - **External Temperature** — ambient outdoor temperature
 - **Internal Temperature** — indoor room temperature (if available)
 - **Boiler Flow Temperature** — heating circuit flow temperature
-- **Boiler Return Temperature** — heating circuit return temperature
 - **DHW Storage Temperature** — domestic hot water storage temperature
 - **DHW Auxiliary Storage Temperature** — auxiliary tank temperature
 - **PDC Exit Temperature** — heat pump outlet temperature
@@ -46,9 +45,7 @@ This integration provides the following sensors:
 - **Season Mode** — current seasonal configuration (Winter, Summer)
 - **Sanitary Mode On** — indicates if sanitary mode is active
 - **Scheduler Status** — indicates if DHW scheduler is active or in error
-- **Scheduler Raw JSON** — raw data used for diagnostic and automation parsing
 - **Flame Status** — shows if boiler flame is currently active
-- **Compressor Status** — shows if heat pump compressor is running
 
 **💧 Pressure Sensor**
 - **Water Pressure** — hydraulic circuit pressure (in bar)

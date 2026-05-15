@@ -15,7 +15,6 @@ from .const import (
     DOMAIN, DATA_KEY_API,
     PARAM_ID_SETPOINT_COMFORT, PARAM_ID_SETPOINT_ECO,
     SANITARY_MIN_TEMP, SANITARY_MAX_TEMP,
-    APPLIANCE_SENSOR_TYPES
 )
 from .baxi_hybridapp_api import BaxiHybridAppAPI
 import voluptuous as vol
@@ -34,40 +33,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     async def async_update_data():
         """Fetch all metrics from Baxi API."""
-        # Authentication and fetching all values
-        # await hass.async_add_executor_job(api.authenticate)
-        # await hass.async_add_executor_job(api.get_thingid)
         # Authentication and thingId (solo se serve)
         if not api.token:
             await hass.async_add_executor_job(api.authenticate)
         if not api.thingId:
             await hass.async_add_executor_job(api.get_thingid)
-        await hass.async_add_executor_job(api.fetch_temperature_ext)
-        await hass.async_add_executor_job(api.fetch_temperature_int)
-        await hass.async_add_executor_job(api.fetch_water_pressure)
-        await hass.async_add_executor_job(api.fetch_sanitary_on)
-        await hass.async_add_executor_job(api.fetch_boiler_flow_temp)
-        await hass.async_add_executor_job(api.fetch_dhw_storage_temp)
-        await hass.async_add_executor_job(api.fetch_dhw_aux_storage_temp)
-        await hass.async_add_executor_job(api.fetch_pdc_exit_temp)
-        await hass.async_add_executor_job(api.fetch_pdc_return_temp)
-        await hass.async_add_executor_job(api.fetch_setpoint_instant_temp)
-        await hass.async_add_executor_job(api.fetch_setpoint_comfort_temp)
-        await hass.async_add_executor_job(api.fetch_setpoint_eco_temp)
-        await hass.async_add_executor_job(api.fetch_system_mode)
-        await hass.async_add_executor_job(api.fetch_season_mode)
-        await hass.async_add_executor_job(api.fetch_flame_status)
-        await hass.async_add_executor_job(api.fetch_system_operation_icon)
-        # inizio nuovi fetch caldaia
-        await hass.async_add_executor_job(api.fetch_status_boiler)
-        await hass.async_add_executor_job(api.fetch_status_pdc)
-        await hass.async_add_executor_job(api.fetch_power_boiler)
-        await hass.async_add_executor_job(api.fetch_power_pdc)
-        await hass.async_add_executor_job(api.fetch_system_operation_mode)
-        await hass.async_add_executor_job(api.fetch_sanitary_request_status)
-        # fine nuovi fetch caldaia
+        # Metriche "semplici" (un valore per metric_name): tutte in un unico
+        # dispatcher tabellare, vedi SIMPLE_METRICS in metrics.py.
+        await hass.async_add_executor_job(api.fetch_simple_metrics)
+        # Scheduler sanitario (parsing JSON con logica derivata custom)
         await hass.async_add_executor_job(api.fetch_sanitary_scheduler)
-        # sensori energia
+        # Sensori energia (tabellari via ENERGY_SENSOR_TYPES in metrics.py)
         await hass.async_add_executor_job(api.fetch_energy_metrics)
         return True
 

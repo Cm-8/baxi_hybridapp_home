@@ -7,26 +7,42 @@ custom_components/baxi_hybridapp_home/baxi_hybridapp_api.py
 import requests
 import json
 from datetime import datetime, time, timedelta
+from time import sleep as _sleep
 from homeassistant.util import dt as dt_util
 import logging
 from zoneinfo import ZoneInfo
 from urllib.parse import quote_plus
 from .const import (
-    APIKEY, TENANT, DEV_BROWSER, 
+    APIKEY, TENANT, DEV_BROWSER,
     DEV_MODEL, DEV_ID, PLATFORM,
-    APPLIANCE_SENSOR_TYPES
 )
+from .metrics import SIMPLE_METRICS, SimpleMetricSpec, ENERGY_SENSOR_TYPES
 
 _LOGGER = logging.getLogger(__name__)
+
 
 class BaxiHybridAppAPI:
     BASE_URL = "https://baxi.servitly.com/api"
     LOGIN_URL = BASE_URL + "/identity/users/login?apiKey=" + APIKEY
     THINGS_URL = BASE_URL + "/v2/identity/users/me/things"
 
+    # Tetto massimo al delay accettato da Retry-After (429). Oltre questo valore
+    # rinunciamo per non bloccare a lungo il thread executor: meglio saltare il
+    # ciclo e ritentare al prossimo refresh del coordinator.
+    MAX_RETRY_AFTER_SECONDS = 30
+    REQUEST_TIMEOUT = 15
+
     def __init__(self, username, password):
         self.username = username
         self.password = password
+        # Sessione HTTP riusabile: una sola coppia TCP+TLS handshake invece di
+        # una per ogni metrica. Gli header comuni vivono qui, niente ripetizioni.
+        self._session = requests.Session()
+        self._session.headers.update({
+            'x-semioty-tenant': TENANT,
+            'user-agent': DEV_BROWSER,
+            'x-requested-with': 'it.baxi.HybridApp',
+        })
         self.token = None
         self.refreshToken = None
         self.thingId = None
@@ -34,69 +50,26 @@ class BaxiHybridAppAPI:
         self.thingSwVersion = None
         self.thingFirmware = None
         self.serialNumber = None
-        self.temp_ext = None
-        self.temp_ext_timestamp = None
-        self.temp_int = None
-        self.temp_int_timestamp = None
-        self.water_pressure = None
-        self.water_pressure_timestamp = None
-        self.sanitary_on = None
-        self.sanitary_on_timestamp = None
-        self.boiler_flow_temp = None
-        self.boiler_flow_temp_timestamp = None
-        self.dhw_storage_temp = None
-        self.dhw_storage_temp_timestamp = None
-        self.dhw_aux_storage_temp = None
-        self.dhw_aux_storage_temp_timestamp = None
-        self.pdc_exit_temp = None
-        self.pdc_exit_temp_timestamp = None
-        self.pdc_return_temp = None
-        self.pdc_return_temp_timestamp = None
-        self.setpoint_instant_temp = None
-        self.setpoint_instant_temp_timestamp = None
-        self.setpoint_comfort_temp = None
-        self.setpoint_comfort_temp_timestamp = None
-        self.setpoint_eco_temp = None
-        self.setpoint_eco_temp_timestamp = None
-        self.system_mode = None
-        self.system_mode_timestamp = None
-        # self.system_icon = None
-        # self.system_icon_timestamp = None
-        self.season_mode = None
-        self.season_mode_timestamp = None
-        self.flame_status = None
-        self.flame_status_timestamp = None
-        self.system_operation_icon = None
-        self.system_operation_icon_timestamp = None
-        # inizio nuovi sensori caldaia
-        self.status_boiler = None
-        self.status_boiler_timestamp = None
-        self.status_pdc = None
-        self.status_pdc_timestamp = None
-        self.power_boiler = None
-        self.power_boiler_timestamp = None
-        self.power_pdc = None
-        self.power_pdc_timestamp = None
-        self.system_operation_mode = None
-        self.system_operation_mode_timestamp = None
-        self.sanitary_request_status = None
-        self.sanitary_request_status_timestamp = None
-        # fine nuovi sensori caldaia
-        self.sanitary_scheduler_raw = None           # JSON string proveniente dall’API
+
+        # Metriche "semplici": un attributo + timestamp per ciascuna voce della
+        # tabella SIMPLE_METRICS (definita a livello modulo). Aggiungerne una
+        # NON richiede modifiche qui.
+        for spec in SIMPLE_METRICS:
+            setattr(self, spec.attr, None)
+            setattr(self, f"{spec.attr}_timestamp", None)
+
+        # Scheduler sanitario: parsing JSON con logica derivata custom
+        # (vedi fetch_sanitary_scheduler / _compute_sanitary_schedule_state).
+        self.sanitary_scheduler_raw = None           # JSON string proveniente dall'API
         self.sanitary_mode_now = None                # "Comfort" | "Eco"
         self.sanitary_next_change = None             # datetime (tz-aware) del prossimo cambio
         self.sanitary_today_summary = None           # "Comfort fino alle HH:MM" | "Eco fino alle HH:MM"
         self.sanitary_scheduler_status = None        # "ok" | "empty" | "error"
-        self.setpoint_eco_fallback = None           # int/str se presente nel fallback ECO
-        # sensori energia
-        self.energia_totale_pdc = None
-        self.energia_totale_caldaia = None
-        self.energia_totale_resistenze = None
-        self.energia_totale_globale = None
-        self.energia_totale_globale_day = None
-        self.energia_parziale_caldaia = None
-        self.energia_parziale_pdc = None
-        self.energia_parziale_resistenze = None
+        self.setpoint_eco_fallback = None            # int/str se presente nel fallback ECO
+
+        # Sensori energia: tabellari via ENERGY_SENSOR_TYPES in const.py.
+        for desc in ENERGY_SENSOR_TYPES:
+            setattr(self, desc.key, None)
         self.energy_timestamp = {}
 
     def authenticate(self):
@@ -113,15 +86,16 @@ class BaxiHybridAppAPI:
             }]
         })
 
-        headers = {
-            'x-semioty-tenant': TENANT,
-            'content-type': 'application/json',
-            'user-agent': DEV_BROWSER,
-            'x-requested-with': 'it.baxi.HybridApp'
-        }
+        # Solo header specifico della login: gli altri sono già sulla session.
+        headers = {'content-type': 'application/json'}
 
         try:
-            response = requests.post(self.LOGIN_URL, headers=headers, data=payload, timeout=15)
+            response = self._session.post(
+                self.LOGIN_URL,
+                headers=headers,
+                data=payload,
+                timeout=self.REQUEST_TIMEOUT,
+            )
             if response.ok:
                 data = response.json()
                 self.token = data.get("token")
@@ -142,15 +116,15 @@ class BaxiHybridAppAPI:
                 _LOGGER.error("❌ Impossibile autenticarsi.")
                 return None
                 
-        headers = {
-            'x-semioty-tenant': TENANT,
-            'authorization': f'Bearer {self.token}',
-            'user-agent': DEV_BROWSER,
-            'x-requested-with': 'it.baxi.HybridApp'
-        }
-        
+        # Solo l'authorization è specifica per la chiamata; il resto sta sulla session.
+        headers = {'authorization': f'Bearer {self.token}'}
+
         try:
-            response = requests.get(self.THINGS_URL, headers=headers, timeout=15)
+            response = self._session.get(
+                self.THINGS_URL,
+                headers=headers,
+                timeout=self.REQUEST_TIMEOUT,
+            )
             if response.ok:
                 data = response.json()
                 content = data.get("content", [])
@@ -174,7 +148,41 @@ class BaxiHybridAppAPI:
             _LOGGER.exception("❌ Eccezione nel recupero thingId: %s", e)
             return None
 
+    def _auth_headers(self) -> dict:
+        """Header per le chiamate autenticate (gli altri stanno sulla session)."""
+        return {'authorization': f'Bearer {self.token}'} if self.token else {}
+
+    def _parse_retry_after(self, response) -> int | None:
+        """
+        Estrae il delay (in secondi) dall'header Retry-After di una risposta 429.
+        Ritorna None se mancante, non parsabile, ≤0 o oltre MAX_RETRY_AFTER_SECONDS.
+        Gestiamo solo il formato "secondi" (numero); l'eventuale HTTP-date viene saltato:
+        servitly indica un bucket per minuto, quindi è ragionevole.
+        """
+        ra = response.headers.get('Retry-After')
+        if not ra:
+            return None
+        try:
+            secs = int(float(ra))
+        except (TypeError, ValueError):
+            return None
+        if secs <= 0:
+            return None
+        if secs > self.MAX_RETRY_AFTER_SECONDS:
+            _LOGGER.warning(
+                "⏳ Retry-After=%ss > tetto %ss: rinuncio per questo ciclo.",
+                secs, self.MAX_RETRY_AFTER_SECONDS,
+            )
+            return None
+        return secs
+
     def _make_request(self, url: str):
+        """
+        GET autenticata con gestione centralizzata di:
+        - token mancante / 401  → ri-autentica e ritenta una volta
+        - 429 (rate limit)      → onora Retry-After ≤ MAX_RETRY_AFTER_SECONDS e ritenta una volta
+        Riusa la sessione HTTP della classe (keep-alive, no TLS handshake ripetuto).
+        """
         if not self.token:
             _LOGGER.warning("⚠️ Nessun token: provo a ri-autenticare.")
             self.authenticate()
@@ -182,20 +190,37 @@ class BaxiHybridAppAPI:
                 _LOGGER.error("❌ Impossibile autenticarsi.")
                 return None
 
-        headers = {
-            'x-semioty-tenant': TENANT,
-            'authorization': f'Bearer {self.token}',
-            'user-agent': DEV_BROWSER,
-            'x-requested-with': 'it.baxi.HybridApp'
-        }
-
         try:
-            response = requests.get(url, headers=headers, timeout=15)
+            response = self._session.get(
+                url, headers=self._auth_headers(), timeout=self.REQUEST_TIMEOUT,
+            )
+
+            # 401: token scaduto → ri-autentica e ritenta una sola volta
             if response.status_code == 401:
                 _LOGGER.warning("🔐 Token scaduto, riprovo autenticazione...")
                 self.authenticate()
-                headers['authorization'] = f'Bearer {self.token}'
-                response = requests.get(url, headers=headers, timeout=15)
+                response = self._session.get(
+                    url, headers=self._auth_headers(), timeout=self.REQUEST_TIMEOUT,
+                )
+
+            # 429: rate limit → backoff via Retry-After e ritenta una sola volta
+            if response.status_code == 429:
+                delay = self._parse_retry_after(response)
+                if delay is not None:
+                    _LOGGER.warning(
+                        "⏳ Rate limit (429) su %s, attendo %ss e riprovo.",
+                        url, delay,
+                    )
+                    _sleep(delay)
+                    response = self._session.get(
+                        url, headers=self._auth_headers(), timeout=self.REQUEST_TIMEOUT,
+                    )
+                else:
+                    _LOGGER.warning(
+                        "⏳ Rate limit (429) su %s senza Retry-After utile — salto.",
+                        url,
+                    )
+                    return None
 
             if response.ok:
                 return response.json()
@@ -216,414 +241,80 @@ class BaxiHybridAppAPI:
             f"&metricName={quote_plus(metric_name)}"
         )
 
-    def fetch_temperature_ext(self):
-        data = self._make_request(self._metric_url("Temperatura esterna"))
+    # Sentinelle "no data" pubblicate da Servitly: il valore esiste ma la misura
+    # è assente (tipico per metriche non applicabili al device, es. flame status
+    # su impianto solo elettrico — issue #6).
+    _NO_DATA_SENTINELS = frozenset({"---", ""})
+
+    # ---------------- Dispatcher metriche semplici ----------------
+    def _fetch_one(self, spec: SimpleMetricSpec) -> None:
+        """
+        Legge una singola metrica e memorizza valore + timestamp.
+
+        Casi gestiti (issue #6 — Baxi solo elettrica / metriche non applicabili
+        al device):
+          - data["data"] == []          → attributo None, log debug (NON è errore)
+          - value in _NO_DATA_SENTINELS → attributo None, log debug
+          - parsing fail 'vero'         → attributo None, log warning + estratto JSON
+        In tutti i casi l'attributo viene azzerato: l'entità HA risulta unavailable.
+        """
+        data = self._make_request(self._metric_url(spec.metric_name))
         if not data:
             return
-        try:
-            item = data["data"][0]
-            self.temp_ext = float(item["values"][0]["value"])
-            self.temp_ext_timestamp = item["timestamp"]
-            _LOGGER.info("🌡️ External temperature: %s °C at %s", self.temp_ext, self.temp_ext_timestamp)
-        except (KeyError, IndexError, ValueError) as e:
-            # Azzera il campo, warning + debug 'data'
-            self.temp_ext = None
-            self.temp_ext_timestamp = None
-            _LOGGER.warning("⚠️ Parsing fallito (temperatura esterna): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (temperatura esterna): %s", data)
 
-    def fetch_temperature_int(self):
-        data = self._make_request(self._metric_url("Zona 1 - Temperatura ambiente"))
-        if not data:
+        # Caso 1: la metrica non è esposta dal device → "data" è un array vuoto.
+        items = data.get("data") or []
+        if not items:
+            setattr(self, spec.attr, None)
+            setattr(self, f"{spec.attr}_timestamp", None)
+            _LOGGER.debug(
+                "ℹ️ %s non disponibile su questo device (data vuoto)",
+                spec.metric_name,
+            )
             return
+
         try:
-            item = data["data"][0]
-            self.temp_int = float(item["values"][0]["value"])
-            self.temp_int_timestamp = item["timestamp"]
-            _LOGGER.info("🌡️ Internal temperature: %s °C at %s", self.temp_int, self.temp_int_timestamp)
-        except (KeyError, IndexError, ValueError) as e:
-            # Azzera il campo, warning + debug 'data'
-            self.temp_int = None
-            self.temp_int_timestamp = None
-            _LOGGER.warning("⚠️ Parsing fallito (temperatura interna): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (temperatura interna): %s", data)
-
-    def fetch_water_pressure(self):
-        data = self._make_request(self._metric_url("Pressione impianto"))
-        if not data:
-            return
-        try:
-            item = data["data"][0]
-            self.water_pressure = float(item["values"][0]["value"])
-            self.water_pressure_timestamp = item["timestamp"]
-            _LOGGER.info("🚿📊️ Water pressure: %s Bar at %s", self.water_pressure, self.water_pressure_timestamp)
-        except (KeyError, IndexError, ValueError) as e:
-            # Azzera il campo, warning + debug 'data'
-            self.water_pressure = None
-            self.water_pressure_timestamp = None
-            _LOGGER.warning("⚠️ Parsing fallito (pressione impianto): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (pressione impianto): %s", data)
-
-    def fetch_sanitary_on(self):
-        data = self._make_request(self._metric_url("Sanitario on"))
-        if not data:
-            return
-        try:
-            item = data["data"][0]
-            raw = item["values"][0]["value"]  # sarà "0" o "1"
-            # 0 = Spento, 1 = Acceso
-            mapping = {
-                "0": "Off",
-                "0_1": "On",
-                "1": "On",
-            }
-            self.sanitary_on = mapping.get(raw, f"Sconosciuto ({raw})")
-            self.sanitary_on_timestamp = item["timestamp"]
-            _LOGGER.info("🚿️ Sanitario: %s", self.sanitary_on)
-        except (KeyError, IndexError, ValueError) as e:
-            # Azzera il campo, warning + debug 'data'
-            self.sanitary_on = None
-            self.sanitary_on_timestamp = None
-            _LOGGER.warning("⚠️ Parsing fallito (sanitario on): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (sanitario on): %s", data)
-
-    def fetch_boiler_flow_temp(self):
-        data = self._make_request(self._metric_url("Temperatura di mandata"))
-        if not data:
-            return
-        try:
-            item = data["data"][0]
-            self.boiler_flow_temp = float(item["values"][0]["value"])
-            self.boiler_flow_temp_timestamp = item["timestamp"]
-            _LOGGER.info("🌡️ Boiler flow temperature: %s °C at %s", self.boiler_flow_temp, self.boiler_flow_temp_timestamp)
-        except (KeyError, IndexError, ValueError) as e:
-            # Azzera il campo, warning + debug 'data'
-            self.boiler_flow_temp = None
-            self.boiler_flow_temp_timestamp = None
-            _LOGGER.warning("⚠️ Parsing fallito (temperatura mandata): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (temperatura mandata): %s", data)
-
-    def fetch_dhw_storage_temp(self):
-        data = self._make_request(self._metric_url("Temperatura accumulo sanitario"))
-        if not data:
-            return
-        try:
-            item = data["data"][0]
-            self.dhw_storage_temp = float(item["values"][0]["value"])
-            self.dhw_storage_temp_timestamp = item["timestamp"]
-            _LOGGER.info("🌡️ DHW storage temperature: %s °C at %s", self.dhw_storage_temp, self.dhw_storage_temp_timestamp)
-        except (KeyError, IndexError, ValueError) as e:
-            # Azzera il campo, warning + debug 'data'
-            self.dhw_storage_temp = None
-            self.dhw_storage_temp_timestamp = None    
-            _LOGGER.warning("⚠️ Parsing fallito (accumulo sanitario): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (accumulo sanitario): %s", data)
-
-    def fetch_dhw_aux_storage_temp(self):
-        data = self._make_request(self._metric_url("Sonda accumulo ausiliario"))
-        if not data:
-            return
-        try:
-            item = data["data"][0]
-            self.dhw_aux_storage_temp = float(item["values"][0]["value"])
-            self.dhw_aux_storage_temp_timestamp = item["timestamp"]
-            _LOGGER.info("🌡️ DHW aux storage temperature: %s °C", self.dhw_aux_storage_temp)
-        except (KeyError, IndexError, ValueError) as e:
-            # Azzera il campo, warning + debug 'data'
-            self.dhw_aux_storage_temp = None
-            self.dhw_aux_storage_temp_timestamp = None
-            _LOGGER.warning("⚠️ Parsing fallito (accumulo ausigliario sanitario): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (accumulo ausigliario sanitario): %s", data)
-
-    def fetch_pdc_exit_temp(self):
-        data = self._make_request(self._metric_url("Temperatura uscita pdc"))
-        if not data:
-            return
-        try:
-            item = data["data"][0]
-            self.pdc_exit_temp = float(item["values"][0]["value"])
-            self.pdc_exit_temp_timestamp = item["timestamp"]
-            _LOGGER.info("🌡️ PDC exit temperature: %s °C", self.pdc_exit_temp)
-        except (KeyError, IndexError, ValueError) as e:
-            # Azzera il campo, warning + debug 'data'
-            self.pdc_exit_temp = None
-            self.pdc_exit_temp_timestamp = None
-            _LOGGER.warning("⚠️ Parsing fallito (temperatura uscita PDC): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (temperatura uscita PDC): %s", data)
-
-    def fetch_pdc_return_temp(self):
-        data = self._make_request(self._metric_url("Temperatura ritorno pdc"))
-        if not data:
-            return
-        try:
-            item = data["data"][0]
-            self.pdc_return_temp = float(item["values"][0]["value"])
-            self.pdc_return_temp_timestamp = item["timestamp"]
-            _LOGGER.info("🌡️ PDC return temperature: %s °C", self.pdc_return_temp)
-        except (KeyError, IndexError, ValueError) as e:
-            # Azzera il campo, warning + debug 'data'
-            self.pdc_return_temp = None
-            self.pdc_return_temp_timestamp = None
-            _LOGGER.warning("⚠️ Parsing fallito (temperatura ritorno PDC): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (temperatura ritorno PDC): %s", data)
-
-
-
-    def fetch_setpoint_instant_temp(self):
-        data = self._make_request(self._metric_url("Set-point sanitario istantaneo"))
-        if not data:
-            return
-        try:
-            item = data["data"][0]
-            self.setpoint_instant_temp = float(item["values"][0]["value"])
-            self.setpoint_instant_temp_timestamp = item["timestamp"]
-            _LOGGER.info("🌡️ Setpoint Istant temperature: %s °C", self.setpoint_instant_temp)
-        except (KeyError, IndexError, ValueError) as e:
-            # Azzera il campo, warning + debug 'data'
-            self.setpoint_instant_temp = None
-            self.setpoint_instant_temp_timestamp = None
-            _LOGGER.warning("⚠️ Parsing fallito (Set-point Istantaneo): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (Set-point Istantaneo): %s", data)
-
-    def fetch_setpoint_comfort_temp(self):
-        data = self._make_request(self._metric_url("Set-point sanitario comfort"))
-        if not data:
-            return
-        try:
-            item = data["data"][0]
-            self.setpoint_comfort_temp = float(item["values"][0]["value"])
-            self.setpoint_comfort_temp_timestamp = item["timestamp"]
-            _LOGGER.info("🌡️ Setpoint Comfort temperature: %s °C", self.setpoint_comfort_temp)
-        except (KeyError, IndexError, ValueError) as e:
-            # Azzera il campo, warning + debug 'data'
-            self.setpoint_comfort_temp = None
-            self.setpoint_comfort_temp_timestamp = None
-            _LOGGER.warning("⚠️ Parsing fallito (Set-point Comfort): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (Set-point Comfort): %s", data)
-
-    def fetch_setpoint_eco_temp(self):
-        data = self._make_request(self._metric_url("Set-point sanitario eco"))
-        if not data:
-            return
-        try:
-            item = data["data"][0]
-            self.setpoint_eco_temp = float(item["values"][0]["value"])
-            self.setpoint_eco_temp_timestamp = item["timestamp"]
-            _LOGGER.info("🌡️ Setpoint Eco temperature: %s °C", self.setpoint_eco_temp)
-        except (KeyError, IndexError, ValueError) as e:
-            # Azzera il campo, warning + debug 'data'
-            self.setpoint_eco_temp = None
-            self.setpoint_eco_temp_timestamp = None
-            _LOGGER.warning("⚠️ Parsing fallito (Set-point Eco): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (Set-point Eco): %s", data)
-
-
-
-    def fetch_system_mode(self):
-        data = self._make_request(self._metric_url("Modo Impianto"))
-        if not data:
-            return
-        try:
-            item = data["data"][0]
+            item = items[0]
             raw = item["values"][0]["value"]
-            mapping = {
-                None: "Automatico",
-                "0000": "Standby",
-                "0005": "Solo Sanitario",
-            }
-            # salva la stringa leggibile (o il codice se non è previsto)
-            self.system_mode = mapping.get(raw, f"Sconosciuto ({raw})")
-            self.system_mode_timestamp = item["timestamp"]
-            _LOGGER.info("🔄️ System Mode: %s", self.system_mode)
-        except (KeyError, IndexError, ValueError) as e:
-            # Azzera il campo, warning + debug 'data'
-            self.system_mode = None
-            self.system_mode_timestamp = None
-            _LOGGER.warning("⚠️ Parsing fallito (Modo Impianto): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (Modo Impianto): %s", data)
 
-    def fetch_season_mode(self):
-        data = self._make_request(self._metric_url("Modo Stagione"))
-        if not data:
-            return
-        try:
-            item = data["data"][0]
-            raw = item["values"][0]["value"]
-            mapping = {
-                "0001": "Inverno",
-                "0002": "Estate",
-                "0003": "Estate/Inverno automatico",
-                "0004": "Estate/Inverno remoto",
-            }
-            # salva la stringa leggibile (o il codice se non è previsto)
-            self.season_mode = mapping.get(raw, f"Sconosciuto ({raw})")
-            self.season_mode_timestamp = item["timestamp"]
-            _LOGGER.info("❄️️ Season Mode: %s", self.season_mode)
-        except (KeyError, IndexError, ValueError) as e:
-            # Azzera il campo, warning + debug 'data'
-            self.season_mode = None
-            self.season_mode_timestamp = None
-            _LOGGER.warning("⚠️ Parsing fallito (Modo Stagione): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (Modo Stagione): %s", data)
+            # Caso 2: metrica esposta ma senza misura corrente (sentinella).
+            if isinstance(raw, str) and raw.strip() in self._NO_DATA_SENTINELS:
+                setattr(self, spec.attr, None)
+                setattr(self, f"{spec.attr}_timestamp", None)
+                _LOGGER.debug(
+                    "ℹ️ %s = '%s' (sentinella no-data, ignorata)",
+                    spec.metric_name, raw,
+                )
+                return
 
-    def fetch_flame_status(self):
-        data = self._make_request(self._metric_url("Flame status"))
-        if not data:
-            return
-        try:
-            item = data["data"][0]
-            raw = str(item["values"][0]["value"]).strip().lower()
-            mapping = {
-                "0": "Off", "1": "On",
-                "false": "Off", "true": "On"
-            }
-            self.flame_status = mapping.get(raw, f"Sconosciuto ({raw})")
-            self.flame_status_timestamp = item["timestamp"]
-            _LOGGER.info("🔥 Flame status: %s (raw=%s)", self.flame_status, raw)
-        except (KeyError, IndexError, ValueError) as e:
-            # Azzera il campo, warning + debug 'data'
-            self.flame_status = None
-            self.flame_status_timestamp = None
-            _LOGGER.warning("⚠️ Parsing fallito (Flame status): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (Flame status): %s", data)
+            value = spec.parser(raw)
+            setattr(self, spec.attr, value)
+            setattr(self, f"{spec.attr}_timestamp", item["timestamp"])
+            _LOGGER.info("%s %s = %s", spec.log_emoji, spec.metric_name, value)
+        except (KeyError, IndexError, ValueError, TypeError) as e:
+            setattr(self, spec.attr, None)
+            setattr(self, f"{spec.attr}_timestamp", None)
+            _LOGGER.warning(
+                "⚠️ Parsing fallito (%s): %s — response: %s",
+                spec.metric_name, e, json.dumps(data)[:300],
+            )
 
-    def fetch_system_operation_icon(self):
-        data = self._make_request(self._metric_url("Icona funzionamento sistema"))
-        if not data:
-            return
-        try:
-            item = data["data"][0]
-            raw = str(item["values"][0]["value"]).strip().lower()
-            mapping = {
-                "0": "Off", "1": "On",
-                "false": "Off", "true": "On"
-            }
-            self.system_operation_icon = item["values"][0]["value"]
-            self.system_operation_icon_timestamp = item["timestamp"]
-            _LOGGER.info("💡 Icona Funzionamento Sistema: %s (raw=%s)", self.system_operation_icon, raw)
-        except (KeyError, IndexError, ValueError) as e:
-            # Azzera il campo, warning + debug 'data'
-            self.system_operation_icon = None
-            self.system_operation_icon_timestamp = None
-            _LOGGER.warning("⚠️ Parsing fallito (Icona Funzionamento Sistema): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (Icona Funzionamento Sistema): %s", data)
+    def fetch_simple_metrics(self) -> None:
+        """Legge in sequenza tutte le metriche definite in SIMPLE_METRICS."""
+        for spec in SIMPLE_METRICS:
+            self._fetch_one(spec)
 
-# Inizio Sensori Aggiuntivi Caldaia
-    def fetch_status_boiler(self):
-        data = self._make_request(self._metric_url("Stato caldaia"))
-        if not data:
-            return
-        try:
-            item = data["data"][0]
-            raw = str(item["values"][0]["value"]).strip().lower()
-            mapping = {
-                "0": "Off", "1": "On",
-                "false": "Off", "true": "On"
-            }
-            self.status_boiler = item["values"][0]["value"]
-            self.status_boiler_timestamp = item["timestamp"]
-            _LOGGER.info("🌡️ Status boiler: %s", self.status_boiler)
-        except (KeyError, IndexError, ValueError) as e:
-            # Azzera il campo, warning + debug 'data'
-            self.status_boiler = None
-            self.status_boiler_timestamp = None
-            _LOGGER.warning("⚠️ Parsing fallito (Stato caldaia): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (Stato caldaia): %s", data)
+    # ----- I vecchi fetch_<metrica> per-attributo sono stati collassati in -----
+    # fetch_simple_metrics() + SIMPLE_METRICS (dispatcher tabellare, vedi sopra).
+    # Restano qui sotto solo i fetch con logica non-banale: energia e scheduler.
 
-    def fetch_status_pdc(self):
-        data = self._make_request(self._metric_url("Stato PDC"))
-        if not data:
-            return
-        try:
-            item = data["data"][0]
-            raw = str(item["values"][0]["value"]).strip().lower()
-            mapping = {
-                "0": "Off", "1": "On",
-                "false": "Off", "true": "On"
-            }
-            self.status_pdc = item["values"][0]["value"]
-            self.status_pdc_timestamp = item["timestamp"]
-            _LOGGER.info("🌡️ Status PDC: %s", self.status_pdc)
-        except (KeyError, IndexError, ValueError) as e:
-            # Azzera il campo, warning + debug 'data'
-            self.status_pdc = None
-            self.status_pdc_timestamp = None
-            _LOGGER.warning("⚠️ Parsing fallito (Stato PDC): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (Stato PDC): %s", data)
-
-    def fetch_power_boiler(self):
-        data = self._make_request(self._metric_url("Potenza caldaia - istantanea"))
-        if not data:
-            return
-        try:
-            item = data["data"][0]
-            self.power_boiler = float(item["values"][0]["value"])
-            self.power_boiler_timestamp = item["timestamp"]
-            _LOGGER.info("🌡️ Power boiler: %s", self.power_boiler)
-        except (KeyError, IndexError, ValueError) as e:
-            # Azzera il campo, warning + debug 'data'
-            self.power_boiler = None
-            self.power_boiler_timestamp = None
-            _LOGGER.warning("⚠️ Parsing fallito (Potenza caldaia): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (Potenza caldaia): %s", data)
-
-    def fetch_power_pdc(self):
-        data = self._make_request(self._metric_url("Potenza PDC - istantanea"))
-        if not data:
-            return
-        try:
-            item = data["data"][0]
-            self.power_pdc = float(item["values"][0]["value"])
-            self.power_pdc_timestamp = item["timestamp"]
-            _LOGGER.info("🌡️ Power PDC: %s", self.power_pdc)
-        except (KeyError, IndexError, ValueError) as e:
-            # Azzera il campo, warning + debug 'data'
-            self.power_pdc = None
-            self.power_pdc_timestamp = None
-            _LOGGER.warning("⚠️ Parsing fallito (Potenza PDC): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (Potenza PDC): %s", data)
-
-    def fetch_system_operation_mode(self):
-        data = self._make_request(self._metric_url("Modo funzionamento sistema"))
-        if not data:
-            return
-        try:
-            item = data["data"][0]
-            self.system_operation_mode = float(item["values"][0]["value"])
-            self.system_operation_mode_timestamp = item["timestamp"]
-            _LOGGER.info("🌡️ System operation mode: %s", self.system_operation_mode)
-        except (KeyError, IndexError, ValueError) as e:
-            # Azzera il campo, warning + debug 'data'
-            self.system_operation_mode = None
-            self.system_operation_mode_timestamp = None
-            _LOGGER.warning("⚠️ Parsing fallito (Modo funzionamento sistema): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (Modo funzionamento sistema): %s", data)
-
-    def fetch_sanitary_request_status(self):
-        data = self._make_request(self._metric_url("Stato richiesta sanitario"))
-        if not data:
-            return
-        try:
-            item = data["data"][0]
-            self.sanitary_request_status = float(item["values"][0]["value"])
-            self.sanitary_request_status_timestamp = item["timestamp"]
-            _LOGGER.info("🌡️ Sanitary request status: %s", self.sanitary_request_status)
-        except (KeyError, IndexError, ValueError) as e:
-            # Azzera il campo, warning + debug 'data'
-            self.sanitary_request_status = None
-            self.sanitary_request_status_timestamp = None
-            _LOGGER.warning("⚠️ Parsing fallito (Stato richiesta sanitario): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (Stato richiesta sanitario): %s", data)
-
-# Fine Sensori Aggiuntivi Caldaia
-
-# 🔴 Sensori energia
+    # 🔴 Sensori energia
     def fetch_energy_metrics(self):
         """
-        Legge tutte le metriche energia definite in APPLIANCE_SENSOR_TYPES.
+        Legge tutte le metriche energia definite in ENERGY_SENSOR_TYPES.
         Salva i valori su self.<key> e (opzionale) i timestamp su self.energy_timestamp[key].
         """
-        for desc in APPLIANCE_SENSOR_TYPES:
+        for desc in ENERGY_SENSOR_TYPES:
             try:
                 data = self._make_request(self._metric_url(desc.metric_name))
                 if not data:
@@ -840,21 +531,44 @@ class BaxiHybridAppAPI:
             }
         ])
 
+        # Header specifici della PUT: i comuni stanno sulla session.
         headers = {
-            'x-semioty-tenant': TENANT,
             'authorization': f'Bearer {self.token}',
             'content-type': 'application/json',
-            'user-agent': DEV_BROWSER,
-            'x-requested-with': 'it.baxi.HybridApp'
         }
 
         try:
-            response = requests.put(url, headers=headers, data=payload, timeout=15)
+            response = self._session.put(
+                url, headers=headers, data=payload, timeout=self.REQUEST_TIMEOUT,
+            )
+
+            # 401: ri-autentica e ritenta una sola volta
             if response.status_code == 401:
                 _LOGGER.warning("🔐 Token scaduto, ri-autentico...")
                 self.authenticate()
                 headers['authorization'] = f'Bearer {self.token}'
-                response = requests.put(url, headers=headers, data=payload, timeout=15)
+                response = self._session.put(
+                    url, headers=headers, data=payload, timeout=self.REQUEST_TIMEOUT,
+                )
+
+            # 429: backoff via Retry-After e ritenta una sola volta
+            if response.status_code == 429:
+                delay = self._parse_retry_after(response)
+                if delay is not None:
+                    _LOGGER.warning(
+                        "⏳ Rate limit (429) su PUT %s, attendo %ss e riprovo.",
+                        parameter_id, delay,
+                    )
+                    _sleep(delay)
+                    response = self._session.put(
+                        url, headers=headers, data=payload, timeout=self.REQUEST_TIMEOUT,
+                    )
+                else:
+                    _LOGGER.warning(
+                        "⏳ Rate limit (429) su PUT %s senza Retry-After utile — abbandono.",
+                        parameter_id,
+                    )
+                    return False
 
             if response.ok:
                 _LOGGER.info("📤✅ PUT parametro %s impostato a %s", parameter_id, value)
