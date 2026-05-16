@@ -6,6 +6,7 @@ custom_components/baxi_hybridapp_home/sensor.py
 
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
 from homeassistant.const import UnitOfTemperature, UnitOfPressure, PERCENTAGE
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
@@ -584,6 +585,41 @@ class SanitaryScheduleStateSensor(BaxiBaseSensor):
             "scheduler_status": getattr(self._api, "sanitary_scheduler_status", None),
         }
 
+# 🚨 Contatori alert FAILURE (per dashboard).
+# Letti da BaxiHybridAppAPI.fetch_historical_alerts. I binary_sensor con
+# device_class=PROBLEM vivono in binary_sensor.py — questi sono solo
+# aggregati storici utili per pannelli "Salute impianto".
+class FailureCount24hSensor(BaxiBaseSensor):
+    # Diagnostica: appare con button + binary_sensor alert, non tra i sensori principali.
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator, api,
+            name="Failure ultime 24h",
+            unique_id="baxi_failure_count_24h",
+            value_key="failure_count_24h",
+            unit=None,
+            device_class=None,
+            icon="mdi:alert-circle",
+        )
+
+
+class FailureCount7dSensor(BaxiBaseSensor):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator, api,
+            name="Failure ultimi 7g",
+            unique_id="baxi_failure_count_7d",
+            value_key="failure_count_7d",
+            unit=None,
+            device_class=None,
+            icon="mdi:alert-circle-outline",
+        )
+
+
 # 🔒 Classe sensori energia
 class BaxiEnergySensor(BaxiBaseSensor):
     def __init__(self, coordinator, api, description):
@@ -655,7 +691,10 @@ async def async_setup_entry(hass, entry, async_add_entities):
         PowerPDC(coordinator, api),
         SystemOperationMode(coordinator, api),
         # fine nuovi sensori caldaia
-        SanitaryScheduleStateSensor(coordinator, api)
+        SanitaryScheduleStateSensor(coordinator, api),
+        # contatori alert per dashboard
+        FailureCount24hSensor(coordinator, api),
+        FailureCount7dSensor(coordinator, api),
     ]
     # affianco i nuovi sensori energia
     sensors.extend(

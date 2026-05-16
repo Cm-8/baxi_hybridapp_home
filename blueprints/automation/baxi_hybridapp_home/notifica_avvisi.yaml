@@ -1,0 +1,61 @@
+blueprint:
+  name: Baxi — Notifica push avvisi
+  description: >
+    Invia una notifica push all'app Home Assistant quando viene rilevato un
+    nuovo avviso Baxi (FAILURE o WARNING).
+    Richiede l'integrazione baxi_hybridapp_home ≥ 0.5.0.
+  domain: automation
+  source_url: https://github.com/Cm-8/baxi_hybridapp_home/blob/main/blueprints/automation/baxi_hybridapp_home/notifica_avvisi.yaml
+  input:
+    notify_service:
+      name: Servizio di notifica
+      description: >
+        Seleziona il dispositivo mobile su cui inviare la notifica
+        (app Home Assistant sul telefono).
+      selector:
+        notify:
+    severity_filter:
+      name: Severità da notificare
+      description: Filtra gli avvisi per tipo.
+      default: "both"
+      selector:
+        select:
+          options:
+            - label: "Solo FAILURE (errori critici)"
+              value: "FAILURE"
+            - label: "Solo WARNING (avvisi)"
+              value: "WARNING"
+            - label: "Entrambi"
+              value: "both"
+
+variables:
+  severity_filter: !input severity_filter
+
+trigger:
+  - platform: event
+    event_type: baxi_hybridapp_alert
+
+condition:
+  - condition: template
+    value_template: >
+      {{ severity_filter == 'both'
+         or trigger.event.data.severity == severity_filter }}
+
+action:
+  - service: !input notify_service
+    data:
+      title: >
+        {% if trigger.event.data.severity == 'FAILURE' %}
+          🔴 Baxi — Errore
+        {% else %}
+          🟡 Baxi — Avviso
+        {% endif %}
+      message: >
+        {% set code = trigger.event.data.code | default('') %}
+        {% set desc = trigger.event.data.description
+                      or trigger.event.data.title
+                      or 'Nuovo avviso' %}
+        {% if code %}{{ code }} — {% endif %}{{ desc }}
+
+mode: queued
+max: 5

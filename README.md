@@ -26,9 +26,7 @@ This extension is only compatible with devices:
 
 ## Features
 
-This integration provides the following sensors:
-
-**🌡️ Temperature Sensors**
+### 🌡️ Temperature Sensors
 - **External Temperature** — ambient outdoor temperature
 - **Internal Temperature** — indoor room temperature (if available)
 - **Boiler Flow Temperature** — heating circuit flow temperature
@@ -40,37 +38,61 @@ This integration provides the following sensors:
 - **Sanitary Setpoint Comfort** — comfort mode setpoint
 - **Sanitary Setpoint Eco** — eco mode setpoint
 
-**🧭 Mode / Status Sensors**
-- **System Mode** — current system state (e.g., Standby, Heating, Cooling)
-- **Season Mode** — current seasonal configuration (Winter, Summer)
-- **Sanitary Mode On** — indicates if sanitary mode is active
-- **Scheduler Status** — indicates if DHW scheduler is active or in error
-- **Flame Status** — shows if boiler flame is currently active
+### 💧 Pressure Sensor
+- **Water Pressure** — hydraulic circuit pressure (bar)
 
-**💧 Pressure Sensor**
-- **Water Pressure** — hydraulic circuit pressure (in bar)
+### ⚡ Power Sensors
+- **Boiler Instantaneous Power** — current boiler power output
+- **PDC Instantaneous Power** — current heat pump power output
 
-**🔘 Control Entities**
-- **Water Heater – Comfort Setpoint** — adjustable DHW comfort temperature
-- **Water Heater – Eco Setpoint** — adjustable DHW eco temperature
-- **Buttons / Actions** — triggerable service calls:
-  - **set_comfort** — set new comfort temperature
-  - **set_eco** — set new eco temperature
+### 🧭 Mode / Status Sensors
+- **System Mode** — current operating mode (Automatico, Standby, Solo Sanitario)
+- **System Operation Mode** — firmware-level operating mode (Automatico, Standby)
+- **Season Mode** — current seasonal configuration (Winter, Summer, Auto)
+- **Sanitary On** — whether sanitary mode is active (On / Off)
+- **Sanitary Request Status** — DHW request status code
+- **Scheduler Status** — DHW scheduler state (active, off, or error)
+- **Flame Status** — whether the boiler flame is currently active (On / Off)
+- **System Operation Icon** — icon code from the Baxi cloud status
 
-**⚙️ Coordinator & Update**
-- Data is fetched from the Baxi Servitly Cloud API every **10 minutes** via polling
-- Smart error handling and logging for unavailable data
-- Async-compatible API layer (BaxiHybridAppAPI) with rate-limit protection
-- Data is fetched from the Baxi cloud every 10 minutes via polling.
+### ⚡ Energy Sensors
+All energy sensors are disabled by default and use `TOTAL_INCREASING` state class (compatible with the HA Energy dashboard).
 
-**🧩 Planned / Experimental**
-- Support for **Heating/Cooling** setpoints (climate entity)
+- **Energia totale PDC** — total heat pump energy consumption (kWh)
+- **Energia totale caldaia** — total boiler energy consumption (kWh)
+- **Energia totale resistenze** — total electric resistance energy (kWh)
+- **Energia totale globale** — total system energy (kWh)
+- **Energia totale globale per day** — daily total system energy (kWh)
+- **Energia parziale caldaia** — partial boiler energy (kWh)
+- **Energia parziale PDC** — partial heat pump energy (kWh)
+- **Energia parziale resistenze** — partial electric resistance energy (kWh)
+
+### 🔔 Alert Monitoring
+The integration polls the Baxi cloud for historical FAILURE and WARNING alerts and exposes them as diagnostic entities.
+
+- **Failure** — binary sensor (Problem / OK); active when a FAILURE alert is open
+- **Warning** — binary sensor (Problem / OK); active when a WARNING alert is open (disabled by default)
+- **Failure ultime 24h** — count of FAILURE alerts in the last 24 hours
+- **Failure ultimi 7g** — count of FAILURE alerts in the last 7 days
+
+Each new alert fires a `baxi_hybridapp_alert` event on the Home Assistant event bus, which can be used as a trigger for automations. The event payload includes `severity`, `code`, `description`, `title`, `start_ts`, and `end_ts`.
+
+A ready-made **blueprint** for push notifications is included — see [blueprints/automation/baxi_hybridapp_home/notifica_avvisi.yaml](blueprints/automation/baxi_hybridapp_home/notifica_avvisi.yaml).
+
+[![Import Blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FCm-8%2Fbaxi_hybridapp_home%2Fmain%2Fblueprints%2Fautomation%2Fbaxi_hybridapp_home%2Fnotifica_avvisi.yaml)
+
+### 🛁 Water Heater Entities
+- **Sanitario Comfort** — adjustable DHW comfort temperature setpoint (30–52 °C)
+- **Sanitario Eco** — adjustable DHW eco temperature setpoint (30–52 °C)
+
+### 🔘 Diagnostic Entities
+- **Aggiorna dati** — button to manually trigger a data refresh
 
 ---
 
 ## Requirements
 
-- A valid account for the [Baxi HybridApp](https://play.google.com/store/apps/details?id=it.baxi.HybridApp)  
+- A valid account for the [Baxi HybridApp](https://play.google.com/store/apps/details?id=it.baxi.HybridApp)
 - Home Assistant version >= 2023.0
 
 ---
@@ -100,9 +122,27 @@ After installation, configure the integration via the Home Assistant UI:
 
 ---
 
+## Push Notification Blueprint
+
+To receive push notifications on your phone when a Baxi alert is detected:
+
+Click the button below to import the blueprint directly into your Home Assistant:
+
+[![Import Blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FCm-8%2Fbaxi_hybridapp_home%2Fmain%2Fblueprints%2Fautomation%2Fbaxi_hybridapp_home%2Fnotifica_avvisi.yaml)
+
+Or manually: **Settings** > **Automations & Scenes** > **Blueprints** > **Import Blueprint** and paste:
+```
+https://raw.githubusercontent.com/Cm-8/baxi_hybridapp_home/main/blueprints/automation/baxi_hybridapp_home/notifica_avvisi.yaml
+```
+
+Then create an automation from the blueprint, select your mobile notify service and the desired severity filter.
+
+---
+
 ## Limitations
 
 - This is a cloud polling integration and requires an internet connection.
+- Data is refreshed every 10 minutes.
 - Currently, only one Baxi system is supported per configuration entry.
 
 ---

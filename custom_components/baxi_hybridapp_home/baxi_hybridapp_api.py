@@ -4,6 +4,7 @@ API client for Baxi Hybrid App custom integration for Home Assistant.
 custom_components/baxi_hybridapp_home/baxi_hybridapp_api.py
 """
 
+import re
 import requests
 import json
 from datetime import datetime, time, timedelta
@@ -25,6 +26,13 @@ class BaxiHybridAppAPI:
     BASE_URL = "https://baxi.servitly.com/api"
     LOGIN_URL = BASE_URL + "/identity/users/login?apiKey=" + APIKEY
     THINGS_URL = BASE_URL + "/v2/identity/users/me/things"
+    # Endpoint user-level (NON per-thing): ritorna gli alert di tutti i device
+    # dell'account. Filtriamo per self.thingId in fetch_historical_alerts.
+    ALERTS_URL = BASE_URL + (
+        "/identity/users/me/historicalAlerts"
+        "?field=severity&field=date&field=customer.name&field=location.name"
+        "&field=thing.serialNumber&field=title&field=description&field=duration"
+    )
 
     # Tetto massimo al delay accettato da Retry-After (429). Oltre questo valore
     # rinunciamo per non bloccare a lungo il thread executor: meglio saltare il
@@ -71,6 +79,27 @@ class BaxiHybridAppAPI:
         for desc in ENERGY_SENSOR_TYPES:
             setattr(self, desc.key, None)
         self.energy_timestamp = {}
+
+        # Historical alerts: tracking FAILURE/WARNING + event sul bus HA.
+        # active_*  → alert ancora aperto (endTimestamp==0 o >= now). Pilota i binary_sensor.
+        # last_*    → ultimo alert (anche risolto) per severity. Per attributi dashboard.
+        # *_count_* → conteggio aggregato per dashboard.
+        self.active_failure_alert = None
+        self.active_warning_alert = None
+        self.last_failure_alert = None
+        self.last_warning_alert = None
+        self.failure_count_24h = None
+        self.failure_count_7d = None
+        self.warning_count_24h = None
+        self.warning_count_7d = None
+        # Dedup degli event SOLO in RAM (sopravvive ai polling, non al restart HA).
+        # Al primo fetch post-startup si fa seed senza firing → niente notifiche
+        # spam al riavvio per alert già attivi prima del restart.
+        self._seen_alert_ids: set[str] = set()
+        self._alerts_initialized = False
+        # Coda dei "nuovi" alert dell'ultimo fetch: il coordinator la consuma
+        # nell'event loop per fire event + log su Logbook.
+        self.new_alerts_pending: list[dict] = []
 
     def authenticate(self):
         payload = json.dumps({
@@ -290,7 +319,7 @@ class BaxiHybridAppAPI:
             value = spec.parser(raw)
             setattr(self, spec.attr, value)
             setattr(self, f"{spec.attr}_timestamp", item["timestamp"])
-            _LOGGER.info("%s %s = %s", spec.log_emoji, spec.metric_name, value)
+            _LOGGER.debug("%s %s = %s", spec.log_emoji, spec.metric_name, value)
         except (KeyError, IndexError, ValueError, TypeError) as e:
             setattr(self, spec.attr, None)
             setattr(self, f"{spec.attr}_timestamp", None)
@@ -346,7 +375,7 @@ class BaxiHybridAppAPI:
                 setattr(self, desc.key, val)
                 self.energy_timestamp[desc.key] = ts
 
-                _LOGGER.debug("⚡ %s = %s kWh at %s", desc.metric_name, val, ts)
+                _LOGGER.debug("⚡ %s = %s kWh", desc.metric_name, val)
 
             except (KeyError, IndexError, TypeError) as e:
                 setattr(self, desc.key, None)
@@ -368,7 +397,7 @@ class BaxiHybridAppAPI:
             self.sanitary_scheduler_raw = raw_str
             self._compute_sanitary_schedule_state(raw_str)
             self.sanitary_scheduler_status = "ok"
-            _LOGGER.info("📅 Schedulatore Sanitario: %s", self.sanitary_scheduler_raw)
+            _LOGGER.debug("📅 Schedulatore Sanitario: %s", self.sanitary_scheduler_raw)
         except (KeyError, IndexError, ValueError, TypeError) as e:
             # Azzera il campo, warning + debug 'data'
             self.sanitary_scheduler_raw = None
@@ -500,6 +529,130 @@ class BaxiHybridAppAPI:
 
 
 
+
+    # 🚨 Historical alerts (user-level): FAILURE + WARNING
+    # Regex per estrarre il codice errore dalla description ("E60", "E14", ...).
+    _ALERT_CODE_RE = re.compile(r"\bE\d{1,3}\b")
+
+    def _normalize_alert(self, a: dict) -> dict:
+        """Estrae i campi utili da un alert grezzo + prova a leggere il codice errore."""
+        desc = a.get("description") or ""
+        m = self._ALERT_CODE_RE.search(desc)
+        code = m.group(0) if m else None
+        if not code and "OFFLINE" in desc.upper():
+            code = "OFFLINE"
+        return {
+            "id": a.get("id"),
+            "severity": a.get("severity"),
+            "title": a.get("title"),
+            "description": desc,
+            "code": code,
+            "start_ts": a.get("startTimestamp"),
+            "end_ts": a.get("endTimestamp"),
+        }
+
+    def fetch_historical_alerts(self) -> None:
+        """
+        Legge gli alert storici user-level e popola:
+          - active_failure_alert / active_warning_alert (alert aperto, se c'è)
+          - last_failure_alert / last_warning_alert (ultimo per severity, anche risolto)
+          - failure_count_24h / failure_count_7d (per dashboard)
+          - warning_count_24h / warning_count_7d
+          - new_alerts_pending → consumata dal coordinator per fire event + Logbook
+
+        Dedup degli event in RAM: al primo fetch della sessione si fa solo
+        seed di _seen_alert_ids (niente firing → niente notifiche al riavvio HA).
+        Dai fetch successivi, gli id mai visti generano event.
+        """
+        self.new_alerts_pending = []
+        data = self._make_request(self.ALERTS_URL)
+        if not data:
+            return
+        try:
+            alerts = data.get("historicalAlerts", []) or []
+            # Filtra per il thing dell'utente (se più di un device sull'account).
+            if self.thingId:
+                alerts = [
+                    a for a in alerts
+                    if (a.get("thing") or {}).get("id") == self.thingId
+                ]
+
+            now_ms = int(dt_util.utcnow().timestamp() * 1000)
+            ms_24h = 24 * 3600 * 1000
+            ms_7d = 7 * ms_24h
+
+            current_ids = {a["id"] for a in alerts if a.get("id")}
+            if not self._alerts_initialized:
+                self._seen_alert_ids = current_ids
+                self._alerts_initialized = True
+                _LOGGER.info(
+                    "🚨 Alerts: seeding iniziale (%d alert già visti, niente firing)",
+                    len(current_ids),
+                )
+            else:
+                new_ids = current_ids - self._seen_alert_ids
+                self._seen_alert_ids = current_ids
+                self.new_alerts_pending = [
+                    self._normalize_alert(a) for a in alerts
+                    if a.get("id") in new_ids
+                ]
+
+            active_failure = None
+            active_warning = None
+            last_failure = None
+            last_warning = None
+            failure_24h = 0
+            failure_7d = 0
+            warning_24h = 0
+            warning_7d = 0
+
+            for a in alerts:
+                sev = a.get("severity")
+                start = a.get("startTimestamp") or 0
+                end = a.get("endTimestamp") or 0
+                is_active = (end == 0 or end >= now_ms)
+                in_24h = bool(start) and (now_ms - start) <= ms_24h
+                in_7d = bool(start) and (now_ms - start) <= ms_7d
+
+                if sev == "FAILURE":
+                    if is_active and active_failure is None:
+                        active_failure = a
+                    if last_failure is None or start > (last_failure.get("startTimestamp") or 0):
+                        last_failure = a
+                    if in_24h:
+                        failure_24h += 1
+                    if in_7d:
+                        failure_7d += 1
+                elif sev == "WARNING":
+                    if is_active and active_warning is None:
+                        active_warning = a
+                    if last_warning is None or start > (last_warning.get("startTimestamp") or 0):
+                        last_warning = a
+                    if in_24h:
+                        warning_24h += 1
+                    if in_7d:
+                        warning_7d += 1
+
+            self.active_failure_alert = self._normalize_alert(active_failure) if active_failure else None
+            self.active_warning_alert = self._normalize_alert(active_warning) if active_warning else None
+            self.last_failure_alert = self._normalize_alert(last_failure) if last_failure else None
+            self.last_warning_alert = self._normalize_alert(last_warning) if last_warning else None
+            self.failure_count_24h = failure_24h
+            self.failure_count_7d = failure_7d
+            self.warning_count_24h = warning_24h
+            self.warning_count_7d = warning_7d
+
+            _LOGGER.info(
+                "🚨 Alerts: FAILURE attivo=%s, WARNING attivo=%s, FAILURE 24h=%d, 7g=%d, nuovi=%d",
+                "sì" if active_failure else "no",
+                "sì" if active_warning else "no",
+                failure_24h, failure_7d, len(self.new_alerts_pending),
+            )
+        except (KeyError, IndexError, ValueError, TypeError) as e:
+            _LOGGER.warning(
+                "⚠️ Parsing fallito (historicalAlerts): %s — response: %s",
+                e, json.dumps(data)[:300],
+            )
 
     # 🔴🔴 API di scrittura (PUT)
     def set_configuration_parameter(self, parameter_id: str, value: float | int | str):

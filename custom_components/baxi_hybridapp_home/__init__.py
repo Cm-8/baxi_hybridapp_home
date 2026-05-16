@@ -10,6 +10,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import entity_registry as er
 from datetime import timedelta
 from .const import (
     DOMAIN, DATA_KEY_API,
@@ -21,7 +22,7 @@ import voluptuous as vol
 import logging
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS = ["sensor", "water_heater", "button"]
+PLATFORMS = ["sensor", "water_heater", "button", "binary_sensor"]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -45,6 +46,47 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         await hass.async_add_executor_job(api.fetch_sanitary_scheduler)
         # Sensori energia (tabellari via ENERGY_SENSOR_TYPES in metrics.py)
         await hass.async_add_executor_job(api.fetch_energy_metrics)
+        # Historical alerts (FAILURE/WARNING): popola active/last/conteggi
+        # sull'istanza API e accoda i nuovi alert in api.new_alerts_pending.
+        await hass.async_add_executor_job(api.fetch_historical_alerts)
+        # Per ogni alert mai visto in questa sessione:
+        #   1) fire event sul bus HA → trigger per automazioni (severity in payload)
+        #   2) entry nel Logbook → "sezione attività" dell'integrazione
+        # Se il binary_sensor WARNING è disabilitato dal Registro Entità, le
+        # entry di logbook con quel entity_id restano in DB ma non sono
+        # mostrate nella UI → "se abilitato" è effetto automatico.
+        # Risolvi l'entity_id reale via entity registry: hardcodarlo non
+        # funziona perché HA lo genera dal primo `name` dell'entità (es.
+        # "binary_sensor.avviso_failure_attivo" su installazioni precedenti
+        # ai rename).
+        ent_reg = er.async_get(hass)
+        for alert in list(api.new_alerts_pending):
+            hass.bus.async_fire("baxi_hybridapp_alert", alert)
+            unique_id = (
+                "baxi_failure_alert_active"
+                if alert.get("severity") == "FAILURE"
+                else "baxi_warning_alert_active"
+            )
+            entity_id = (
+                ent_reg.async_get_entity_id("binary_sensor", DOMAIN, unique_id)
+                or f"binary_sensor.{unique_id}"
+            )
+            code = alert.get("code")
+            base_msg = (
+                alert.get("description")
+                or alert.get("title")
+                or "Nuovo avviso"
+            )
+            msg = f"{code} — {base_msg}" if code else base_msg
+            await hass.services.async_call(
+                "logbook", "log",
+                {
+                    "name": f"Baxi {alert.get('severity', 'ALERT')}",
+                    "message": msg,
+                    "entity_id": entity_id,
+                },
+                blocking=False,
+            )
         return True
 
     coordinator = DataUpdateCoordinator(

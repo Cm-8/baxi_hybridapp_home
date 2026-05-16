@@ -93,7 +93,6 @@ SIMPLE_METRICS: tuple[SimpleMetricSpec, ...] = (
     # --- Float / numerici | stato e potenza ---------------------------------------------------
     SimpleMetricSpec("power_boiler", "Potenza caldaia - istantanea", _parse_float),
     SimpleMetricSpec("power_pdc", "Potenza PDC - istantanea", _parse_float),
-    SimpleMetricSpec("system_operation_mode", "Modo funzionamento sistema", _parse_float),
     SimpleMetricSpec("sanitary_request_status", "Stato richiesta sanitario", _parse_float),
 
     # --- Stringhe mappate (codici Servitly → testo leggibile) ---------------
@@ -113,6 +112,10 @@ SIMPLE_METRICS: tuple[SimpleMetricSpec, ...] = (
             "0003": "Estate/Inverno automatico",
             "0004": "Estate/Inverno remoto",
         }),
+    ),
+    SimpleMetricSpec(
+        "system_operation_mode", "Modo funzionamento sistema",
+        _make_mapper({"1": "Automatico", "7": "Standby"}, normalize=True),
     ),
     SimpleMetricSpec(
         "flame_status", "Flame status",
