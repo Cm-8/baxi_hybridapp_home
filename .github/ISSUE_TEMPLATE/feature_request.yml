@@ -1,0 +1,137 @@
+name: 💡 Feature Request
+description: Proponi una nuova funzionalità o metrica per l'integrazione Baxi HybridApp Home
+title: "[FEAT] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Grazie per il suggerimento! 🙏
+
+        Prima di compilare, controlla che non sia già stata proposta nelle [issue esistenti](https://github.com/Cm-8/baxi_hybridapp_home/issues?q=is%3Aissue).
+
+  - type: checkboxes
+    id: preliminary
+    attributes:
+      label: Verifiche preliminari
+      options:
+        - label: Ho cercato tra le issue aperte/chiuse e non c'è un duplicato
+          required: true
+        - label: La funzionalità richiesta è visibile o controllabile dall'app ufficiale Baxi HybridApp
+          required: false
+
+  - type: dropdown
+    id: feature_type
+    attributes:
+      label: Tipo di richiesta
+      options:
+        - Nuovo sensore / metrica (lettura dato)
+        - Nuovo controllo (select, input, button)
+        - Miglioramento entità esistente
+        - Altro
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: "## 🔧 Configurazione impianto"
+
+  - type: input
+    id: device_model
+    attributes:
+      label: Tipo caldaia / sistema
+      placeholder: "es. CSI IN Auriga H WI-FI"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: climate_mode
+    attributes:
+      label: Modalità climatica installata
+      options:
+        - Solo caldo
+        - Caldo + freddo
+        - Solo sanitario
+        - Non so
+    validations:
+      required: true
+
+  - type: dropdown
+    id: heat_pump
+    attributes:
+      label: Pompa di calore (PDC)
+      options:
+        - Presente
+        - Assente
+        - Non so
+    validations:
+      required: true
+
+  - type: dropdown
+    id: gas_boiler
+    attributes:
+      label: Caldaia a gas
+      options:
+        - Presente
+        - Assente
+        - Non so
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: other_components
+    attributes:
+      label: Altri componenti (seleziona tutto ciò che è installato)
+      options:
+        - label: Pannello di controllo Wi-Fi esterno (cronotermostato modulante)
+        - label: Solare termico
+        - label: Multi-zona (più zone climatiche indipendenti)
+        - label: Integrazione fotovoltaico
+
+  - type: markdown
+    attributes:
+      value: "## 💡 Descrizione della funzionalità"
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Cosa vorresti aggiungere o migliorare?
+      description: Descrivi la funzionalità nel modo più preciso possibile.
+      placeholder: |
+        Es. "Vorrei un sensore che mostri la temperatura del collettore solare,
+        visibile nell'app Baxi alla voce Solare → Temperatura collettore."
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: A cosa ti serve?
+      description: Spiega il caso d'uso concreto — automazioni, dashboard, avvisi, risparmio energetico…
+      placeholder: |
+        Es. "Voglio creare un'automazione che attivi la pompa di ricircolo
+        solo quando la temperatura del collettore supera i 50 °C."
+    validations:
+      required: true
+
+  - type: input
+    id: metric_name
+    attributes:
+      label: Nome metrica Servitly (se noto)
+      description: |
+        Se sai già come si chiama la metrica nell'API Servitly, indicala qui.
+        Puoi consultare la lista in [documentation/metrics.md](https://github.com/Cm-8/baxi_hybridapp_home/blob/main/documentation/metrics.md).
+      placeholder: "es. Temperatura collettore solare"
+
+  - type: textarea
+    id: app_screenshot
+    attributes:
+      label: Screenshot o descrizione dall'app Baxi
+      description: Se la funzionalità è visibile nell'app ufficiale, descrivi dove si trova o allega uno screenshot.
+      placeholder: |
+        App Baxi → schermata Solare → voce "Temperatura collettore": mostra 62 °C
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Note aggiuntive
+      description: Qualsiasi altra informazione utile.
