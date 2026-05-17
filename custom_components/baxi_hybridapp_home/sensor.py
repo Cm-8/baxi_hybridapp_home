@@ -516,6 +516,8 @@ class PowerPDC(BaxiBaseSensor):
         return "mdi:percent" if val > 0 else "mdi:percent-box-outline"
 
 class SystemOperationMode(BaxiBaseSensor):
+    _attr_state_class = None  # non è una misura numerica
+
     def __init__(self, coordinator, api):
         super().__init__(
             coordinator,
@@ -527,6 +529,16 @@ class SystemOperationMode(BaxiBaseSensor):
             device_class=None,
             icon="mdi:target"
         )
+        self._attr_native_unit_of_measurement = None
+        self._attr_device_class = None
+
+    @property
+    def native_value(self):
+        return getattr(self._api, self._value_key)
+
+    @property
+    def state_class(self):
+        return None
 
 # Sensor per la schedulazione del Schedulatore Sanitario
 class SanitaryScheduleStateSensor(BaxiBaseSensor):

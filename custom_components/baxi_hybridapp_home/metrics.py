@@ -115,7 +115,12 @@ SIMPLE_METRICS: tuple[SimpleMetricSpec, ...] = (
     ),
     SimpleMetricSpec(
         "system_operation_mode", "Modo funzionamento sistema",
-        _make_mapper({"1": "Automatico", "7": "Standby"}, normalize=True),
+        # L'API manda valori con zeri iniziali ("0001", "0007").
+        # Aggiunte anche le forme senza zeri ("1", "7") per robustezza.
+        _make_mapper({
+            "0001": "Automatico", "1": "Automatico",
+            "0007": "Standby",    "7": "Standby",
+        }, normalize=True),
     ),
     SimpleMetricSpec(
         "flame_status", "Flame status",

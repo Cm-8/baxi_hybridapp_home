@@ -30,6 +30,9 @@ Custom integration for [Home Assistant](https://home-assistant.io) to monitor an
 - Event `baxi_hybridapp_alert` on the HA bus for automations
 - Blueprint included for push notifications to the HA mobile app
 
+🎛️ **Operating Mode Control**
+- Modo Impianto select: Automatico / Solo Sanitario / Standby
+
 🛁 **Water Heater Entities**
 - Adjustable Comfort and Eco DHW setpoints (30–52 °C)
 

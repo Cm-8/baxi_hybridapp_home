@@ -81,12 +81,15 @@ A ready-made **blueprint** for push notifications is included — see [blueprint
 
 [![Import Blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FCm-8%2Fbaxi_hybridapp_home%2Fmain%2Fblueprints%2Fautomation%2Fbaxi_hybridapp_home%2Fnotifica_avvisi.yaml)
 
+### 🎛️ Operating Mode Control
+- **Modo Impianto** — select entity to switch between **Automatico**, **Solo Sanitario** and **Standby**; sends the command to the Baxi cloud instantly and refreshes the state
+
 ### 🛁 Water Heater Entities
 - **Sanitario Comfort** — adjustable DHW comfort temperature setpoint (30–52 °C)
 - **Sanitario Eco** — adjustable DHW eco temperature setpoint (30–52 °C)
 
 ### 🔘 Diagnostic Entities
-- **Aggiorna dati** — button to manually trigger a data refresh
+- **Aggiorna** — button to manually trigger a data refresh
 
 ---
 
