@@ -655,6 +655,77 @@ class BaxiHybridAppAPI:
             )
 
     # 🔴🔴 API di scrittura (PUT)
+    def send_command(self, command_id: str) -> bool:
+        """
+        Invia un comando al device tramite PUT /data/commands?commandId=...&thingId=...
+        con body vuoto (HTTP 204 atteso). Usato per le modalità operative:
+        Automatico, Standby, Solo Sanitario.
+        """
+        if not self.token:
+            _LOGGER.warning("⚠️ Nessun token, provo a ri-autenticare...")
+            self.authenticate()
+            if not self.token:
+                _LOGGER.error("❌ Impossibile autenticarsi per PUT command.")
+                return False
+
+        if not self.thingId:
+            _LOGGER.warning("⚠️ Nessun thingId, provo a recuperarlo...")
+            self.get_thingid()
+            if not self.thingId:
+                _LOGGER.error("❌ Impossibile ottenere il thingId per PUT command.")
+                return False
+
+        url = f"{self.BASE_URL}/data/commands?commandId={command_id}&thingId={self.thingId}"
+
+        headers = {
+            'authorization': f'Bearer {self.token}',
+            'content-type': 'application/json',
+        }
+
+        try:
+            response = self._session.put(
+                url, headers=headers, data=None, timeout=self.REQUEST_TIMEOUT,
+            )
+
+            # 401: ri-autentica e ritenta una sola volta
+            if response.status_code == 401:
+                _LOGGER.warning("🔐 Token scaduto, ri-autentico...")
+                self.authenticate()
+                headers['authorization'] = f'Bearer {self.token}'
+                response = self._session.put(
+                    url, headers=headers, data=None, timeout=self.REQUEST_TIMEOUT,
+                )
+
+            # 429: backoff via Retry-After e ritenta una sola volta
+            if response.status_code == 429:
+                delay = self._parse_retry_after(response)
+                if delay is not None:
+                    _LOGGER.warning(
+                        "⏳ Rate limit (429) su PUT command %s, attendo %ss e riprovo.",
+                        command_id, delay,
+                    )
+                    _sleep(delay)
+                    response = self._session.put(
+                        url, headers=headers, data=None, timeout=self.REQUEST_TIMEOUT,
+                    )
+                else:
+                    _LOGGER.warning(
+                        "⏳ Rate limit (429) su PUT command %s senza Retry-After utile — abbandono.",
+                        command_id,
+                    )
+                    return False
+
+            # 204 = No Content → successo
+            if response.status_code == 204 or response.ok:
+                _LOGGER.info("📤✅ Comando %s eseguito (HTTP %s)", command_id, response.status_code)
+                return True
+            else:
+                _LOGGER.error("❌ Errore PUT command %s → HTTP %s: %s", command_id, response.status_code, response.text)
+                return False
+        except Exception as e:
+            _LOGGER.exception("❌ Eccezione nel PUT command %s: %s", command_id, e)
+            return False
+
     def set_configuration_parameter(self, parameter_id: str, value: float | int | str):
         """
         Esegue una chiamata PUT per aggiornare un parametro configurabile

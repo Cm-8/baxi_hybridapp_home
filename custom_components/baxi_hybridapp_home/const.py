@@ -24,6 +24,11 @@ PLATFORM = "Android"
 PARAM_ID_SETPOINT_COMFORT = "5bec6274dbdf4f0008a6e012"
 PARAM_ID_SETPOINT_ECO     = "5bec6275dbdf4f0008a6e013"
 
+# Command IDs — Modo Impianto (PUT /data/commands?commandId=...&thingId=...)
+COMMAND_ID_MODE_STANDBY        = "5bec6335dbdf4f0008a6e059"
+COMMAND_ID_MODE_SOLO_SANITARIO = "5bec6335dbdf4f0008a6e05a"
+COMMAND_ID_MODE_AUTOMATICO     = "5bec6338dbdf4f0008a6e05f"
+
 # Sanitary temperature limits
 SANITARY_MIN_TEMP = 30
 SANITARY_MAX_TEMP = 52

@@ -20,7 +20,7 @@ import voluptuous as vol
 import logging
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS = ["sensor", "water_heater", "button", "binary_sensor"]
+PLATFORMS = ["sensor", "water_heater", "button", "binary_sensor", "select"]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
