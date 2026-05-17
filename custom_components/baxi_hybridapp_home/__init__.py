@@ -3,21 +3,19 @@ Custom integration for Baxi Hybrid App devices with Home Assistant.
 For more details about this integration, please refer to
 https://github.com/Cm-8/baxi_hybridapp_home
 
-custom_components/baxi_hybridapp_home/_init_.py
+custom_components/baxi_hybridapp_home/__init__.py
 """
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers import entity_registry as er
-from datetime import timedelta
 from .const import (
     DOMAIN, DATA_KEY_API,
     PARAM_ID_SETPOINT_COMFORT, PARAM_ID_SETPOINT_ECO,
     SANITARY_MIN_TEMP, SANITARY_MAX_TEMP,
 )
 from .api import BaxiHybridAppAPI
+from .coordinator import BaxiDataUpdateCoordinator
 import voluptuous as vol
 import logging
 
@@ -26,76 +24,14 @@ PLATFORMS = ["sensor", "water_heater", "button", "binary_sensor"]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
+
 async def async_setup(hass: HomeAssistant, config: dict):
     return True
 
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     api = BaxiHybridAppAPI(entry.data["username"], entry.data["password"])
-
-    async def async_update_data():
-        """Fetch all metrics from Baxi API."""
-        # Authentication and thingId (solo se serve)
-        if not api.token:
-            await hass.async_add_executor_job(api.authenticate)
-        if not api.thingId:
-            await hass.async_add_executor_job(api.get_thingid)
-        # Metriche "semplici" (un valore per metric_name): tutte in un unico
-        # dispatcher tabellare, vedi SIMPLE_METRICS in metrics.py.
-        await hass.async_add_executor_job(api.fetch_simple_metrics)
-        # Scheduler sanitario (parsing JSON con logica derivata custom)
-        await hass.async_add_executor_job(api.fetch_sanitary_scheduler)
-        # Sensori energia (tabellari via ENERGY_SENSOR_TYPES in metrics.py)
-        await hass.async_add_executor_job(api.fetch_energy_metrics)
-        # Historical alerts (FAILURE/WARNING): popola active/last/conteggi
-        # sull'istanza API e accoda i nuovi alert in api.new_alerts_pending.
-        await hass.async_add_executor_job(api.fetch_historical_alerts)
-        # Per ogni alert mai visto in questa sessione:
-        #   1) fire event sul bus HA → trigger per automazioni (severity in payload)
-        #   2) entry nel Logbook → "sezione attività" dell'integrazione
-        # Se il binary_sensor WARNING è disabilitato dal Registro Entità, le
-        # entry di logbook con quel entity_id restano in DB ma non sono
-        # mostrate nella UI → "se abilitato" è effetto automatico.
-        # Risolvi l'entity_id reale via entity registry: hardcodarlo non
-        # funziona perché HA lo genera dal primo `name` dell'entità (es.
-        # "binary_sensor.avviso_failure_attivo" su installazioni precedenti
-        # ai rename).
-        ent_reg = er.async_get(hass)
-        for alert in list(api.new_alerts_pending):
-            hass.bus.async_fire("baxi_hybridapp_alert", alert)
-            unique_id = (
-                "baxi_failure_alert_active"
-                if alert.get("severity") == "FAILURE"
-                else "baxi_warning_alert_active"
-            )
-            entity_id = (
-                ent_reg.async_get_entity_id("binary_sensor", DOMAIN, unique_id)
-                or f"binary_sensor.{unique_id}"
-            )
-            code = alert.get("code")
-            base_msg = (
-                alert.get("description")
-                or alert.get("title")
-                or "Nuovo avviso"
-            )
-            msg = f"{code} — {base_msg}" if code else base_msg
-            await hass.services.async_call(
-                "logbook", "log",
-                {
-                    "name": f"Baxi {alert.get('severity', 'ALERT')}",
-                    "message": msg,
-                    "entity_id": entity_id,
-                },
-                blocking=False,
-            )
-        return True
-
-    coordinator = DataUpdateCoordinator(
-        hass,
-        _LOGGER,
-        name="baxi_hybridapp_home",
-        update_method=async_update_data,
-        update_interval=timedelta(minutes=10),
-    )
+    coordinator = BaxiDataUpdateCoordinator(hass, api)
 
     # First refresh to populate data
     await coordinator.async_refresh()
@@ -104,11 +40,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     hass.data.setdefault(DOMAIN, {})[DATA_KEY_API] = api
     hass.data[DOMAIN]["coordinator"] = coordinator
 
-    # Forward setup to sensor platform
+    # Forward setup to platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     # -------------------------------------------------------------
-    # Servizi personalizzato: Update Comfort (solo temperatura)
+    # Servizi: set_comfort / set_eco (aggiornamento setpoint sanitario)
     # -------------------------------------------------------------
     set_schema = vol.Schema({
         vol.Required("value"): vol.All(
@@ -158,7 +94,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         else:
             _LOGGER.error("❌ SET Comfort fallita per %s °C", value)
 
-
     async def handle_set_eco(call):
         """Aggiorna il setpoint sanitario Eco via SET (SOLO temperatura)."""
         value = int(call.data.get("value"))
@@ -199,12 +134,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             await coordinator.async_request_refresh()
         else:
             _LOGGER.error("❌ SET Eco fallita per %s °C", value)
-   
-    # Register the service
+
     hass.services.async_register(DOMAIN, "set_comfort", handle_set_comfort, schema=set_schema)
     hass.services.async_register(DOMAIN, "set_eco", handle_set_eco, schema=set_schema)
 
     return True
+
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
@@ -212,4 +147,3 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
         hass.data[DOMAIN].pop(DATA_KEY_API)
         hass.data[DOMAIN].pop("coordinator")
     return unload_ok
-    
