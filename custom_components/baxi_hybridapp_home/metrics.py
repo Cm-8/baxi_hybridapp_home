@@ -3,13 +3,13 @@ Tabelle delle metriche Servitly per Baxi Hybrid App.
 
 Questo modulo concentra:
 - SimpleMetricSpec + SIMPLE_METRICS  → metriche "semplici" (un valore per
-  metricName), lette dal dispatcher in baxi_hybridapp_api.fetch_simple_metrics
+  metricName), lette dal dispatcher in api.fetch_simple_metrics
 - BaxiEnergySensorEntityDescription + ENERGY_SENSOR_TYPES → sensori energia,
   letti da fetch_energy_metrics ed esposti come entità HA in sensor.py
 
 Aggiungere una metrica = una sola riga in una di queste tabelle. Il file
 const.py resta dedicato alle costanti pure (DOMAIN, credenziali statiche,
-parameter ID, limiti); l'API client (baxi_hybridapp_api.py) resta dedicato al
+parameter ID, limiti); l'API client (api.py) resta dedicato al
 trasporto HTTP.
 
 custom_components/baxi_hybridapp_home/metrics.py

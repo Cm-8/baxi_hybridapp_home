@@ -14,7 +14,7 @@ _LOGGER = logging.getLogger(__name__)
 
 UPDATE_DATA_DESCRIPTION = ButtonEntityDescription(
     key="update_data",
-    name="Aggiorna dati",
+    name="Aggiorna",
     icon="mdi:update",
     entity_category=EntityCategory.DIAGNOSTIC,
 )
@@ -24,7 +24,7 @@ class BaxiUpdateButton(ButtonEntity):
 
     def __init__(self, coordinator, api):
         self.entity_description = UPDATE_DATA_DESCRIPTION
-        self._attr_name = "Aggiorna dati"
+        self._attr_name = "Aggiorna"
         self._attr_unique_id = "baxi_update_data_button"
         self._coordinator = coordinator
         self._api = api
@@ -32,7 +32,7 @@ class BaxiUpdateButton(ButtonEntity):
 
     async def async_press(self):
         """Richiamato quando l’utente preme il pulsante."""
-        _LOGGER.info("🔄 Pulsante 'Aggiorna dati Baxi' premuto, forzo aggiornamento...")
+        _LOGGER.info("🔄 Pulsante 'Aggiorna' premuto, forzo aggiornamento...")
         await self._coordinator.async_request_refresh()
         _LOGGER.info("✅ Aggiornamento Baxi completato")
 

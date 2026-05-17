@@ -32,17 +32,17 @@ blueprint:
 variables:
   severity_filter: !input severity_filter
 
-trigger:
-  - platform: event
+triggers:
+  - trigger: event
     event_type: baxi_hybridapp_alert
 
-condition:
+conditions:
   - condition: template
     value_template: >
       {{ severity_filter == 'both'
          or trigger.event.data.severity == severity_filter }}
 
-action:
+actions:
   - domain: mobile_app
     type: notify
     device_id: !input notify_device

@@ -11,7 +11,7 @@ device_class=PROBLEM → HA usa la semantica standard "se PROBLEM è on,
 allora qualcosa non va" e l'icona di errore appropriata.
 
 I valori (active_*_alert / last_*_alert) sono popolati da
-BaxiHybridAppAPI.fetch_historical_alerts (vedi baxi_hybridapp_api.py).
+BaxiHybridAppAPI.fetch_historical_alerts (vedi api.py).
 
 custom_components/baxi_hybridapp_home/binary_sensor.py
 """

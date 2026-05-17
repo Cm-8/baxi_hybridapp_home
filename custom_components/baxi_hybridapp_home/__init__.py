@@ -17,7 +17,7 @@ from .const import (
     PARAM_ID_SETPOINT_COMFORT, PARAM_ID_SETPOINT_ECO,
     SANITARY_MIN_TEMP, SANITARY_MAX_TEMP,
 )
-from .baxi_hybridapp_api import BaxiHybridAppAPI
+from .api import BaxiHybridAppAPI
 import voluptuous as vol
 import logging
 

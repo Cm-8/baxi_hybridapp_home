@@ -93,7 +93,7 @@ A ready-made **blueprint** for push notifications is included — see [blueprint
 ## Requirements
 
 - A valid account for the [Baxi HybridApp](https://play.google.com/store/apps/details?id=it.baxi.HybridApp)
-- Home Assistant version >= 2023.0
+- Home Assistant version >= 2025.1.0
 
 ---
 

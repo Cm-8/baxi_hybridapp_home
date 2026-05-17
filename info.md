@@ -1,31 +1,35 @@
-# Baxi HybridApp
+# Baxi HybridApp Home
 
-This is a custom component to allow integration of Baxi HybridApp devices in [HomeAssistant](https://home-assistant.io).
+Custom integration for [Home Assistant](https://home-assistant.io) to monitor and control your Baxi system via the HybridApp cloud API.
 
 ## Features
 
-This integration provides the following sensors:
+🌡️ **Temperature Sensors**
+- External Temperature, Internal Temperature
+- Boiler Flow Temperature, PDC Exit / Return Temperature
+- DHW Storage Temperature, DHW Auxiliary Storage Temperature
+- Sanitary Setpoints (Instantaneous, Comfort, Eco)
 
-🌡️ Temperature Sensors
-- External Temperature
-- Internal Temperature
-- Boiler Flow Temperature
-- DHW Storage Temperature
-- DHW Auxiliary Storage Temperature
-- PDC Exit Temperature
-- PDC Return Temperature
-- Sanitary Setpoint Instantaneous
-- Sanitary Setpoint Comfort
-- Sanitary Setpoint Eco
+💧 **Pressure Sensor**
+- Water Pressure (bar)
 
-🧭 Mode / Status Sensors
-- System Mode
-- Season Mode
-- Sanitary Mode On
+⚡ **Power Sensors**
+- Boiler Instantaneous Power, PDC Instantaneous Power
 
-💧 Pressure Sensor
-- Water Pressure
+🧭 **Mode / Status Sensors**
+- System Mode, System Operation Mode, Season Mode
+- Sanitary On, Flame Status, Scheduler Status
 
-Data is fetched from the Baxi cloud every 5 minutes via polling.
+⚡ **Energy Sensors** _(disabled by default, compatible with HA Energy dashboard)_
+- Total and partial energy for PDC, boiler, and electric resistances
 
+🔔 **Alert Monitoring**
+- Binary sensors for active FAILURE and WARNING alerts
+- FAILURE count (last 24h / last 7 days)
+- Event `baxi_hybridapp_alert` on the HA bus for automations
+- Blueprint included for push notifications to the HA mobile app
 
+🛁 **Water Heater Entities**
+- Adjustable Comfort and Eco DHW setpoints (30–52 °C)
+
+Data is fetched from the Baxi cloud every **10 minutes** via polling.

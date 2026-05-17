@@ -1,8 +1,5 @@
-.gitignore
-baxi_hybridapp_home\custom_components\water_heater_backup.py
-water_heater_backup.py
-custom_components/baxi_hybridapp_home/water_heater_backup_2.py
-
 CLAUDE.md
 /.claude
 /documentation/example
+**/__pycache__/
+**/*.pyc
