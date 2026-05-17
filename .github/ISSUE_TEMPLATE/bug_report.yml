@@ -1,0 +1,252 @@
+name: 🐛 Bug Report
+description: Segnala un problema con l'integrazione Baxi HybridApp Home
+title: "[BUG] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Grazie per aver segnalato un problema! 🙏
+
+        Prima di compilare, controlla che non sia già stato segnalato nelle [issue esistenti](https://github.com/Cm-8/baxi_hybridapp_home/issues?q=is%3Aissue).
+
+        Le informazioni che ti chiedo servono a riprodurre e diagnosticare il problema il più rapidamente possibile.
+
+  - type: checkboxes
+    id: preliminary
+    attributes:
+      label: Verifiche preliminari
+      options:
+        - label: Sto usando l'ultima versione disponibile dell'integrazione
+          required: true
+        - label: Ho cercato tra le issue aperte/chiuse e non c'è un duplicato
+          required: true
+        - label: Ho riavviato Home Assistant almeno una volta dopo aver notato il problema
+          required: true
+
+  - type: markdown
+    attributes:
+      value: "## 📦 Versioni"
+
+  - type: input
+    id: integration_version
+    attributes:
+      label: Versione integrazione
+      description: Vedi in HACS → Baxi HybridApp Home, oppure in `manifest.json`
+      placeholder: "es. 0.6.0"
+    validations:
+      required: true
+
+  - type: input
+    id: ha_version
+    attributes:
+      label: Versione Home Assistant
+      description: Impostazioni → Informazioni
+      placeholder: "es. 2026.5.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: ha_installation
+    attributes:
+      label: Tipo di installazione Home Assistant
+      options:
+        - Home Assistant OS
+        - Home Assistant Container (Docker)
+        - Home Assistant Supervised
+        - Home Assistant Core (venv)
+        - Altro / non so
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 🔧 Configurazione del tuo impianto Baxi
+
+        Queste informazioni sono **fondamentali**: l'integrazione si comporta in modo diverso a seconda dei componenti idraulici e termici presenti. Se non sei sicuro, apri l'app Baxi HybridApp e controlla le schermate Home / Impianto.
+
+  - type: input
+    id: device_model
+    attributes:
+      label: Modello caldaia / sistema
+      description: Es. "CSI IN Alya H WI-FI", "CSI IN Auriga H WI-FI"
+      placeholder: "CSI IN Auriga H WI-FI"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: climate_mode
+    attributes:
+      label: Modalità climatica installata
+      description: Cosa gestisce il sistema?
+      options:
+        - Solo riscaldamento (caldo)
+        - Riscaldamento + raffrescamento (caldo + freddo)
+        - Solo sanitario
+        - Non so
+    validations:
+      required: true
+
+  - type: dropdown
+    id: heat_pump
+    attributes:
+      label: Pompa di calore (PDC)
+      options:
+        - Presente
+        - Assente
+        - Non so
+    validations:
+      required: true
+
+  - type: dropdown
+    id: gas_boiler
+    attributes:
+      label: Caldaia a gas
+      description: La parte a combustione del sistema ibrido
+      options:
+        - Presente
+        - Assente
+        - Non so
+    validations:
+      required: true
+
+  - type: dropdown
+    id: electric_resistance
+    attributes:
+      label: Resistenza elettrica integrativa
+      options:
+        - Presente
+        - Assente
+        - Non so
+    validations:
+      required: true
+
+  - type: dropdown
+    id: dhw_storage
+    attributes:
+      label: Accumulo sanitario (boiler ACS)
+      options:
+        - Presente
+        - Assente
+        - Non so
+    validations:
+      required: true
+
+  - type: dropdown
+    id: dhw_auxiliary
+    attributes:
+      label: Accumulo ausiliario sanitario (secondo serbatoio)
+      options:
+        - Presente
+        - Assente
+        - Non so
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: other_components
+    attributes:
+      label: Altri componenti opzionali
+      description: Seleziona TUTTO ciò che è installato
+      options:
+        - label: Pannello di controllo Wi-Fi esterno (cronotermostato modulante)
+        - label: Solare termico
+        - label: Multi-zona (più zone climatiche indipendenti)
+        - label: Integrazione fotovoltaico
+
+  - type: dropdown
+    id: usage_pattern
+    attributes:
+      label: Modalità operativa abituale dell'impianto
+      description: Come imposti di solito il sistema dall'app Baxi?
+      options:
+        - Automatico (gestione completa PDC + caldaia)
+        - Solo PDC
+        - Solo caldaia
+        - Solo sanitario
+        - Stand-by
+        - Variabile / stagionale
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: "## 🐞 Descrizione del problema"
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Descrizione del problema
+      description: Cosa sta succedendo? Cosa ti aspettavi succedesse invece?
+      placeholder: |
+        Es. "Il sensore Flame Status mostra 'unavailable' da quando l'impianto è in modalità ibrida.
+        Mi aspettavo che mostrasse on/off come gli altri sensori binari, e nell'app Baxi vedo lo stato fiamma correttamente."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Passi per riprodurre
+      description: Elenca i passaggi (anche brevi) che portano al problema
+      placeholder: |
+        1. Apro la dashboard HA
+        2. Guardo l'entità sensor.baxi_flame_status
+        3. Vedo "unavailable"
+
+  - type: input
+    id: when_started
+    attributes:
+      label: Da quando è iniziato il problema
+      description: Sempre? Dopo un aggiornamento HA o dell'integrazione? Dopo un intervento del tecnico Baxi?
+      placeholder: "Da subito dopo l'aggiornamento a v0.6.0 / da quando il tecnico ha cambiato la scheda / sempre"
+
+  - type: textarea
+    id: affected_entities
+    attributes:
+      label: Entità interessate
+      description: Quali entità (sensor.xxx, binary_sensor.xxx, water_heater.xxx) mostrano il problema?
+      placeholder: |
+        - sensor.baxi_flame_status: "unavailable"
+        - binary_sensor.baxi_failure: "on" anche se l'app dice tutto ok
+        - sensor.energia_totale_globale_per_day: valore fisso da ieri
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 📜 Log e diagnostica
+
+        **Abilita il debug logging** prima di riprodurre il problema. Aggiungi in `configuration.yaml` e riavvia:
+
+        ```yaml
+        logger:
+          default: info
+          logs:
+            custom_components.baxi_hybridapp_home: debug
+        ```
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log rilevanti
+      description: |
+        Riproduci il problema, poi vai in **Impostazioni → Sistema → Log** e incolla qui le righe relative a `baxi_hybridapp_home`.
+        ⚠️ **Oscura email, token e ID univoci** prima di incollare.
+      render: shell
+      placeholder: |
+        2026-05-17 12:00:00.000 DEBUG (MainThread) [custom_components.baxi_hybridapp_home] ...
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: File diagnostico (consigliato)
+      description: |
+        Se possibile allega il file diagnostico:
+        **Impostazioni → Dispositivi e servizi → Baxi HybridApp Home → ⋯ → Scarica diagnostico**.
+        Trascina qui il file `.json` (controlla prima che non contenga dati sensibili).
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Note aggiuntive
+      description: Screenshot dell'app Baxi, della dashboard HA, comportamento atteso nell'app ufficiale, qualsiasi cosa utile.
