@@ -1,13 +1,25 @@
 """
 Constants for Baxi Hybrid App custom integration for Home Assistant.
 
-Solo valori "fissi" (nessun import da Home Assistant): identificativi di
-dominio, credenziali statiche dell'app Android Baxi, parameter ID, limiti.
+Solo valori "fissi": identificativi di dominio, credenziali statiche
+dell'app Android Baxi, parameter ID, limiti, intervallo di polling.
 Le tabelle delle metriche e i descrittori dei sensori energia vivono in
 metrics.py.
 
 custom_components/baxi_hybridapp_home/const.py
 """
+
+import json
+from pathlib import Path
+from datetime import timedelta
+
+# Versione letta direttamente da manifest.json — rimane automaticamente
+# in sync senza dover duplicare il numero in due posti.
+_manifest = json.loads((Path(__file__).parent / "manifest.json").read_text(encoding="utf-8"))
+INTEGRATION_VERSION: str = _manifest.get("version", "?")
+
+# Intervallo di polling del coordinator (modificare qui per tutti i cicli).
+POLLING_INTERVAL: timedelta = timedelta(minutes=10)
 
 DOMAIN = "baxi_hybridapp_home"
 DATA_KEY_API = "api"

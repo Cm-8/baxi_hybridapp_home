@@ -58,6 +58,8 @@ class BaxiHybridAppAPI:
         self.thingSwVersion = None
         self.thingFirmware = None
         self.serialNumber = None
+        self.thingDefinitionId = None    # ID del modello (thingDefinition), non del device
+        self.thingDefinitionName = None  # Nome commerciale del modello (es. "CSI IN SPLIT E")
 
         # Metriche "semplici": un attributo + timestamp per ciascuna voce della
         # tabella SIMPLE_METRICS (definita a livello modulo). Aggiungerne una
@@ -158,17 +160,23 @@ class BaxiHybridAppAPI:
                 data = response.json()
                 content = data.get("content", [])
                 
-                self.thingId = content[0].get("id") if content else None
-                self.thingModel = content[0].get("properties", {}).get("model") if content else None
-                self.thingSwVersion = content[0].get("properties", {}).get("versione_software_msc") if content else None
-                self.thingFirmware = content[0].get("properties", {}).get("firmware") if content else None
-                self.serialNumber = content[0].get("serialNumber") if content else None
+                thing = content[0] if content else {}
+                thing_def = thing.get("thingDefinition") or {}
+
+                self.thingId              = thing.get("id")
+                self.thingModel           = thing.get("properties", {}).get("model")
+                self.thingSwVersion       = thing.get("properties", {}).get("versione_software_msc")
+                self.thingFirmware        = thing.get("properties", {}).get("firmware")
+                self.serialNumber         = thing.get("serialNumber")
+                self.thingDefinitionId    = thing_def.get("id")
+                self.thingDefinitionName  = thing_def.get("name")
 
                 _LOGGER.info("✅ Thing ID ottenuto: %s", self.thingId)
-                _LOGGER.info("✅ Model ottenuto: %s", self.thingModel)
-                _LOGGER.info("✅ SwVersion ottenuto: %s", self.thingSwVersion)
-                _LOGGER.info("✅ Firmware ottenuto: %s", self.thingFirmware)
-                _LOGGER.info("✅ serialNumber ottenuto: %s", self.serialNumber)
+                _LOGGER.info("✅ Model ottenuto: %s | Definizione: %s (%s)",
+                             self.thingModel, self.thingDefinitionName, self.thingDefinitionId)
+                _LOGGER.info("✅ SwVersion: %s | Firmware: %s | S/N: %s",
+                             self.thingSwVersion, self.thingFirmware, self.serialNumber)
+
                 return self.thingId
             else:
                 _LOGGER.error("❌ Questo Account Baxi non ha un impianto(ThingId) associato: %s", response.text)

@@ -6,16 +6,15 @@ custom_components/baxi_hybridapp_home/coordinator.py
 
 from __future__ import annotations
 
-from datetime import timedelta
+import logging
 
+from homeassistant.const import __version__ as ha_version
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .api import BaxiHybridAppAPI
-from .const import DOMAIN
-
-import logging
+from .const import DOMAIN, INTEGRATION_VERSION, POLLING_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,7 +28,18 @@ class BaxiDataUpdateCoordinator(DataUpdateCoordinator):
             hass,
             _LOGGER,
             name="baxi_hybridapp_home",
-            update_interval=timedelta(minutes=10),
+            update_interval=POLLING_INTERVAL,
+        )
+
+    def _log_fetch_info(self) -> None:
+        """Logga versione HA/integrazione e modello device all'inizio di ogni ciclo."""
+        _LOGGER.debug(
+            "🔄 Ciclo fetch — HA: %s | Integrazione: %s | Polling: %s | Modello: %s (%s)",
+            ha_version,
+            INTEGRATION_VERSION,
+            POLLING_INTERVAL,
+            self.api.thingModel or "?",
+            self.api.thingDefinitionName or "?",
         )
 
     async def _async_update_data(self) -> bool:
@@ -39,6 +49,8 @@ class BaxiDataUpdateCoordinator(DataUpdateCoordinator):
             await self.hass.async_add_executor_job(self.api.authenticate)
         if not self.api.thingId:
             await self.hass.async_add_executor_job(self.api.get_thingid)
+        # Log DOPO auth+thingId: thingModel e thingDefinitionName sono garantiti
+        self._log_fetch_info()
         # Metriche "semplici" (un valore per metric_name): tutte in un unico
         # dispatcher tabellare, vedi SIMPLE_METRICS in metrics.py.
         await self.hass.async_add_executor_job(self.api.fetch_simple_metrics)
