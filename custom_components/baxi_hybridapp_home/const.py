@@ -35,6 +35,7 @@ PLATFORM = "Android"
 # Parameter IDs
 PARAM_ID_SETPOINT_COMFORT = "5bec6274dbdf4f0008a6e012"
 PARAM_ID_SETPOINT_ECO     = "5bec6275dbdf4f0008a6e013"
+PARAM_ID_SETPOINT_RAFFRESCAMENTO = "5bec6273dbdf4f0008a6e011"
 
 # Command IDs — Modo Impianto (PUT /data/commands?commandId=...&thingId=...)
 COMMAND_ID_MODE_STANDBY        = "5bec6335dbdf4f0008a6e059"

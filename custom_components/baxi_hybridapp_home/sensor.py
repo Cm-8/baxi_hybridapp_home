@@ -190,6 +190,19 @@ class SetpointEcoTempSensor(BaxiBaseSensor):
             icon="mdi:target"
         )
 
+class SetpointRaffrescamentoTempSensor(BaxiBaseSensor):
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Setpoint Raffrescamento",
+            unique_id="baxi_setpoint_raffrescamento_temperature",
+            value_key="setpoint_raffrescamento_temp",
+            unit=UnitOfTemperature.CELSIUS,
+            device_class=SensorDeviceClass.TEMPERATURE,
+            icon="mdi:target"
+        )
+
 class WaterPressureSensor(BaxiBaseSensor):
     def __init__(self, coordinator, api):
         super().__init__(
@@ -694,6 +707,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         SetpointInstantTempSensor(coordinator, api),
         SetpointComfortTempSensor(coordinator, api),
         SetpointEcoTempSensor(coordinator, api),
+        SetpointRaffrescamentoTempSensor(coordinator, api),
         FlameStatusSensor(coordinator, api),
         SystemOperationIcon(coordinator, api),
         # Inizio nuovi sensori caldaia

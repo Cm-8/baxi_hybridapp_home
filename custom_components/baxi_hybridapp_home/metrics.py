@@ -86,6 +86,7 @@ SIMPLE_METRICS: tuple[SimpleMetricSpec, ...] = (
     SimpleMetricSpec("setpoint_instant_temp", "Set-point sanitario istantaneo", _parse_float, log_emoji="🌡️"),
     SimpleMetricSpec("setpoint_comfort_temp", "Set-point sanitario comfort", _parse_float, log_emoji="🌡️"),
     SimpleMetricSpec("setpoint_eco_temp", "Set-point sanitario eco", _parse_float, log_emoji="🌡️"),
+    SimpleMetricSpec("setpoint_raffrescamento_temp", "Set-point raffrescamento", _parse_float, log_emoji="🌡️"),
 
     # --- Float / numerici | pressione ---------------------------------------------------
     SimpleMetricSpec("water_pressure", "Pressione impianto", _parse_float),
