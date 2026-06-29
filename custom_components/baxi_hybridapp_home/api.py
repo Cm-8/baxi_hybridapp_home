@@ -58,8 +58,10 @@ class BaxiHybridAppAPI:
         self.thingSwVersion = None
         self.thingFirmware = None
         self.serialNumber = None
-        self.thingDefinitionId = None    # ID del modello (thingDefinition), non del device
-        self.thingDefinitionName = None  # Nome commerciale del modello (es. "CSI IN SPLIT E")
+        # ID del modello (thingDefinition), non del device
+        self.thingDefinitionId = None
+        # Nome commerciale del modello (es. "CSI IN SPLIT E")
+        self.thingDefinitionName = None
 
         # Metriche "semplici": un attributo + timestamp per ciascuna voce della
         # tabella SIMPLE_METRICS (definita a livello modulo). Aggiungerne una
@@ -72,10 +74,13 @@ class BaxiHybridAppAPI:
         # (vedi fetch_sanitary_scheduler / _compute_sanitary_schedule_state).
         self.sanitary_scheduler_raw = None           # JSON string proveniente dall'API
         self.sanitary_mode_now = None                # "Comfort" | "Eco"
-        self.sanitary_next_change = None             # datetime (tz-aware) del prossimo cambio
-        self.sanitary_today_summary = None           # "Comfort fino alle HH:MM" | "Eco fino alle HH:MM"
+        # datetime (tz-aware) del prossimo cambio
+        self.sanitary_next_change = None
+        # "Comfort fino alle HH:MM" | "Eco fino alle HH:MM"
+        self.sanitary_today_summary = None
         self.sanitary_scheduler_status = None        # "ok" | "empty" | "error"
-        self.setpoint_eco_fallback = None            # int/str se presente nel fallback ECO
+        # int/str se presente nel fallback ECO
+        self.setpoint_eco_fallback = None
 
         # Sensori energia: tabellari via ENERGY_SENSOR_TYPES in const.py.
         for desc in ENERGY_SENSOR_TYPES:
@@ -133,20 +138,21 @@ class BaxiHybridAppAPI:
                 self.refreshToken = data.get("refreshToken")
                 # safe token
                 safe = {**data, "token": "***", "refreshToken": "***"}
-                _LOGGER.info("✅ BAXI Login successful: %s", json.dumps(safe)[:300])
+                _LOGGER.info("✅ BAXI Login successful: %s",
+                             json.dumps(safe)[:300])
             else:
                 _LOGGER.error("❌ BAXI Login failed: %s", response.text)
         except Exception as e:
             _LOGGER.exception("❌ BAXI Login exception: %s", e)
 
-    def get_thingid (self) -> str:
+    def get_thingid(self) -> str:
         if not self.token:
             _LOGGER.warning("⚠️ Nessun token: provo a ri-autenticare...")
             self.authenticate()
             if not self.token:
                 _LOGGER.error("❌ Impossibile autenticarsi.")
                 return None
-                
+
         # Solo l'authorization è specifica per la chiamata; il resto sta sulla session.
         headers = {'authorization': f'Bearer {self.token}'}
 
@@ -159,17 +165,19 @@ class BaxiHybridAppAPI:
             if response.ok:
                 data = response.json()
                 content = data.get("content", [])
-                
+
                 thing = content[0] if content else {}
                 thing_def = thing.get("thingDefinition") or {}
 
-                self.thingId              = thing.get("id")
-                self.thingModel           = thing.get("properties", {}).get("model")
-                self.thingSwVersion       = thing.get("properties", {}).get("versione_software_msc")
-                self.thingFirmware        = thing.get("properties", {}).get("firmware")
-                self.serialNumber         = thing.get("serialNumber")
-                self.thingDefinitionId    = thing_def.get("id")
-                self.thingDefinitionName  = thing_def.get("name")
+                self.thingId = thing.get("id")
+                self.thingModel = thing.get("properties", {}).get("model")
+                self.thingSwVersion = thing.get(
+                    "properties", {}).get("versione_software_msc")
+                self.thingFirmware = thing.get(
+                    "properties", {}).get("firmware")
+                self.serialNumber = thing.get("serialNumber")
+                self.thingDefinitionId = thing_def.get("id")
+                self.thingDefinitionName = thing_def.get("name")
 
                 _LOGGER.info("✅ Thing ID ottenuto: %s", self.thingId)
                 _LOGGER.info("✅ Model ottenuto: %s | Definizione: %s (%s)",
@@ -179,11 +187,70 @@ class BaxiHybridAppAPI:
 
                 return self.thingId
             else:
-                _LOGGER.error("❌ Questo Account Baxi non ha un impianto(ThingId) associato: %s", response.text)
+                _LOGGER.error(
+                    "❌ Questo Account Baxi non ha un impianto(ThingId) associato: %s", response.text)
                 return None
         except Exception as e:
             _LOGGER.exception("❌ Eccezione nel recupero thingId: %s", e)
             return None
+
+    def discover_device_capabilities(self) -> None:
+        """
+        Legge tutti i Comandi e tutti i Parametri di configurazione disponibili
+        per il modello del device (thingDefinition) e li logga a livello INFO.
+
+        Utile per scoprire gli ID necessari ad implementare nuovi controlli
+        (es. cambio stagione) senza dover catturare il traffico dall'app.
+
+        Endpoint usati (documentazione Servitly):
+          GET /inventory/thingDefinitions/{thingDefinitionId}/commands
+          GET /inventory/thingDefinitions/{thingDefinitionId}/configurationParameters
+        """
+        if not self.thingDefinitionId:
+            _LOGGER.warning(
+                "⚠️ discover_device_capabilities: thingDefinitionId non disponibile.")
+            return
+
+        base = f"{self.BASE_URL}/inventory/thingDefinitions/{self.thingDefinitionId}"
+        headers = self._auth_headers()
+
+        _LOGGER.debug(
+            "🔍 [DISCOVERY] Avvio discovery capabilities per thingDefinitionId=%s",
+            self.thingDefinitionId,
+        )
+
+        for label, url in [
+            ("COMANDI", f"{base}/commands"),
+            ("PARAMETRI", f"{base}/configurationParameters"),
+        ]:
+            try:
+                resp = self._session.get(
+                    url, headers=headers, timeout=self.REQUEST_TIMEOUT)
+                if resp.status_code == 401:
+                    self.authenticate()
+                    headers = self._auth_headers()
+                    resp = self._session.get(
+                        url, headers=headers, timeout=self.REQUEST_TIMEOUT)
+                if not resp.ok:
+                    _LOGGER.warning(
+                        "🔍 [DISCOVERY] %s fallita: HTTP %s — %s",
+                        label, resp.status_code, resp.text[:200],
+                    )
+                    continue
+                items = resp.json()
+                if not items:
+                    _LOGGER.debug(
+                        "🔍 [DISCOVERY] %s: nessun elemento trovato.", label)
+                    continue
+                _LOGGER.debug(
+                    "🔍 [DISCOVERY] === %s (%d elementi) ===", label, len(items))
+                for item in items:
+                    _LOGGER.debug(
+                        "🔍 [DISCOVERY]   [%s] id=%s | name=%s",
+                        label, item.get("id"), item.get("name"),
+                    )
+            except Exception as exc:
+                _LOGGER.exception("❌ Eccezione discovery %s: %s", label, exc)
 
     def _auth_headers(self) -> dict:
         """Header per le chiamate autenticate (gli altri stanno sulla session)."""
@@ -262,7 +329,8 @@ class BaxiHybridAppAPI:
             if response.ok:
                 return response.json()
             else:
-                _LOGGER.error("❌ Errore nella richiesta %s: %s", url, response.text)
+                _LOGGER.error("❌ Errore nella richiesta %s: %s",
+                              url, response.text)
                 return None
         except Exception as e:
             _LOGGER.exception("❌ Eccezione nella richiesta a %s: %s", url, e)
@@ -327,7 +395,8 @@ class BaxiHybridAppAPI:
             value = spec.parser(raw)
             setattr(self, spec.attr, value)
             setattr(self, f"{spec.attr}_timestamp", item["timestamp"])
-            _LOGGER.debug("%s %s = %s", spec.log_emoji, spec.metric_name, value)
+            _LOGGER.debug("%s %s = %s", spec.log_emoji,
+                          spec.metric_name, value)
         except (KeyError, IndexError, ValueError, TypeError) as e:
             setattr(self, spec.attr, None)
             setattr(self, f"{spec.attr}_timestamp", None)
@@ -375,7 +444,7 @@ class BaxiHybridAppAPI:
                         ts / 1000, tz=dt_util.DEFAULT_TIME_ZONE
                     ).date()
                     today_local_date = dt_util.now().date()
-                
+
                     # Se il campione non è di oggi, forza 0 finché non arriva il nuovo giorno
                     if sample_local_date != today_local_date:
                         val = 0.0
@@ -390,9 +459,9 @@ class BaxiHybridAppAPI:
                 self.energy_timestamp[desc.key] = None
                 _LOGGER.warning(
                     "⚠️ Parsing fallito (energia: %s): %s — response 📦: %s",
-                    desc.metric_name, e, json.dumps(data)[:300] if 'data' in locals() and data else "None"
+                    desc.metric_name, e, json.dumps(
+                        data)[:300] if 'data' in locals() and data else "None"
                 )
-
 
     def fetch_sanitary_scheduler(self):
         data = self._make_request(self._metric_url("Schedulatore - Sanitario"))
@@ -405,14 +474,17 @@ class BaxiHybridAppAPI:
             self.sanitary_scheduler_raw = raw_str
             self._compute_sanitary_schedule_state(raw_str)
             self.sanitary_scheduler_status = "ok"
-            _LOGGER.debug("📅 Schedulatore Sanitario: %s", self.sanitary_scheduler_raw)
+            _LOGGER.debug("📅 Schedulatore Sanitario: %s",
+                          self.sanitary_scheduler_raw)
         except (KeyError, IndexError, ValueError, TypeError) as e:
             # Azzera il campo, warning + debug 'data'
             self.sanitary_scheduler_raw = None
             self.sanitary_scheduler_status = "error"
-            _LOGGER.warning("⚠️ Parsing fallito (Schedulatore sanitario): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (Schedulatore sanitario): %s", data)
-    
+            _LOGGER.warning(
+                "⚠️ Parsing fallito (Schedulatore sanitario): %s — response 📦: %s", e, json.dumps(data)[:300])
+            _LOGGER.debug(
+                "📦 Contenuto data (Schedulatore sanitario): %s", data)
+
     def _compute_sanitary_schedule_state(self, raw_str, now_dt: datetime | None = None):
         """
         Converte lo scheduler in segmenti giornalieri e calcola:
@@ -474,15 +546,19 @@ class BaxiHybridAppAPI:
                 c_end = datetime.combine(day_date, c_end_t, tzinfo=tz)
                 # eco prima della fascia comfort (se c'è gap)
                 if c_start > start_cursor:
-                    segments.append({"start": start_cursor, "end": c_start, "mode": "Eco"})
+                    segments.append(
+                        {"start": start_cursor, "end": c_start, "mode": "Eco"})
                 # comfort
                 if c_end > c_start:
-                    segments.append({"start": c_start, "end": c_end, "mode": "Comfort"})
+                    segments.append(
+                        {"start": c_start, "end": c_end, "mode": "Comfort"})
                 start_cursor = max(start_cursor, c_end)
             # coda Eco fino a 24:00
-            end_of_day = datetime.combine(day_date, time(23, 59, 59), tzinfo=tz) + timedelta(seconds=1)
+            end_of_day = datetime.combine(day_date, time(
+                23, 59, 59), tzinfo=tz) + timedelta(seconds=1)
             if start_cursor < end_of_day:
-                segments.append({"start": start_cursor, "end": end_of_day, "mode": "Eco"})
+                segments.append(
+                    {"start": start_cursor, "end": end_of_day, "mode": "Eco"})
 
             return segments, eco_setpoint_local
 
@@ -533,10 +609,6 @@ class BaxiHybridAppAPI:
             until_txt = until_dt.strftime("%H:%M") if until_dt else "24:00"
 
         self.sanitary_today_summary = f"{self.sanitary_mode_now} fino alle {until_txt}"
-
-
-
-
 
     # 🚨 Historical alerts (user-level): FAILURE + WARNING
     # Regex per estrarre il codice errore dalla description ("E60", "E14", ...).
@@ -641,10 +713,14 @@ class BaxiHybridAppAPI:
                     if in_7d:
                         warning_7d += 1
 
-            self.active_failure_alert = self._normalize_alert(active_failure) if active_failure else None
-            self.active_warning_alert = self._normalize_alert(active_warning) if active_warning else None
-            self.last_failure_alert = self._normalize_alert(last_failure) if last_failure else None
-            self.last_warning_alert = self._normalize_alert(last_warning) if last_warning else None
+            self.active_failure_alert = self._normalize_alert(
+                active_failure) if active_failure else None
+            self.active_warning_alert = self._normalize_alert(
+                active_warning) if active_warning else None
+            self.last_failure_alert = self._normalize_alert(
+                last_failure) if last_failure else None
+            self.last_warning_alert = self._normalize_alert(
+                last_warning) if last_warning else None
             self.failure_count_24h = failure_24h
             self.failure_count_7d = failure_7d
             self.warning_count_24h = warning_24h
@@ -680,7 +756,8 @@ class BaxiHybridAppAPI:
             _LOGGER.warning("⚠️ Nessun thingId, provo a recuperarlo...")
             self.get_thingid()
             if not self.thingId:
-                _LOGGER.error("❌ Impossibile ottenere il thingId per PUT command.")
+                _LOGGER.error(
+                    "❌ Impossibile ottenere il thingId per PUT command.")
                 return False
 
         url = f"{self.BASE_URL}/data/commands?commandId={command_id}&thingId={self.thingId}"
@@ -725,13 +802,16 @@ class BaxiHybridAppAPI:
 
             # 204 = No Content → successo
             if response.status_code == 204 or response.ok:
-                _LOGGER.info("📤✅ Comando %s eseguito (HTTP %s)", command_id, response.status_code)
+                _LOGGER.info("📤✅ Comando %s eseguito (HTTP %s)",
+                             command_id, response.status_code)
                 return True
             else:
-                _LOGGER.error("❌ Errore PUT command %s → HTTP %s: %s", command_id, response.status_code, response.text)
+                _LOGGER.error("❌ Errore PUT command %s → HTTP %s: %s",
+                              command_id, response.status_code, response.text)
                 return False
         except Exception as e:
-            _LOGGER.exception("❌ Eccezione nel PUT command %s: %s", command_id, e)
+            _LOGGER.exception(
+                "❌ Eccezione nel PUT command %s: %s", command_id, e)
             return False
 
     def set_configuration_parameter(self, parameter_id: str, value: float | int | str):
@@ -803,12 +883,14 @@ class BaxiHybridAppAPI:
                     return False
 
             if response.ok:
-                _LOGGER.info("📤✅ PUT parametro %s impostato a %s", parameter_id, value)
+                _LOGGER.info("📤✅ PUT parametro %s impostato a %s",
+                             parameter_id, value)
                 return True
             else:
-                _LOGGER.error("❌ Errore PUT parametro %s → %s", parameter_id, response.text)
+                _LOGGER.error("❌ Errore PUT parametro %s → %s",
+                              parameter_id, response.text)
                 return False
         except Exception as e:
-            _LOGGER.exception("❌ Eccezione nella PUT parametro %s: %s", parameter_id, e)
+            _LOGGER.exception(
+                "❌ Eccezione nella PUT parametro %s: %s", parameter_id, e)
             return False
-

@@ -15,7 +15,8 @@ from datetime import timedelta
 
 # Versione letta direttamente da manifest.json — rimane automaticamente
 # in sync senza dover duplicare il numero in due posti.
-_manifest = json.loads((Path(__file__).parent / "manifest.json").read_text(encoding="utf-8"))
+_manifest = json.loads(
+    (Path(__file__).parent / "manifest.json").read_text(encoding="utf-8"))
 INTEGRATION_VERSION: str = _manifest.get("version", "?")
 
 # Intervallo di polling del coordinator (modificare qui per tutti i cicli).
@@ -34,13 +35,19 @@ PLATFORM = "Android"
 
 # Parameter IDs
 PARAM_ID_SETPOINT_COMFORT = "5bec6274dbdf4f0008a6e012"
-PARAM_ID_SETPOINT_ECO     = "5bec6275dbdf4f0008a6e013"
+PARAM_ID_SETPOINT_ECO = "5bec6275dbdf4f0008a6e013"
 PARAM_ID_SETPOINT_RAFFRESCAMENTO = "5bec6273dbdf4f0008a6e011"
 
 # Command IDs — Modo Impianto (PUT /data/commands?commandId=...&thingId=...)
-COMMAND_ID_MODE_STANDBY        = "5bec6335dbdf4f0008a6e059"
+COMMAND_ID_MODE_STANDBY = "5bec6335dbdf4f0008a6e059"
 COMMAND_ID_MODE_SOLO_SANITARIO = "5bec6335dbdf4f0008a6e05a"
-COMMAND_ID_MODE_AUTOMATICO     = "5bec6338dbdf4f0008a6e05f"
+COMMAND_ID_MODE_AUTOMATICO = "5bec6338dbdf4f0008a6e05f"
+
+# Command IDs — Modo Stagione (PUT /data/commands?commandId=...&thingId=...)
+COMMAND_ID_SEASON_ESTATE = "5bec6336dbdf4f0008a6e05b"
+COMMAND_ID_SEASON_INVERNO = "5bec6336dbdf4f0008a6e05c"
+COMMAND_ID_SEASON_AUTOMATICO = "5bec6337dbdf4f0008a6e05d"
+COMMAND_ID_SEASON_REMOTO = "5bec6337dbdf4f0008a6e05e"
 
 # Sanitary temperature limits
 SANITARY_MIN_TEMP = 30

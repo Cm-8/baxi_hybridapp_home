@@ -87,6 +87,14 @@
       }
     }
   },
+  "select": {
+    "baxi_system_mode_select": {
+      "name": "Modo Impianto"
+    },
+    "baxi_season_mode_select": {
+      "name": "Modo Stagione"
+    }
+  },
   "device_automation": {
     "action_type": {
       "set_comfort": "Imposta Sanitario Comfort",
