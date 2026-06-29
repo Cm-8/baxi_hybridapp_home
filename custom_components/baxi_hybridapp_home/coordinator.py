@@ -11,7 +11,7 @@ import logging
 from homeassistant.const import __version__ as ha_version
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import BaxiHybridAppAPI
 from .const import DOMAIN, INTEGRATION_VERSION, POLLING_INTERVAL
@@ -47,8 +47,17 @@ class BaxiDataUpdateCoordinator(DataUpdateCoordinator):
         # Authentication and thingId (solo se serve)
         if not self.api.token:
             await self.hass.async_add_executor_job(self.api.authenticate)
+        if not self.api.token:
+            raise UpdateFailed(
+                "Autenticazione Baxi fallita: credenziali non valide o servizio non raggiungibile."
+            )
+        first_fetch = not self.api.thingId
         if not self.api.thingId:
             await self.hass.async_add_executor_job(self.api.get_thingid)
+        if not self.api.thingId:
+            raise UpdateFailed(
+                "Impossibile ottenere il thingId: nessun impianto associato all'account."
+            )
         # Log DOPO auth+thingId: thingModel e thingDefinitionName sono garantiti
         self._log_fetch_info()
         # Metriche "semplici" (un valore per metric_name): tutte in un unico
