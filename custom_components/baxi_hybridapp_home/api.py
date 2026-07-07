@@ -22,6 +22,18 @@ from .metrics import SIMPLE_METRICS, SimpleMetricSpec, ENERGY_SENSOR_TYPES
 _LOGGER = logging.getLogger(__name__)
 
 
+class BaxiApiError(Exception):
+    """Errore generico dell'API Baxi Servitly."""
+
+
+class BaxiAuthError(BaxiApiError):
+    """Credenziali rifiutate dal cloud (login fallito)."""
+
+
+class BaxiConnectionError(BaxiApiError):
+    """Cloud Servitly non raggiungibile (rete, timeout, errore server)."""
+
+
 class BaxiHybridAppAPI:
     BASE_URL = "https://baxi.servitly.com/api"
     LOGIN_URL = BASE_URL + "/identity/users/login?apiKey=" + APIKEY
@@ -103,7 +115,14 @@ class BaxiHybridAppAPI:
         # nell'event loop per fire event + log su Logbook.
         self.new_alerts_pending: list[dict] = []
 
-    def authenticate(self):
+    def login(self):
+        """Esegue il login e solleva eccezioni tipizzate.
+
+        Usato dal config flow per validare le credenziali (test-before-configure):
+        - BaxiAuthError       → credenziali non valide (400/401/403 o token assente)
+        - BaxiConnectionError → cloud non raggiungibile (rete, timeout, 5xx)
+        Il runtime del coordinator usa invece authenticate(), che non solleva.
+        """
         payload = json.dumps({
             "email": self.username,
             "password": self.password,
@@ -127,15 +146,44 @@ class BaxiHybridAppAPI:
                 data=payload,
                 timeout=self.REQUEST_TIMEOUT,
             )
-            if response.ok:
-                data = response.json()
-                self.token = data.get("token")
-                self.refreshToken = data.get("refreshToken")
-                # safe token
-                safe = {**data, "token": "***", "refreshToken": "***"}
-                _LOGGER.info("✅ BAXI Login successful: %s", json.dumps(safe)[:300])
-            else:
-                _LOGGER.error("❌ BAXI Login failed: %s", response.text)
+        except requests.exceptions.RequestException as e:
+            raise BaxiConnectionError(f"Cloud Baxi non raggiungibile: {e}") from e
+
+        if response.status_code in (400, 401, 403):
+            raise BaxiAuthError(f"Credenziali rifiutate (HTTP {response.status_code})")
+        if not response.ok:
+            raise BaxiConnectionError(f"Errore server Baxi (HTTP {response.status_code})")
+
+        data = response.json()
+        token = data.get("token")
+        if not token:
+            # 200 senza token: risposta anomala, trattata come auth fallita
+            raise BaxiAuthError("Login senza token nella risposta")
+
+        self.token = token
+        self.refreshToken = data.get("refreshToken")
+        # safe token
+        safe = {**data, "token": "***", "refreshToken": "***"}
+        _LOGGER.info("✅ BAXI Login successful: %s", json.dumps(safe)[:300])
+
+    def authenticate(self):
+        """Wrapper tollerante di login(): logga senza sollevare.
+
+        Mantiene il contratto storico del runtime (coordinator/retry 401):
+        in caso di errore self.token resta None e il chiamante gestisce.
+        """
+        try:
+            self.login()
+        except BaxiAuthError as e:
+            # Credenziali rifiutate: invalida il token stantio, così il prossimo
+            # ciclo del coordinator ripassa da login() e propaga l'errore tipizzato
+            # (→ ConfigEntryAuthFailed → re-auth flow), invece di insistere con
+            # un token morto.
+            self.token = None
+            self.refreshToken = None
+            _LOGGER.error("❌ BAXI Login failed: %s", e)
+        except BaxiApiError as e:
+            _LOGGER.error("❌ BAXI Login failed: %s", e)
         except Exception as e:
             _LOGGER.exception("❌ BAXI Login exception: %s", e)
 

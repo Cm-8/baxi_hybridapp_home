@@ -8,6 +8,13 @@
           "username": "Email",
           "password": "Password"
         }
+      },
+      "reauth_confirm": {
+        "title": "Ri-autenticazione Baxi HybridApp",
+        "description": "Le credenziali per {username} non sono più valide. Inserisci la nuova password.",
+        "data": {
+          "password": "Password"
+        }
       }
     },
     "error": {
@@ -16,7 +23,8 @@
       "unknown": "Errore sconosciuto"
     },
     "abort": {
-      "already_configured": "Questa integrazione è già configurata."
+      "already_configured": "Questa integrazione è già configurata.",
+      "reauth_successful": "Ri-autenticazione completata con successo."
     }
   },
   "entity": {

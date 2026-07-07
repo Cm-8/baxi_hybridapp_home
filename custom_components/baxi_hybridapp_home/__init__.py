@@ -31,10 +31,12 @@ async def async_setup(hass: HomeAssistant, config: dict):
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     api = BaxiHybridAppAPI(entry.data["username"], entry.data["password"])
-    coordinator = BaxiDataUpdateCoordinator(hass, api)
+    coordinator = BaxiDataUpdateCoordinator(hass, entry, api)
 
-    # First refresh to populate data
-    await coordinator.async_refresh()
+    # Primo refresh con semantica config-entry:
+    # - credenziali non valide → ConfigEntryAuthFailed → HA avvia il re-auth flow
+    # - cloud irraggiungibile  → ConfigEntryNotReady   → HA ritenta il setup con backoff
+    await coordinator.async_config_entry_first_refresh()
 
     # Store API and coordinator
     hass.data.setdefault(DOMAIN, {})[DATA_KEY_API] = api

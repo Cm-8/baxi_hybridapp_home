@@ -37,6 +37,7 @@ This extension is only compatible with devices:
 - **Sanitary Setpoint Instantaneous** — current target DHW temperature
 - **Sanitary Setpoint Comfort** — comfort mode setpoint
 - **Sanitary Setpoint Eco** — eco mode setpoint
+- **Cooling Setpoint** — cooling flow setpoint (7–30 °C)
 
 ### 💧 Pressure Sensor
 - **Water Pressure** — hydraulic circuit pressure (bar)
@@ -50,9 +51,10 @@ This extension is only compatible with devices:
 - **System Operation Mode** — firmware-level operating mode (Automatico, Standby)
 - **Season Mode** — current seasonal configuration (Winter, Summer, Auto)
 - **Sanitary On** — whether sanitary mode is active (On / Off)
-- **Sanitary Request Status** — DHW request status code
 - **Scheduler Status** — DHW scheduler state (active, off, or error)
 - **Flame Status** — whether the boiler flame is currently active (On / Off)
+- **Boiler Status** — current boiler state
+- **PDC Status** — current heat pump state
 - **System Operation Icon** — icon code from the Baxi cloud status
 
 ### ⚡ Energy Sensors
@@ -90,6 +92,7 @@ A ready-made **blueprint** for push notifications is included — see [blueprint
 
 ### 🔘 Diagnostic Entities
 - **Aggiorna** — button to manually trigger a data refresh
+- **Test Failure** — button to simulate a FAILURE alert (only available with debug logging enabled)
 
 ---
 
@@ -122,6 +125,10 @@ After installation, configure the integration via the Home Assistant UI:
 1. Go to **Settings** > **Devices & Services**.
 2. Click **Add Integration** and search for `Baxi HybridApp Home`.
 3. Enter your Baxi app credentials (email and password).
+
+Credentials are validated against the Baxi cloud before the integration is created: if the login fails, the form shows a specific error (invalid credentials, connection problem, or unknown error).
+
+If your password changes later, Home Assistant will automatically ask you to re-authenticate — just enter the new password, no need to remove and re-add the integration.
 
 ---
 

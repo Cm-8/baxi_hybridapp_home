@@ -203,6 +203,10 @@ class SetpointRaffrescamentoTempSensor(BaxiBaseSensor):
             icon="mdi:target"
         )
 
+    @property
+    def extra_state_attributes(self):
+        return {"description": "Set-point di raffrescamento impianto (range 7–30 °C)"}
+
 class WaterPressureSensor(BaxiBaseSensor):
     def __init__(self, coordinator, api):
         super().__init__(

@@ -8,12 +8,14 @@ from __future__ import annotations
 
 import logging
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import __version__ as ha_version
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import BaxiHybridAppAPI
+from .api import BaxiAuthError, BaxiConnectionError, BaxiHybridAppAPI
 from .const import DOMAIN, INTEGRATION_VERSION, POLLING_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
@@ -22,11 +24,12 @@ _LOGGER = logging.getLogger(__name__)
 class BaxiDataUpdateCoordinator(DataUpdateCoordinator):
     """Coordinator che gestisce il polling dei dati Baxi Servitly."""
 
-    def __init__(self, hass: HomeAssistant, api: BaxiHybridAppAPI) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, api: BaxiHybridAppAPI) -> None:
         self.api = api
         super().__init__(
             hass,
             _LOGGER,
+            config_entry=entry,
             name="baxi_hybridapp_home",
             update_interval=POLLING_INTERVAL,
         )
@@ -44,11 +47,20 @@ class BaxiDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self) -> bool:
         """Fetch all metrics from Baxi API."""
-        # Authentication and thingId (solo se serve)
+        # Authentication (solo se serve), con eccezioni tipizzate:
+        # - credenziali rifiutate → ConfigEntryAuthFailed → HA avvia il re-auth flow
+        # - cloud irraggiungibile → UpdateFailed → retry con backoff, entità unavailable
         if not self.api.token:
-            await self.hass.async_add_executor_job(self.api.authenticate)
+            try:
+                await self.hass.async_add_executor_job(self.api.login)
+            except BaxiAuthError as err:
+                raise ConfigEntryAuthFailed("Credenziali Baxi non valide") from err
+            except BaxiConnectionError as err:
+                raise UpdateFailed(f"Cloud Baxi non raggiungibile: {err}") from err
         if not self.api.thingId:
             await self.hass.async_add_executor_job(self.api.get_thingid)
+            if not self.api.thingId:
+                raise UpdateFailed("Impossibile ottenere il thingId dal cloud Baxi")
         # Log DOPO auth+thingId: thingModel e thingDefinitionName sono garantiti
         self._log_fetch_info()
         # Metriche "semplici" (un valore per metric_name): tutte in un unico
