@@ -1,14 +1,11 @@
 """
-Select platform for Baxi Hybrid App — Modo Impianto (modalità operativa).
+Select platform for Baxi Hybrid App — Modo Impianto e Modo Stagione.
 
-Permette di impostare la modalità del sistema tra:
-  - Automatico
-  - Solo Sanitario
-  - Standby
+Modo Impianto: Automatico / Solo Sanitario / Standby (stato da api.system_mode).
+Modo Stagione: Estate / Inverno / Estate/Inverno automatico / Estate/Inverno
+remoto (stato da api.season_mode, metrica "Modo Stagione").
 
-La lettura dello stato corrente avviene tramite api.system_mode (metrica
-"Modo Impianto", già popolata dal coordinator). La scrittura usa
-PUT /data/commands?commandId=...&thingId=... con body vuoto.
+La scrittura usa PUT /data/commands?commandId=...&thingId=... con body vuoto.
 
 custom_components/baxi_hybridapp_home/select.py
 """
@@ -24,7 +21,12 @@ from .const import (
     COMMAND_ID_MODE_AUTOMATICO,
     COMMAND_ID_MODE_SOLO_SANITARIO,
     COMMAND_ID_MODE_STANDBY,
+    COMMAND_ID_SEASON_ESTATE,
+    COMMAND_ID_SEASON_INVERNO,
+    COMMAND_ID_SEASON_AUTOMATICO,
+    COMMAND_ID_SEASON_REMOTO,
 )
+from .device import build_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -36,6 +38,17 @@ _MODE_TO_COMMAND: dict[str, str] = {
 }
 
 MODE_OPTIONS: list[str] = list(_MODE_TO_COMMAND.keys())
+
+# Le opzioni devono combaciare con le stringhe prodotte dal mapper della
+# metrica "Modo Stagione" (season_mode in metrics.py: 0001-0004).
+_SEASON_TO_COMMAND: dict[str, str] = {
+    "Estate":                    COMMAND_ID_SEASON_ESTATE,
+    "Inverno":                   COMMAND_ID_SEASON_INVERNO,
+    "Estate/Inverno automatico": COMMAND_ID_SEASON_AUTOMATICO,
+    "Estate/Inverno remoto":     COMMAND_ID_SEASON_REMOTO,
+}
+
+SEASON_OPTIONS: list[str] = list(_SEASON_TO_COMMAND.keys())
 
 
 class BaxiSystemModeSelect(CoordinatorEntity, SelectEntity):
@@ -74,17 +87,7 @@ class BaxiSystemModeSelect(CoordinatorEntity, SelectEntity):
 
     @property
     def device_info(self) -> dict:
-        return {
-            "identifiers": {(DOMAIN, "baxi_hybridapp_home")},
-            "name": "Baxi HybridApp Home",
-            "manufacturer": "Baxi",
-            "model": getattr(self._api, "thingModel", None) or "HybridApp",
-            "model_id": getattr(self._api, "thingModel", None),
-            "serial_number": getattr(self._api, "serialNumber", None),
-            "hw_version": "n.d.",
-            "sw_version": getattr(self._api, "thingFirmware", None),
-            "configuration_url": "https://altuofianco.baxi.it/login",
-        }
+        return build_device_info(self._api)
 
     async def async_select_option(self, option: str) -> None:
         """Invia il comando di cambio modalità al device Baxi."""
@@ -106,7 +109,68 @@ class BaxiSystemModeSelect(CoordinatorEntity, SelectEntity):
             _LOGGER.error("❌ Cambio modo impianto fallito per '%s'", option)
 
 
+class BaxiSeasonModeSelect(CoordinatorEntity, SelectEntity):
+    """
+    SelectEntity per il modo stagione Baxi.
+
+    Stato corrente: letto da api.season_mode (valori "Estate", "Inverno",
+    "Estate/Inverno automatico", "Estate/Inverno remoto"). Scrittura:
+    PUT /data/commands con il commandId corrispondente all'opzione.
+    """
+
+    _attr_icon = "mdi:sun-snowflake"
+    _attr_options = SEASON_OPTIONS
+
+    def __init__(self, coordinator, api) -> None:
+        super().__init__(coordinator)
+        self._api = api
+        self._attr_unique_id = "baxi_season_mode_select"
+        self._attr_name = "Modo Stagione"
+
+        prefix = "baxi"
+        serial_number = getattr(self._api, "serialNumber", None) or "unknown"
+        serial_slug = slugify(str(serial_number))
+        self._attr_suggested_object_id = f"{prefix}_{serial_slug}_season_mode_select"
+
+    @property
+    def current_option(self) -> str | None:
+        """Restituisce la stagione corrente se riconosciuta, altrimenti None."""
+        val = getattr(self._api, "season_mode", None)
+        return val if val in _SEASON_TO_COMMAND else None
+
+    @property
+    def available(self) -> bool:
+        """Disponibile quando l'API ha restituito un valore per season_mode."""
+        return getattr(self._api, "season_mode", None) is not None
+
+    @property
+    def device_info(self) -> dict:
+        return build_device_info(self._api)
+
+    async def async_select_option(self, option: str) -> None:
+        """Invia il comando di cambio stagione al device Baxi."""
+        command_id = _SEASON_TO_COMMAND.get(option)
+        if command_id is None:
+            _LOGGER.warning("⚠️ Opzione modo stagione '%s' non riconosciuta.", option)
+            return
+
+        _LOGGER.info("🔄 Cambio modo stagione → %s (commandId: %s)", option, command_id)
+        ok = await self.hass.async_add_executor_job(
+            self._api.send_command,
+            command_id,
+        )
+
+        if ok:
+            _LOGGER.info("✅ Modo stagione impostato a '%s'", option)
+            await self.coordinator.async_request_refresh()
+        else:
+            _LOGGER.error("❌ Cambio modo stagione fallito per '%s'", option)
+
+
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
     api = hass.data[DOMAIN][DATA_KEY_API]
     coordinator = hass.data[DOMAIN]["coordinator"]
-    async_add_entities([BaxiSystemModeSelect(coordinator, api)])
+    async_add_entities([
+        BaxiSystemModeSelect(coordinator, api),
+        BaxiSeasonModeSelect(coordinator, api),
+    ])

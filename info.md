@@ -32,9 +32,13 @@ Custom integration for [Home Assistant](https://home-assistant.io) to monitor an
 
 🎛️ **Operating Mode Control**
 - Modo Impianto select: Automatico / Solo Sanitario / Standby
+- Modo Stagione select: Estate / Inverno / Estate/Inverno automatico / Estate/Inverno remoto
 
 🛁 **Water Heater Entities**
 - Adjustable Comfort and Eco DHW setpoints (30–52 °C)
+
+❄️ **Cooling Control**
+- Adjustable cooling flow setpoint (7–30 °C, number entity, disabled by default)
 
 🩺 **Diagnostics**
 - Downloadable JSON report with current values and the full device capability catalog (commands, parameters, metrics)

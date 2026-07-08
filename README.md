@@ -37,7 +37,7 @@ This extension is only compatible with devices:
 - **Sanitary Setpoint Instantaneous** — current target DHW temperature
 - **Sanitary Setpoint Comfort** — comfort mode setpoint
 - **Sanitary Setpoint Eco** — eco mode setpoint
-- **Cooling Setpoint** — cooling flow setpoint (7–30 °C)
+- **Cooling Setpoint** — cooling flow setpoint (7–30 °C, disabled by default)
 
 ### 💧 Pressure Sensor
 - **Water Pressure** — hydraulic circuit pressure (bar)
@@ -49,13 +49,13 @@ This extension is only compatible with devices:
 ### 🧭 Mode / Status Sensors
 - **System Mode** — current operating mode (Automatico, Standby, Solo Sanitario)
 - **System Operation Mode** — firmware-level operating mode (Automatico, Standby)
-- **Season Mode** — current seasonal configuration (Winter, Summer, Auto)
+- **Season Mode** — current seasonal configuration (Estate, Inverno, Estate/Inverno automatico, Estate/Inverno remoto)
 - **Sanitary On** — whether sanitary mode is active (On / Off)
 - **Scheduler Status** — DHW scheduler state (active, off, or error)
 - **Flame Status** — whether the boiler flame is currently active (On / Off)
 - **Boiler Status** — current boiler state
 - **PDC Status** — current heat pump state
-- **System Operation Icon** — icon code from the Baxi cloud status
+- **System Operation Icon** — icon code from the Baxi cloud status (disabled by default)
 
 ### ⚡ Energy Sensors
 All energy sensors are disabled by default and use `TOTAL_INCREASING` state class (compatible with the HA Energy dashboard).
@@ -85,10 +85,14 @@ A ready-made **blueprint** for push notifications is included — see [blueprint
 
 ### 🎛️ Operating Mode Control
 - **Modo Impianto** — select entity to switch between **Automatico**, **Solo Sanitario** and **Standby**; sends the command to the Baxi cloud instantly and refreshes the state
+- **Modo Stagione** — select entity to switch the season mode between **Estate**, **Inverno**, **Estate/Inverno automatico** and **Estate/Inverno remoto**
 
 ### 🛁 Water Heater Entities
 - **Sanitario Comfort** — adjustable DHW comfort temperature setpoint (30–52 °C)
 - **Sanitario Eco** — adjustable DHW eco temperature setpoint (30–52 °C)
+
+### ❄️ Cooling Control
+- **Setpoint Raffrescamento** — adjustable cooling flow setpoint (7–30 °C, number entity, disabled by default); automatable via the native `number.set_value` service (e.g. lower it when you have photovoltaic surplus)
 
 ### 🔘 Diagnostic Entities
 - **Aggiorna** — button to manually trigger a data refresh

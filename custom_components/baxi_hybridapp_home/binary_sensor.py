@@ -26,6 +26,7 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, DATA_KEY_API
+from .device import build_device_info
 
 
 class BaxiAlertBinarySensor(CoordinatorEntity, BinarySensorEntity):
@@ -109,14 +110,7 @@ class BaxiAlertBinarySensor(CoordinatorEntity, BinarySensorEntity):
 
     @property
     def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, "baxi_hybridapp_home")},
-            "name": "Baxi HybridApp Home",
-            "manufacturer": "Baxi",
-            "model": getattr(self._api, "thingModel", None) or "HybridApp",
-            "serial_number": getattr(self._api, "serialNumber", None),
-            "sw_version": getattr(self._api, "thingFirmware", None),
-        }
+        return build_device_info(self._api)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):

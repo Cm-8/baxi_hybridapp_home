@@ -8,6 +8,7 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 from .const import DOMAIN, DATA_KEY_API
+from .device import build_device_info
 import logging
 
 _LOGGER = logging.getLogger(__name__)
@@ -38,12 +39,7 @@ class BaxiUpdateButton(ButtonEntity):
 
     @property
     def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, "baxi_hybridapp_home")},
-            "name": "Baxi HybridApp Home",
-            "manufacturer": "Baxi",
-            "model": "HybridApp Home",
-        }
+        return build_device_info(self._api)
 
 class BaxiTestFailureButton(ButtonEntity):
     """
@@ -131,12 +127,7 @@ class BaxiTestFailureButton(ButtonEntity):
 
     @property
     def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, "baxi_hybridapp_home")},
-            "name": "Baxi HybridApp Home",
-            "manufacturer": "Baxi",
-            "model": "HybridApp Home",
-        }
+        return build_device_info(self._api)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):

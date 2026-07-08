@@ -42,6 +42,17 @@ COMMAND_ID_MODE_STANDBY        = "5bec6335dbdf4f0008a6e059"
 COMMAND_ID_MODE_SOLO_SANITARIO = "5bec6335dbdf4f0008a6e05a"
 COMMAND_ID_MODE_AUTOMATICO     = "5bec6338dbdf4f0008a6e05f"
 
+# Command IDs — Modo Stagione (stesso endpoint; scrivono P02P012C 0001-0004,
+# letto dalla metrica "Modo Stagione" → api.season_mode)
+COMMAND_ID_SEASON_ESTATE     = "5bec6336dbdf4f0008a6e05b"
+COMMAND_ID_SEASON_INVERNO    = "5bec6336dbdf4f0008a6e05c"
+COMMAND_ID_SEASON_AUTOMATICO = "5bec6337dbdf4f0008a6e05d"
+COMMAND_ID_SEASON_REMOTO     = "5bec6337dbdf4f0008a6e05e"
+
 # Sanitary temperature limits
 SANITARY_MIN_TEMP = 30
 SANITARY_MAX_TEMP = 52
+
+# Cooling setpoint limits (range dal catalogo parametri: 7.0-30.0, step 1.0)
+COOLING_MIN_TEMP = 7
+COOLING_MAX_TEMP = 30

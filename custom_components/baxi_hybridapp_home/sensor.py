@@ -12,6 +12,7 @@ from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 from datetime import datetime, timezone
 from .const import DOMAIN, DATA_KEY_API
+from .device import build_device_info
 from .metrics import ENERGY_SENSOR_TYPES
 
 class BaxiBaseSensor(CoordinatorEntity, SensorEntity):
@@ -44,17 +45,7 @@ class BaxiBaseSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, "baxi_hybridapp_home")},
-            "name": "Baxi HybridApp Home",                                   # Nome generico del dispositivo o dell'estensione
-            "manufacturer": "Baxi",                                          # Casa produttrice  
-            "model": getattr(self._api, "thingModel", None) or "HybridApp",  # Modello del dispositivo old: "HybridApp Home"
-            "model_id": getattr(self._api, "thingModel", None),              # ID modello
-            "serial_number": getattr(self._api, "serialNumber", None),       # Numero di serie
-            "hw_version": "n.d.",                                            # Versione hardware
-            "sw_version": getattr(self._api, "thingFirmware", None),         # Versione firmware
-            "configuration_url": "https://altuofianco.baxi.it/login",  
-        }
+        return build_device_info(self._api)
 
     @property
     def native_value(self):
@@ -191,6 +182,10 @@ class SetpointEcoTempSensor(BaxiBaseSensor):
         )
 
 class SetpointRaffrescamentoTempSensor(BaxiBaseSensor):
+    # Disabilitato di default, come il number gemello: interessa solo chi
+    # usa il raffrescamento.
+    _attr_entity_registry_enabled_default = False
+
     def __init__(self, coordinator, api):
         super().__init__(
             coordinator,
@@ -351,6 +346,7 @@ class FlameStatusSensor(BaxiBaseSensor):
     
 class SystemOperationIcon(BaxiBaseSensor):
     _attr_state_class = None  # non è una misura
+    _attr_entity_registry_enabled_default = False  # disabilitata di default
 
     def __init__(self, coordinator, api):
         super().__init__(

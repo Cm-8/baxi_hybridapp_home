@@ -17,6 +17,7 @@ from .const import (
     PARAM_ID_SETPOINT_COMFORT, PARAM_ID_SETPOINT_ECO,
     SANITARY_MIN_TEMP, SANITARY_MAX_TEMP,
 )
+from .device import build_device_info
 from homeassistant.util import dt as dt_util
 
 # ---------------------------------------------------------
@@ -171,12 +172,7 @@ class BaxiSanitaryComfort(BaxiSanitaryBase, WaterHeaterEntity):
 
     @property
     def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, "baxi_hybridapp_home")},
-            "name": "Baxi HybridApp Home",
-            "manufacturer": "Baxi",
-            "model": "HybridApp Home",
-        }
+        return build_device_info(self._api)
 
 
 # ECO
@@ -301,12 +297,7 @@ class BaxiSanitaryEco(BaxiSanitaryBase, WaterHeaterEntity):
 
     @property
     def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, "baxi_hybridapp_home")},
-            "name": "Baxi HybridApp Home",
-            "manufacturer": "Baxi",
-            "model": "HybridApp Home",
-        }
+        return build_device_info(self._api)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
