@@ -233,6 +233,29 @@ class BaxiHybridAppAPI:
             _LOGGER.exception("❌ Eccezione nel recupero thingId: %s", e)
             return None
 
+    def fetch_capabilities(self) -> dict:
+        """Scarica i cataloghi statici del modello (thingDefinition).
+
+        Ritorna {"commands": [...], "configuration_parameters": [...], "metrics": [...]}.
+        Sono cataloghi per-modello, non per-device: non cambiano tra i polling,
+        quindi NON vanno chiamati ad ogni ciclo. Usato on-demand dalla
+        diagnostica (diagnostics.py) e una tantum dal log di riepilogo debug
+        del coordinator. Non solleva: su errore la sezione è [].
+        """
+        if not self.thingDefinitionId:
+            _LOGGER.debug("🔍 fetch_capabilities: thingDefinitionId non disponibile.")
+            return {}
+        base = f"{self.BASE_URL}/inventory/thingDefinitions/{self.thingDefinitionId}"
+        result = {}
+        for key, url in (
+            ("commands", f"{base}/commands"),
+            ("configuration_parameters", f"{base}/configurationParameters"),
+            ("metrics", f"{base}/metrics"),
+        ):
+            data = self._make_request(url)
+            result[key] = data if isinstance(data, list) else []
+        return result
+
     def _auth_headers(self) -> dict:
         """Header per le chiamate autenticate (gli altri stanno sulla session)."""
         return {'authorization': f'Bearer {self.token}'} if self.token else {}

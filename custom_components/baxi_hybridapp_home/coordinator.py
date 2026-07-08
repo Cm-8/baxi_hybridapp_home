@@ -17,6 +17,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .api import BaxiAuthError, BaxiConnectionError, BaxiHybridAppAPI
 from .const import DOMAIN, INTEGRATION_VERSION, POLLING_INTERVAL
+from .metrics import ENERGY_SENSOR_TYPES, SIMPLE_METRICS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,6 +27,8 @@ class BaxiDataUpdateCoordinator(DataUpdateCoordinator):
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry, api: BaxiHybridAppAPI) -> None:
         self.api = api
+        # Riepilogo capabilities loggato una sola volta per sessione (solo debug).
+        self._capabilities_logged = False
         super().__init__(
             hass,
             _LOGGER,
@@ -43,6 +46,33 @@ class BaxiDataUpdateCoordinator(DataUpdateCoordinator):
             POLLING_INTERVAL,
             self.api.thingModel or "?",
             self.api.thingDefinitionName or "?",
+        )
+
+    async def _async_log_capabilities_once(self) -> None:
+        """Riepilogo capabilities del modello, una volta per sessione (solo debug).
+
+        I cataloghi sono statici per-modello: le 3 GET extra le paga solo chi
+        ha il debug attivo, una volta per riavvio. Il dettaglio completo si
+        scarica dalla diagnostica dell'integrazione (diagnostics.py).
+        """
+        if self._capabilities_logged or not _LOGGER.isEnabledFor(logging.DEBUG):
+            return
+        caps = await self.hass.async_add_executor_job(self.api.fetch_capabilities)
+        if not caps:
+            return  # thingDefinitionId mancante: riproverà al prossimo ciclo
+        self._capabilities_logged = True
+        n_read = len(SIMPLE_METRICS) + len(ENERGY_SENSOR_TYPES) + 1  # +1 scheduler sanitario
+        _LOGGER.debug(
+            "🔍 Commands %s: %d comandi, %d parametri di configurazione",
+            self.api.thingDefinitionName or "?",
+            len(caps.get("commands") or []),
+            len(caps.get("configuration_parameters") or []),
+        )
+        _LOGGER.debug(
+            "🔍 Metrics %s: %d metriche cloud, %d lette dall'integrazione — dettaglio completo nella diagnostica dell'integrazione",
+            self.api.thingDefinitionName or "?",
+            len(caps.get("metrics") or []),
+            n_read,
         )
 
     async def _async_update_data(self) -> bool:
@@ -63,6 +93,7 @@ class BaxiDataUpdateCoordinator(DataUpdateCoordinator):
                 raise UpdateFailed("Impossibile ottenere il thingId dal cloud Baxi")
         # Log DOPO auth+thingId: thingModel e thingDefinitionName sono garantiti
         self._log_fetch_info()
+        await self._async_log_capabilities_once()
         # Metriche "semplici" (un valore per metric_name): tutte in un unico
         # dispatcher tabellare, vedi SIMPLE_METRICS in metrics.py.
         await self.hass.async_add_executor_job(self.api.fetch_simple_metrics)

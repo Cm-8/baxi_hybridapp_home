@@ -36,4 +36,7 @@ Custom integration for [Home Assistant](https://home-assistant.io) to monitor an
 🛁 **Water Heater Entities**
 - Adjustable Comfort and Eco DHW setpoints (30–52 °C)
 
+🩺 **Diagnostics**
+- Downloadable JSON report with current values and the full device capability catalog (commands, parameters, metrics)
+
 Data is fetched from the Baxi cloud every **10 minutes** via polling.

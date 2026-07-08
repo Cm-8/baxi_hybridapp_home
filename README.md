@@ -94,6 +94,9 @@ A ready-made **blueprint** for push notifications is included — see [blueprint
 - **Aggiorna** — button to manually trigger a data refresh
 - **Test Failure** — button to simulate a FAILURE alert (only available with debug logging enabled)
 
+### 🩺 Diagnostics
+From the integration page (**⋮** > **Download diagnostics**) you can download a JSON report with the current sensor values and the full catalog of commands, configuration parameters and metrics supported by your device model. Credentials and serial number are redacted. Attach it when opening an issue — it makes troubleshooting much faster, especially for device models not yet fully supported.
+
 ---
 
 ## Requirements
