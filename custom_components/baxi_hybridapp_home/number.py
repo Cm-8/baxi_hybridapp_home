@@ -25,6 +25,7 @@ from .const import (
     DOMAIN, DATA_KEY_API,
     PARAM_ID_SETPOINT_RAFFRESCAMENTO,
     COOLING_MIN_TEMP, COOLING_MAX_TEMP,
+    WRITE_GRACE_SECONDS,
 )
 from .device import build_device_info
 
@@ -115,13 +116,14 @@ class BaxiCoolingSetpointNumber(CoordinatorEntity, NumberEntity):
         )
         _LOGGER.info("✅ Setpoint raffrescamento impostato a %s °C", new_t)
 
-        # 2) Grace period: questo parametro ha un ciclo di read-back lento
-        # (PUT su M64P0808, la metrica letta è M64A0808 ri-pubblicata dal
-        # device) — 8s come i sanitari non bastano e il refresh riporterebbe
-        # il valore vecchio in UI.
-        await asyncio.sleep(30)
+        # 2) Refresh differito in background: questo parametro ha un ciclo di
+        # read-back lento (PUT su M64P0808, la metrica letta è M64A0808
+        # ri-pubblicata dal device) — la service call non resta bloccata.
+        self.hass.async_create_task(self._grace_refresh())
 
-        # 3) Poi rinfresca dal cloud (ora coerente)
+    async def _grace_refresh(self) -> None:
+        """Attende il read-back del device e riallinea dal cloud."""
+        await asyncio.sleep(WRITE_GRACE_SECONDS)
         await self.coordinator.async_request_refresh()
 
 

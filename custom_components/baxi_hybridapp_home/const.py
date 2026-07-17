@@ -21,6 +21,12 @@ INTEGRATION_VERSION: str = _manifest.get("version", "?")
 # Intervallo di polling del coordinator (modificare qui per tutti i cicli).
 POLLING_INTERVAL: timedelta = timedelta(minutes=10)
 
+# Grazia dopo una scrittura (PUT parametro/comando) prima del refresh dal
+# cloud: il device deve applicare e ri-pubblicare la metrica (read-back).
+# Con 8s il refresh arrivava troppo presto e riportava in UI il valore
+# precedente (visto su setpoint raffrescamento e modo impianto).
+WRITE_GRACE_SECONDS = 30
+
 DOMAIN = "baxi_hybridapp_home"
 DATA_KEY_API = "api"
 

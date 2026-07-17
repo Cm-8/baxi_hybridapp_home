@@ -16,6 +16,7 @@ from .const import (
     DOMAIN, DATA_KEY_API,
     PARAM_ID_SETPOINT_COMFORT, PARAM_ID_SETPOINT_ECO,
     SANITARY_MIN_TEMP, SANITARY_MAX_TEMP,
+    WRITE_GRACE_SECONDS,
 )
 from .device import build_device_info
 from homeassistant.util import dt as dt_util
@@ -25,6 +26,11 @@ from homeassistant.util import dt as dt_util
 # ---------------------------------------------------------
 class BaxiSanitaryBase:
     #"""Metodi e utility comuni per entità Comfort/Eco."""
+
+    async def _grace_refresh(self):
+        """Attende il read-back del device e riallinea dal cloud."""
+        await asyncio.sleep(WRITE_GRACE_SECONDS)
+        await self._coordinator.async_request_refresh()
 
     async def _log_put(self, mode: str, value: float):
         #"""Scrive un evento nel registro attività (Logbook) e sul bus."""
@@ -150,14 +156,12 @@ class BaxiSanitaryComfort(BaxiSanitaryBase, WaterHeaterEntity):
             self._api.setpoint_comfort_temp = new_t
             self.async_write_ha_state()
 
-            mode = "comfort" 
+            mode = "comfort"
             await self._log_put(mode, new_t) # vedi nelle attività
 
-            # 2) Grace period per dare tempo al backend Baxi di persistere
-            await asyncio.sleep(8)
-
-            # 3) Poi rinfresca dal cloud (ora coerente)
-            await self._coordinator.async_request_refresh()
+            # 2) Refresh differito in background: grazia per il read-back del
+            # device, senza bloccare la service call.
+            self.hass.async_create_task(self._grace_refresh())
 
     # ---------------- Extra ----------------
     @property
@@ -275,14 +279,12 @@ class BaxiSanitaryEco(BaxiSanitaryBase, WaterHeaterEntity):
             self._api.setpoint_eco_temp = new_t
             self.async_write_ha_state()
 
-            mode = "eco" 
+            mode = "eco"
             await self._log_put(mode, new_t) # vedi nelle attività
 
-            # 2) Grace period per dare tempo al backend Baxi di persistere
-            await asyncio.sleep(8)
-
-            # 3) Poi rinfresca dal cloud (ora coerente)
-            await self._coordinator.async_request_refresh()
+            # 2) Refresh differito in background: grazia per il read-back del
+            # device, senza bloccare la service call.
+            self.hass.async_create_task(self._grace_refresh())
 
     # ---------------- Extra ----------------
     @property

@@ -10,6 +10,7 @@ La scrittura usa PUT /data/commands?commandId=...&thingId=... con body vuoto.
 custom_components/baxi_hybridapp_home/select.py
 """
 
+import asyncio
 import logging
 
 from homeassistant.components.select import SelectEntity
@@ -18,6 +19,7 @@ from homeassistant.util import slugify
 
 from .const import (
     DOMAIN, DATA_KEY_API,
+    WRITE_GRACE_SECONDS,
     COMMAND_ID_MODE_AUTOMATICO,
     COMMAND_ID_MODE_SOLO_SANITARIO,
     COMMAND_ID_MODE_STANDBY,
@@ -104,9 +106,19 @@ class BaxiSystemModeSelect(CoordinatorEntity, SelectEntity):
 
         if ok:
             _LOGGER.info("✅ Modo impianto impostato a '%s'", option)
-            await self.coordinator.async_request_refresh()
+            # Optimistic: la UI mostra subito la nuova modalità. Il refresh
+            # arriva dopo la grazia, quando il device ha ri-pubblicato la
+            # metrica (read-back) — senza bloccare la service call.
+            self._api.system_mode = option
+            self.async_write_ha_state()
+            self.hass.async_create_task(self._grace_refresh())
         else:
             _LOGGER.error("❌ Cambio modo impianto fallito per '%s'", option)
+
+    async def _grace_refresh(self) -> None:
+        """Attende il read-back del device e riallinea dal cloud."""
+        await asyncio.sleep(WRITE_GRACE_SECONDS)
+        await self.coordinator.async_request_refresh()
 
 
 class BaxiSeasonModeSelect(CoordinatorEntity, SelectEntity):
@@ -162,9 +174,17 @@ class BaxiSeasonModeSelect(CoordinatorEntity, SelectEntity):
 
         if ok:
             _LOGGER.info("✅ Modo stagione impostato a '%s'", option)
-            await self.coordinator.async_request_refresh()
+            # Optimistic + refresh differito, come per il modo impianto.
+            self._api.season_mode = option
+            self.async_write_ha_state()
+            self.hass.async_create_task(self._grace_refresh())
         else:
             _LOGGER.error("❌ Cambio modo stagione fallito per '%s'", option)
+
+    async def _grace_refresh(self) -> None:
+        """Attende il read-back del device e riallinea dal cloud."""
+        await asyncio.sleep(WRITE_GRACE_SECONDS)
+        await self.coordinator.async_request_refresh()
 
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
