@@ -55,6 +55,8 @@ This extension is only compatible with devices:
 - **Flame Status** — whether the boiler flame is currently active (On / Off)
 - **Boiler Status** — current boiler state
 - **PDC Status** — current heat pump state
+- **Holiday Mode** — whether holiday mode is active (On / Off)
+- **Holiday Mode End** — end date/time of the active holiday period
 - **System Operation Icon** — icon code from the Baxi cloud status (disabled by default)
 
 ### ⚡ Energy Sensors

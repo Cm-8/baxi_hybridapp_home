@@ -17,6 +17,7 @@ custom_components/baxi_hybridapp_home/metrics.py
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -47,6 +48,18 @@ def _parse_float(raw: Any) -> float:
 def _parse_passthrough(raw: Any) -> Any:
     """Parser identità: memorizza il raw così com'è (interpretazione lato sensore)."""
     return raw
+
+
+def _parse_epoch_ms(raw: Any) -> Any:
+    """Parser per timestamp epoch in millisecondi → datetime tz-aware (UTC).
+
+    Valori ≤ 0 → None (metrica presente ma nessuna data impostata).
+    Raw non numerico → ValueError, gestita dal dispatcher (warning + None).
+    """
+    ms = int(str(raw).strip())
+    if ms <= 0:
+        return None
+    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
 
 
 def _make_mapper(mapping: dict, *, normalize: bool = False) -> Callable[[Any], str]:
@@ -130,11 +143,23 @@ SIMPLE_METRICS: tuple[SimpleMetricSpec, ...] = (
             normalize=True,
         ),
     ),
+    SimpleMetricSpec(
+        "holiday_mode", "Modo vacanza",
+        # Registro P02A012E: 0000=disattivo, 0001=attivo (issue #12)
+        _make_mapper({
+            "0000": "Off", "0": "Off",
+            "0001": "On",  "1": "On",
+        }, normalize=True),
+    ),
 
     # --- Passthrough: il sensore HA decide come interpretare il raw ---------
     SimpleMetricSpec("system_operation_icon", "Icona funzionamento sistema", _parse_passthrough),
     SimpleMetricSpec("status_boiler", "Stato caldaia", _parse_passthrough),
     SimpleMetricSpec("status_pdc", "Stato PDC", _parse_passthrough),
+    # Data/ora fine vacanza (registri P02A012F+P02A0130): epoch in millisecondi
+    # (es. 1784494020000 → 2026-07-19 20:47 UTC), convertita in datetime per
+    # il sensore timestamp (issue #12)
+    SimpleMetricSpec("holiday_mode_end", "Data/Ora fine modo vacanza", _parse_epoch_ms),
 )
 
 

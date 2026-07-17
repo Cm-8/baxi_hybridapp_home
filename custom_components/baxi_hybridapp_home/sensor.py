@@ -375,6 +375,64 @@ class SystemOperationIcon(BaxiBaseSensor):
     def state_class(self):
         return None
 
+# Modo vacanza (issue #12): stato On/Off + data/ora di fine
+class HolidayModeSensor(BaxiBaseSensor):
+    _attr_state_class = None  # non è una misura
+
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Modo Vacanza",
+            unique_id="baxi_holiday_mode",
+            value_key="holiday_mode",
+            unit=None,
+            device_class=None,
+            icon="mdi:palm-tree"
+        )
+        self._attr_native_unit_of_measurement = None
+        self._attr_device_class = None
+
+    @property
+    def native_value(self):
+        return getattr(self._api, self._value_key)
+
+    @property
+    def icon(self):
+        val = (getattr(self._api, self._value_key) or "").lower()
+        return "mdi:palm-tree" if val == "on" else "mdi:home"
+
+    @property
+    def state_class(self):
+        return None
+
+class HolidayModeEndSensor(BaxiBaseSensor):
+    _attr_state_class = None  # non è una misura
+
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator,
+            api,
+            name="Modo Vacanza Fine",
+            unique_id="baxi_holiday_mode_end",
+            value_key="holiday_mode_end",
+            unit=None,
+            # La metrica è epoch ms convertito in datetime (vedi _parse_epoch_ms):
+            # con device_class TIMESTAMP la UI mostra data/ora localizzata e il
+            # valore è confrontabile nelle automazioni.
+            device_class=SensorDeviceClass.TIMESTAMP,
+            icon="mdi:calendar-end"
+        )
+        self._attr_native_unit_of_measurement = None
+
+    @property
+    def native_value(self):
+        return getattr(self._api, self._value_key)
+
+    @property
+    def state_class(self):
+        return None
+
 # Inizio nuovi sensori caldaia
 class StatusBoiler(BaxiBaseSensor):
     _attr_state_class = None  # non è una misura
@@ -710,6 +768,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
         SetpointRaffrescamentoTempSensor(coordinator, api),
         FlameStatusSensor(coordinator, api),
         SystemOperationIcon(coordinator, api),
+        HolidayModeSensor(coordinator, api),
+        HolidayModeEndSensor(coordinator, api),
         # Inizio nuovi sensori caldaia
         StatusBoiler(coordinator, api),
         StatusPDC(coordinator, api),

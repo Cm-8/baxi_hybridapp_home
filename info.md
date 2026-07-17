@@ -20,6 +20,7 @@ Custom integration for [Home Assistant](https://home-assistant.io) to monitor an
 - System Mode, System Operation Mode, Season Mode
 - Sanitary On, Sanitary Request Status, Flame Status, Scheduler Status
 - Boiler Status, PDC Status, System Operation Icon
+- Holiday Mode (On/Off) + Holiday Mode End date
 
 🔋 **Energy Sensors** _(disabled by default, compatible with HA Energy dashboard)_
 - Total and partial energy for PDC, boiler, and electric resistances
