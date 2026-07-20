@@ -38,6 +38,9 @@ Custom integration for [Home Assistant](https://home-assistant.io) to monitor an
 🛁 **Water Heater Entities**
 - Adjustable Comfort and Eco DHW setpoints (30–52 °C)
 
+🏖️ **Holiday Mode Control**
+- Writable datetime entity to set/cancel holiday period end date
+
 ❄️ **Cooling Control**
 - Adjustable cooling flow setpoint (7–30 °C, number entity, disabled by default)
 

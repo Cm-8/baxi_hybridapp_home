@@ -101,6 +101,13 @@
       "set_eco": "Imposta Sanitario Eco"
     }
   },
+  "entity": {
+    "datetime": {
+      "baxi_holiday_mode_end": {
+        "name": "Modo Vacanza Fine"
+      }
+    }
+  },
   "services": {
     "set_comfort": {
       "name": "Imposta Sanitario Comfort",

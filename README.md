@@ -93,6 +93,9 @@ A ready-made **blueprint** for push notifications is included — see [blueprint
 - **Sanitario Comfort** — adjustable DHW comfort temperature setpoint (30–52 °C)
 - **Sanitario Eco** — adjustable DHW eco temperature setpoint (30–52 °C)
 
+### 🏖️ Holiday Mode Control
+- **Modo Vacanza Fine** — datetime entity to set the end date/time of the active holiday period; setting a future date activates holiday mode, setting a past date disables it
+
 ### ❄️ Cooling Control
 - **Setpoint Raffrescamento** — adjustable cooling flow setpoint (7–30 °C, number entity, disabled by default); automatable via the native `number.set_value` service (e.g. lower it when you have photovoltaic surplus)
 
