@@ -40,6 +40,7 @@ class BaxiHolidayModeSwitch(CoordinatorEntity, SwitchEntity):
     _attr_name = "Modo Vacanza"
     _attr_unique_id = "baxi_holiday_mode_switch"
     _attr_icon = "mdi:palm-tree"
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator, api) -> None:
         super().__init__(coordinator)

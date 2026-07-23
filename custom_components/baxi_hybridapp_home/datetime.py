@@ -39,6 +39,7 @@ class BaxiHolidayModeEnd(CoordinatorEntity, DateTimeEntity):
     _attr_name = "Modo Vacanza Fine"
     _attr_unique_id = "baxi_holiday_mode_end"
     _attr_icon = "mdi:calendar-end"
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator, api) -> None:
         super().__init__(coordinator)

@@ -38,7 +38,7 @@ Custom integration for [Home Assistant](https://home-assistant.io) to monitor an
 🛁 **Water Heater Entities**
 - Adjustable Comfort and Eco DHW setpoints (30–52 °C)
 
-🏖️ **Holiday Mode Control**
+🏖️ **Holiday Mode Control** _(disabled by default)_
 - Modo Vacanza Fine (datetime) + Modo Vacanza switch to apply/disable — when off, the date is staged and applied via the switch; when already on, changing the date is sent immediately (extend)
 
 ❄️ **Cooling Control**
