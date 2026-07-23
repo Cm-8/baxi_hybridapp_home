@@ -39,7 +39,7 @@ Custom integration for [Home Assistant](https://home-assistant.io) to monitor an
 - Adjustable Comfort and Eco DHW setpoints (30–52 °C)
 
 🏖️ **Holiday Mode Control**
-- Modo Vacanza Fine (datetime, staged locally) + Modo Vacanza switch to apply/disable — set the date, then flip the switch (no accidental sends)
+- Modo Vacanza Fine (datetime) + Modo Vacanza switch to apply/disable — when off, the date is staged and applied via the switch; when already on, changing the date is sent immediately (extend)
 
 ❄️ **Cooling Control**
 - Adjustable cooling flow setpoint (7–30 °C, number entity, disabled by default)

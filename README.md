@@ -94,9 +94,9 @@ A ready-made **blueprint** for push notifications is included — see [blueprint
 - **Sanitario Eco** — adjustable DHW eco temperature setpoint (30–52 °C)
 
 ### 🏖️ Holiday Mode Control
-Mirrors the Baxi app's on/off flag, in two steps to avoid accidental sends:
-- **Modo Vacanza Fine** — datetime entity where you set the desired end date/time; this only *stages* the value locally, nothing is sent to the cloud on save
-- **Modo Vacanza** — switch that applies it: turning it **on** sends the staged end date and activates holiday mode; turning it **off** disables it. Set the date first, then flip the switch.
+Mirrors the Baxi app's on/off flag, avoiding accidental sends:
+- **Modo Vacanza Fine** — datetime entity for the end date/time. When holiday mode is **off**, setting it only *stages* the value locally (nothing is sent) — you apply it with the switch. When holiday mode is already **on**, changing it is sent immediately (extend/shorten the period).
+- **Modo Vacanza** — switch: turning it **on** sends the staged end date and activates holiday mode; turning it **off** disables it. Set the date first, then flip the switch.
 
 ### ❄️ Cooling Control
 - **Setpoint Raffrescamento** — adjustable cooling flow setpoint (7–30 °C, number entity, disabled by default); automatable via the native `number.set_value` service (e.g. lower it when you have photovoltaic surplus)

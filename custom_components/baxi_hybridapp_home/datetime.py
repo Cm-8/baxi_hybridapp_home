@@ -1,31 +1,40 @@
 """
 Datetime platform for Baxi Hybrid App custom integration for Home Assistant.
 
-Entità "Modo Vacanza Fine": data/ora di fine vacanza in SOLO staging locale.
-Impostare un valore qui NON invia nulla al cloud — memorizza soltanto la data
-desiderata (in hass.data[DOMAIN]). L'invio effettivo avviene quando si attiva
-lo switch "Modo Vacanza" (switch.py), esattamente come il flag on/off dell'app
-Baxi: prima imposti la data, poi confermi con l'interruttore.
+Entità "Modo Vacanza Fine": data/ora di fine vacanza.
+
+Comportamento in base allo stato della vacanza (come nell'app Baxi):
+- vacanza SPENTA → impostare la data la mette in SOLO staging locale
+  (hass.data[DOMAIN][HOLIDAY_STAGED_KEY]); l'invio effettivo avviene quando si
+  attiva lo switch "Modo Vacanza". Evita attivazioni accidentali.
+- vacanza ATTIVA → impostare la data la invia SUBITO (estendi/accorcia il
+  periodo), perché a vacanza in corso cambiare la fine è un'azione voluta.
 
 custom_components/baxi_hybridapp_home/datetime.py
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime
 
 from homeassistant.components.datetime import DateTimeEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, DATA_KEY_API, HOLIDAY_STAGED_KEY
+from .const import (
+    DOMAIN, DATA_KEY_API,
+    PARAM_ID_HOLIDAY_MODE_END,
+    HOLIDAY_STAGED_KEY,
+    WRITE_GRACE_SECONDS,
+)
 from .device import build_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class BaxiHolidayModeEnd(CoordinatorEntity, DateTimeEntity):
-    """Data/ora fine modo vacanza — solo staging locale (no invio diretto)."""
+    """Data/ora fine modo vacanza — staging se spenta, invio diretto se attiva."""
 
     _attr_name = "Modo Vacanza Fine"
     _attr_unique_id = "baxi_holiday_mode_end"
@@ -45,14 +54,64 @@ class BaxiHolidayModeEnd(CoordinatorEntity, DateTimeEntity):
         return val if isinstance(val, datetime) else None
 
     async def async_set_value(self, value: datetime) -> None:
-        """Memorizza la data in locale (staging) — nessun invio al cloud."""
-        self.hass.data[DOMAIN][HOLIDAY_STAGED_KEY] = value
+        """Staging se la vacanza è spenta, invio diretto se è già attiva."""
+        if value is None:
+            return
+
+        active = (getattr(self._api, "holiday_mode", None) or "").lower() == "on"
+
+        if not active:
+            # Vacanza spenta: memorizza in locale, nessun invio al cloud.
+            self.hass.data[DOMAIN][HOLIDAY_STAGED_KEY] = value
+            _LOGGER.info(
+                "🏖️ Data fine vacanza in staging: %s — attiva lo switch "
+                "'Modo Vacanza' per applicare",
+                value.isoformat(),
+            )
+            self.async_write_ha_state()
+            return
+
+        # Vacanza già attiva: applica subito la nuova data (estendi/accorcia).
+        epoch_ms = int(value.timestamp() * 1000)
         _LOGGER.info(
-            "🏖️ Data fine vacanza in staging: %s — attiva lo switch "
-            "'Modo Vacanza' per applicare",
-            value.isoformat() if value else None,
+            "🏖️ Aggiorno fine vacanza (attiva) → %s (epoch_ms: %d)",
+            value.isoformat(), epoch_ms,
         )
-        self.async_write_ha_state()
+
+        ok = await self.hass.async_add_executor_job(
+            self._api.set_configuration_parameter,
+            PARAM_ID_HOLIDAY_MODE_END,
+            epoch_ms,
+        )
+
+        if ok:
+            _LOGGER.info("✅ Fine vacanza aggiornata a %s", value.isoformat())
+            # Optimistic + pulizia di un eventuale staging residuo.
+            self._api.holiday_mode_end = value
+            self.hass.data[DOMAIN][HOLIDAY_STAGED_KEY] = None
+            self.async_write_ha_state()
+            await self._log(f"fine aggiornata a {value.isoformat()}")
+            self.hass.async_create_task(self._grace_refresh())
+        else:
+            _LOGGER.error("❌ Aggiornamento fine vacanza fallito")
+
+    async def _log(self, message: str) -> None:
+        """Scrive una entry nel Logbook."""
+        await self.hass.services.async_call(
+            "logbook",
+            "log",
+            {
+                "name": "Modo Vacanza",
+                "message": message,
+                "entity_id": self.entity_id,
+            },
+            blocking=False,
+        )
+
+    async def _grace_refresh(self) -> None:
+        """Attende il read-back del device e riallinea dal cloud."""
+        await asyncio.sleep(WRITE_GRACE_SECONDS)
+        await self.coordinator.async_request_refresh()
 
     @property
     def device_info(self):
