@@ -55,8 +55,11 @@ def _parse_epoch_ms(raw: Any) -> Any:
 
     Valori ≤ 0 → None (metrica presente ma nessuna data impostata).
     Raw non numerico → ValueError, gestita dal dispatcher (warning + None).
+
+    Nota: l'API a volte restituisce l'epoch come float ("1784797954954.0"),
+    quindi passiamo da float() prima di int() per accettare entrambe le forme.
     """
-    ms = int(str(raw).strip())
+    ms = int(float(str(raw).strip()))
     if ms <= 0:
         return None
     return datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
