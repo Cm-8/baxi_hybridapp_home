@@ -39,7 +39,7 @@ Custom integration for [Home Assistant](https://home-assistant.io) to monitor an
 - Adjustable Comfort and Eco DHW setpoints (30–52 °C)
 
 🏖️ **Holiday Mode Control**
-- Writable datetime entity to set/cancel holiday period end date
+- Modo Vacanza Fine (datetime, staged locally) + Modo Vacanza switch to apply/disable — set the date, then flip the switch (no accidental sends)
 
 ❄️ **Cooling Control**
 - Adjustable cooling flow setpoint (7–30 °C, number entity, disabled by default)

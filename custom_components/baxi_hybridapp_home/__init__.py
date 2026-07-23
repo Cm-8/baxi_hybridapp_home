@@ -13,6 +13,7 @@ from .const import (
     DOMAIN, DATA_KEY_API,
     PARAM_ID_SETPOINT_COMFORT, PARAM_ID_SETPOINT_ECO,
     SANITARY_MIN_TEMP, SANITARY_MAX_TEMP,
+    HOLIDAY_STAGED_KEY,
 )
 from .api import BaxiHybridAppAPI
 from .coordinator import BaxiDataUpdateCoordinator
@@ -20,7 +21,7 @@ import voluptuous as vol
 import logging
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS = ["sensor", "water_heater", "button", "binary_sensor", "select", "number", "datetime"]
+PLATFORMS = ["sensor", "water_heater", "button", "binary_sensor", "select", "number", "datetime", "switch"]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -148,4 +149,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     if unload_ok:
         hass.data[DOMAIN].pop(DATA_KEY_API)
         hass.data[DOMAIN].pop("coordinator")
+        hass.data[DOMAIN].pop(HOLIDAY_STAGED_KEY, None)
     return unload_ok
