@@ -31,3 +31,17 @@ set_eco:
           step: 1
           mode: slider
           unit_of_measurement: "°C"
+
+set_holiday_mode:
+  name: Imposta Modo Vacanza
+  description: >-
+    Attiva il modo vacanza impostando direttamente la data/ora di fine
+    (deve essere futura). Invia subito il comando, senza passare
+    dallo staging tramite l'entità "Modo Vacanza Fine" + switch.
+  fields:
+    end_date:
+      name: Data fine vacanza
+      description: Data e ora in cui il modo vacanza deve terminare.
+      required: true
+      selector:
+        datetime:

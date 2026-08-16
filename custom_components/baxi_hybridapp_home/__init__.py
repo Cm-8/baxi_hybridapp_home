@@ -13,10 +13,12 @@ from .const import (
     DOMAIN, DATA_KEY_API,
     PARAM_ID_SETPOINT_COMFORT, PARAM_ID_SETPOINT_ECO,
     SANITARY_MIN_TEMP, SANITARY_MAX_TEMP,
-    HOLIDAY_STAGED_KEY,
+    HOLIDAY_STAGED_KEY, PARAM_ID_HOLIDAY_MODE_END,
+    HOLIDAY_MODE_DISABLE_VALUE,
 )
 from .api import BaxiHybridAppAPI
 from .coordinator import BaxiDataUpdateCoordinator
+from datetime import datetime, timezone
 import voluptuous as vol
 import logging
 
@@ -140,6 +142,73 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     hass.services.async_register(DOMAIN, "set_comfort", handle_set_comfort, schema=set_schema)
     hass.services.async_register(DOMAIN, "set_eco", handle_set_eco, schema=set_schema)
+
+    # -------------------------------------------------------------
+    # Servizio: set_holiday_mode (attiva la vacanza con data di fine
+    # richiesta come parametro, senza passare dallo staging via
+    # entità datetime + switch)
+    # -------------------------------------------------------------
+    holiday_schema = vol.Schema({
+        vol.Required("end_date"): cv.datetime,
+    })
+
+    async def handle_set_holiday_mode(call):
+        """Attiva il modo vacanza inviando direttamente la data di fine."""
+        end_date = call.data.get("end_date")
+
+        # cv.datetime restituisce un datetime naive se l'utente non
+        # specifica il fuso: lo assumiamo in orario locale HA.
+        if end_date.tzinfo is None:
+            end_date = end_date.astimezone() if hasattr(end_date, "astimezone") else end_date.replace(tzinfo=timezone.utc)
+
+        now = datetime.now(timezone.utc)
+        if end_date <= now:
+            _LOGGER.warning(
+                "❌ set_holiday_mode: la data di fine (%s) non è futura. Azione annullata.",
+                end_date.isoformat(),
+            )
+            await hass.services.async_call(
+                "logbook", "log",
+                {
+                    "name": "Modo Vacanza",
+                    "message": f"data fine {end_date.isoformat()} non futura — attivazione annullata",
+                },
+                blocking=False,
+            )
+            return
+
+        epoch_ms = int(end_date.timestamp() * 1000)
+        _LOGGER.info(
+            "🏖️ set_holiday_mode: attivazione fino a %s (epoch_ms: %d)",
+            end_date.isoformat(), epoch_ms,
+        )
+
+        ok = await hass.async_add_executor_job(
+            api.set_configuration_parameter,
+            PARAM_ID_HOLIDAY_MODE_END,
+            epoch_ms,
+        )
+
+        if ok:
+            api.holiday_mode = "On"
+            api.holiday_mode_end = end_date
+            hass.data[DOMAIN][HOLIDAY_STAGED_KEY] = None
+            await hass.services.async_call(
+                "logbook", "log",
+                {
+                    "name": "Modo Vacanza",
+                    "message": f"attivato fino a {end_date.isoformat()}",
+                },
+                blocking=False,
+            )
+            _LOGGER.info("✅ Modo vacanza attivato fino a %s", end_date.isoformat())
+            await coordinator.async_request_refresh()
+        else:
+            _LOGGER.error("❌ Attivazione modo vacanza fallita")
+
+    hass.services.async_register(
+        DOMAIN, "set_holiday_mode", handle_set_holiday_mode, schema=holiday_schema
+    )
 
     return True
 
