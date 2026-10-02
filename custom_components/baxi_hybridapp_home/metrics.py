@@ -81,6 +81,15 @@ def _make_mapper(mapping: dict, *, normalize: bool = False) -> Callable[[Any], s
     return _parse
 
 
+# Stati on/off (Stato caldaia, Stato PDC): il cloud manda a volte il codice
+# grezzo ("0000"/"0001") e a volte il valore già trasformato ("Off"/"On").
+# Chiavi in minuscolo: i mapper sono usati con normalize=True.
+_STATUS_ON_OFF = {
+    "0000": "Off", "0": "Off", "off": "Off", "false": "Off",
+    "0001": "On",  "1": "On",  "on": "On",   "true": "On",
+}
+
+
 @dataclass(frozen=True)
 class SimpleMetricSpec:
     """Descrittore di una metrica letta come singolo valore da /data/values."""
@@ -157,11 +166,19 @@ SIMPLE_METRICS: tuple[SimpleMetricSpec, ...] = (
             "0001": "On",  "1": "On",
         }, normalize=True),
     ),
+    SimpleMetricSpec(
+        "status_boiler", "Stato caldaia",
+        _make_mapper(_STATUS_ON_OFF, normalize=True),
+    ),
+    SimpleMetricSpec(
+        "status_pdc", "Stato PDC",
+        # 0002 precede sempre di ~1 minuto lo 0001: è la fase di avvio della
+        # pompa di calore (sequenza tipica 0002 → 0001 → 0000).
+        _make_mapper({**_STATUS_ON_OFF, "0002": "Avvio", "2": "Avvio"}, normalize=True),
+    ),
 
     # --- Passthrough: il sensore HA decide come interpretare il raw ---------
     SimpleMetricSpec("system_operation_icon", "Icona funzionamento sistema", _parse_passthrough),
-    SimpleMetricSpec("status_boiler", "Stato caldaia", _parse_passthrough),
-    SimpleMetricSpec("status_pdc", "Stato PDC", _parse_passthrough),
     # Data/ora fine vacanza (registri P02A012F+P02A0130): epoch in millisecondi
     # (es. 1784494020000 → 2026-07-19 20:47 UTC), convertita in datetime per
     # il sensore timestamp (issue #12)

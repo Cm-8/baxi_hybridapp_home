@@ -22,6 +22,20 @@ from .metrics import SIMPLE_METRICS, SimpleMetricSpec, ENERGY_SENSOR_TYPES
 _LOGGER = logging.getLogger(__name__)
 
 
+def _mask_serial(serial) -> str:
+    """Maschera un numero di serie per i log, lasciando visibili le ultime 4 cifre.
+
+    Le ultime cifre bastano a distinguere due impianti in una segnalazione
+    senza esporre il seriale completo. Valori brevi vengono oscurati del tutto.
+    """
+    if not serial:
+        return "n.d."
+    s = str(serial)
+    if len(s) <= 4:
+        return "***"
+    return "***" + s[-4:]
+
+
 class BaxiApiError(Exception):
     """Errore generico dell'API Baxi Servitly."""
 
@@ -222,8 +236,11 @@ class BaxiHybridAppAPI:
                 _LOGGER.info("✅ Thing ID ottenuto: %s", self.thingId)
                 _LOGGER.info("✅ Model ottenuto: %s | Definizione: %s (%s)",
                              self.thingModel, self.thingDefinitionName, self.thingDefinitionId)
+                # S/N mascherato: i log finiscono spesso nelle issue (la
+                # diagnostica scaricabile lo oscura già del tutto).
                 _LOGGER.info("✅ SwVersion: %s | Firmware: %s | S/N: %s",
-                             self.thingSwVersion, self.thingFirmware, self.serialNumber)
+                             self.thingSwVersion, self.thingFirmware,
+                             _mask_serial(self.serialNumber))
 
                 return self.thingId
             else:
@@ -721,7 +738,9 @@ class BaxiHybridAppAPI:
             self.warning_count_24h = warning_24h
             self.warning_count_7d = warning_7d
 
-            _LOGGER.info(
+            # Debug, non info: gira a ogni ciclo di polling (~144 righe/giorno).
+            # I nuovi alert restano visibili via evento sul bus + Logbook.
+            _LOGGER.debug(
                 "🚨 Alerts: FAILURE attivo=%s, WARNING attivo=%s, FAILURE 24h=%d, 7g=%d, nuovi=%d",
                 "sì" if active_failure else "no",
                 "sì" if active_warning else "no",
