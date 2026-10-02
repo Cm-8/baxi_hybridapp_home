@@ -1,0 +1,8 @@
+# Dipendenze per eseguire i test (non servono all'integrazione: dentro Home
+# Assistant sono già presenti).
+# homeassistant è fissato alla versione minima supportata (hacs.json: 2025.1.0),
+# così i test verificano che l'integrazione funzioni anche lì.
+homeassistant==2025.1.4
+pytest>=8,<9
+# ZoneInfo("Europe/Rome") su Windows: Linux usa il database di sistema.
+tzdata

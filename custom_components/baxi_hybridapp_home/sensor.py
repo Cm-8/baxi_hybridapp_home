@@ -488,7 +488,7 @@ class StatusPDC(BaxiBaseSensor):
     @property
     def icon(self):
         val = (getattr(self._api, self._value_key) or "").lower()
-        return "mdi:heat-pump" if val == "on" else "mdi:heat-pump-outline"
+        return "mdi:heat-pump" if val in ("on", "avvio") else "mdi:heat-pump-outline"
 
     @property
     def state_class(self):
