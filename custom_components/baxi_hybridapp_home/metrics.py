@@ -3,9 +3,9 @@ Tabelle delle metriche Servitly per Baxi Hybrid App.
 
 Questo modulo concentra:
 - SimpleMetricSpec + SIMPLE_METRICS  → metriche "semplici" (un valore per
-  metricName), lette dal dispatcher in api.fetch_simple_metrics
+  metricName), lette dal dispatcher in api.apply_simple_metrics
 - BaxiEnergySensorEntityDescription + ENERGY_SENSOR_TYPES → sensori energia,
-  letti da fetch_energy_metrics ed esposti come entità HA in sensor.py
+  letti da apply_energy_metrics ed esposti come entità HA in sensor.py
 
 Aggiungere una metrica = una sola riga in una di queste tabelle. Il file
 const.py resta dedicato alle costanti pure (DOMAIN, credenziali statiche,
@@ -37,7 +37,7 @@ __all__ = [
 
 # ---------------------------------------------------------------------------
 # Metriche "semplici" — un singolo valore per metricName Servitly.
-# Lette in sequenza dal dispatcher fetch_simple_metrics in api.py.
+# Applicate dalla cache bulk dal dispatcher apply_simple_metrics in api.py.
 # ---------------------------------------------------------------------------
 
 def _parse_float(raw: Any) -> float:
@@ -170,7 +170,7 @@ SIMPLE_METRICS: tuple[SimpleMetricSpec, ...] = (
 
 
 # ---------------------------------------------------------------------------
-# Sensori energia — letti da fetch_energy_metrics ed esposti come entità HA
+# Sensori energia — letti da apply_energy_metrics ed esposti come entità HA
 # in sensor.BaxiEnergySensor (entity_description-based).
 # ---------------------------------------------------------------------------
 

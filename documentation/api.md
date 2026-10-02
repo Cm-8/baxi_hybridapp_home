@@ -140,3 +140,28 @@ Response:
     "aggregation": null
 }
 ```
+
+### GET `/data/lastValues?thingId={{thingId}}&metricName={{metricName1}}&metricName={{metricName2}}`
+<sup> Ref: https://learn.servitly.com/apidocs/get-thing-metrics-last-value </sup>
+> [!NOTE]
+> Unlike `/data/values` above, `metricName` here can be repeated up to 50 times in a single
+> request to fetch the last value of several metrics at once. This is what the integration
+> uses for its per-cycle polling, instead of one `/data/values` call per metric.
+
+Response:
+```json
+{
+    "data": [
+        {
+            "metric": "Pressione impianto",
+            "ts": 1741236233774,
+            "value": "1.0"
+        },
+        {
+            "metric": "Temperatura esterna",
+            "ts": 1741236233774,
+            "value": "18.5"
+        }
+    ]
+}
+```
