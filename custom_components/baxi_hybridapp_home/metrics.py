@@ -132,11 +132,14 @@ SIMPLE_METRICS: tuple[SimpleMetricSpec, ...] = (
     ),
     SimpleMetricSpec(
         "system_operation_mode", "Modo funzionamento sistema",
-        # L'API manda valori con zeri iniziali ("0001", "0007").
-        # Aggiunte anche le forme senza zeri ("1", "7") per robustezza.
+        # L'API manda valori con zeri iniziali ("0001", "0007", "000D").
+        # Aggiunte anche le forme senza zeri ("1", "7", "d") per robustezza.
+        # normalize=True porta il raw in minuscolo: le chiavi esadecimali
+        # vanno quindi scritte in minuscolo ("000d", non "000D").
         _make_mapper({
-            "0001": "Automatico", "1": "Automatico",
-            "0007": "Standby",    "7": "Standby",
+            "0001": "Automatico",     "1": "Automatico",
+            "0007": "Standby",        "7": "Standby",
+            "000d": "Solo Sanitario", "d": "Solo Sanitario",
         }, normalize=True),
     ),
     SimpleMetricSpec(

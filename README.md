@@ -48,7 +48,7 @@ This extension is only compatible with devices:
 
 ### 🧭 Mode / Status Sensors
 - **System Mode** — current operating mode (Automatico, Standby, Solo Sanitario)
-- **System Operation Mode** — firmware-level operating mode (Automatico, Standby)
+- **System Operation Mode** — firmware-level operating mode (Automatico, Standby, Solo Sanitario)
 - **Season Mode** — current seasonal configuration (Estate, Inverno, Estate/Inverno automatico, Estate/Inverno remoto)
 - **Sanitary On** — whether sanitary mode is active (On / Off)
 - **Scheduler Status** — DHW scheduler state (active, off, or error)

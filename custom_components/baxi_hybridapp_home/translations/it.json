@@ -93,15 +93,7 @@
         "name": "Schedulatore Sanitario",
         "device_class": null
       }
-    }
-  },
-  "device_automation": {
-    "action_type": {
-      "set_comfort": "Imposta Sanitario Comfort",
-      "set_eco": "Imposta Sanitario Eco"
-    }
-  },
-  "entity": {
+    },
     "datetime": {
       "baxi_holiday_mode_end": {
         "name": "Modo Vacanza Fine"
@@ -111,6 +103,12 @@
       "baxi_holiday_mode_switch": {
         "name": "Modo Vacanza"
       }
+    }
+  },
+  "device_automation": {
+    "action_type": {
+      "set_comfort": "Imposta Sanitario Comfort",
+      "set_eco": "Imposta Sanitario Eco"
     }
   },
   "services": {
