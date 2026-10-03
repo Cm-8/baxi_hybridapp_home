@@ -23,6 +23,7 @@ from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 
 from .const import (
+    DOMAIN,
     PARAM_ID_SETPOINT_RAFFRESCAMENTO,
     COOLING_MIN_TEMP, COOLING_MAX_TEMP,
     WRITE_GRACE_SECONDS,
@@ -43,7 +44,8 @@ class BaxiCoolingSetpointNumber(CoordinatorEntity, NumberEntity):
     PUT /data/configurationParameters con PARAM_ID_SETPOINT_RAFFRESCAMENTO.
     """
 
-    _attr_icon = "mdi:snowflake-thermometer"
+    _attr_has_entity_name = True
+    _attr_translation_key = "cooling_setpoint"
     _attr_device_class = NumberDeviceClass.TEMPERATURE
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_native_min_value = COOLING_MIN_TEMP
@@ -57,7 +59,6 @@ class BaxiCoolingSetpointNumber(CoordinatorEntity, NumberEntity):
         super().__init__(coordinator)
         self._api = api
         self._attr_unique_id = "baxi_cooling_setpoint_number"
-        self._attr_name = "Setpoint Raffrescamento"
 
         prefix = "baxi"
         serial_number = getattr(self._api, "serialNumber", None) or "unknown"
@@ -92,8 +93,9 @@ class BaxiCoolingSetpointNumber(CoordinatorEntity, NumberEntity):
 
         if not ok:
             raise HomeAssistantError(
-                f"Impostazione Setpoint Raffrescamento a {new_t:.0f} °C non riuscita: "
-                "il cloud Baxi non ha accettato la richiesta."
+                translation_domain=DOMAIN,
+                translation_key="cooling_setpoint_failed",
+                translation_placeholders={"value": f"{new_t:.0f}"},
             )
 
         # 1) Aggiorna subito in locale (optimistic UI)

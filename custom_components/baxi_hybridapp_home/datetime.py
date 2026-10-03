@@ -24,6 +24,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
+    DOMAIN,
     PARAM_ID_HOLIDAY_MODE_END,
     WRITE_GRACE_SECONDS,
 )
@@ -39,9 +40,9 @@ PARALLEL_UPDATES = 1
 class BaxiHolidayModeEnd(CoordinatorEntity, DateTimeEntity):
     """Data/ora fine modo vacanza — staging se spenta, invio diretto se attiva."""
 
-    _attr_name = "Modo Vacanza Fine"
+    _attr_has_entity_name = True
+    _attr_translation_key = "holiday_mode_end"
     _attr_unique_id = "baxi_holiday_mode_end"
-    _attr_icon = "mdi:calendar-end"
     _attr_entity_registry_enabled_default = False
 
     def __init__(self, runtime: BaxiRuntimeData) -> None:
@@ -91,7 +92,8 @@ class BaxiHolidayModeEnd(CoordinatorEntity, DateTimeEntity):
 
         if not ok:
             raise HomeAssistantError(
-                "Aggiornamento della fine vacanza non riuscito: il cloud Baxi non ha accettato la richiesta."
+                translation_domain=DOMAIN,
+                translation_key="holiday_end_failed",
             )
 
         _LOGGER.info("✅ Fine vacanza aggiornata a %s", value.isoformat())
