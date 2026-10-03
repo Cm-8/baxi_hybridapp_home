@@ -29,9 +29,7 @@ rules:
     comment: The integration provides no triggers (alerts are exposed as a bus event).
   entity-event-setup: done
   entity-unique-id: done
-  has-entity-name:
-    status: todo
-    comment: Only the energy sensors use has_entity_name.
+  has-entity-name: done
   runtime-data: done
   test-before-configure: done
   test-before-setup: done
@@ -77,11 +75,19 @@ rules:
     comment: Only alerts, buttons and alert counters are diagnostic.
   entity-device-class:
     status: todo
-    comment: Mapped states (boiler/heat pump status, modes) could use the enum device class.
+    comment: >-
+      Mapped states (boiler/heat pump status, modes) could use the enum device
+      class, but that changes the state values (e.g. "Solo Sanitario" to
+      "solo_sanitario") and breaks automations comparing them.
   entity-disabled-by-default: done
-  entity-translations: todo
-  exception-translations: todo
-  icon-translations: todo
+  entity-translations: done
+  exception-translations: done
+  icon-translations:
+    status: todo
+    comment: >-
+      Static icons are in icons.json. Nine entities keep a state-dependent icon
+      in code because their states (e.g. "On", "Solo Sanitario") are not
+      lowercase translation keys; moving them requires the enum states change.
   reconfiguration-flow: todo
   repair-issues:
     status: exempt

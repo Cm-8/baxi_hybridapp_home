@@ -31,10 +31,12 @@ PLATFORMS = ["sensor", "water_heater", "button", "binary_sensor", "select", "num
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 # Servizi setpoint sanitario: nome → (parameter ID, attributo api, nome nel
-# Logbook, entità del Logbook).
+# Logbook, entità del Logbook, chiave dell'errore tradotto).
 _SANITARY_SERVICES = {
-    "set_comfort": (PARAM_ID_SETPOINT_COMFORT, "setpoint_comfort_temp", "Sanitario Comfort", "water_heater.sanitario_comfort"),
-    "set_eco": (PARAM_ID_SETPOINT_ECO, "setpoint_eco_temp", "Sanitario Eco", "water_heater.sanitario_eco"),
+    "set_comfort": (PARAM_ID_SETPOINT_COMFORT, "setpoint_comfort_temp", "Sanitario Comfort",
+                    "water_heater.sanitario_comfort", "comfort_setpoint_failed"),
+    "set_eco": (PARAM_ID_SETPOINT_ECO, "setpoint_eco_temp", "Sanitario Eco",
+                "water_heater.sanitario_eco", "eco_setpoint_failed"),
 }
 
 _SET_SCHEMA = vol.Schema({
@@ -50,7 +52,7 @@ def _loaded_runtime(hass: HomeAssistant) -> BaxiRuntimeData:
     for entry in hass.config_entries.async_entries(DOMAIN):
         if entry.state is ConfigEntryState.LOADED:
             return entry.runtime_data
-    raise ServiceValidationError("L'integrazione Baxi HybridApp Home non è caricata.")
+    raise ServiceValidationError(translation_domain=DOMAIN, translation_key="entry_not_loaded")
 
 
 async def _grace_refresh(coordinator: BaxiDataUpdateCoordinator) -> None:
@@ -68,7 +70,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
     async def handle_set_sanitary(call: ServiceCall) -> None:
         """Imposta il setpoint sanitario Comfort o Eco (solo temperatura)."""
-        param_id, attr, label, entity_id = _SANITARY_SERVICES[call.service]
+        param_id, attr, label, entity_id, error_key = _SANITARY_SERVICES[call.service]
         runtime = _loaded_runtime(hass)
         value = call.data["value"]  # range già validato dallo schema
 
@@ -77,7 +79,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         )
         if not ok:
             raise HomeAssistantError(
-                f"Impostazione {label} a {value} °C non riuscita: il cloud Baxi non ha accettato la richiesta."
+                translation_domain=DOMAIN,
+                translation_key=error_key,
+                translation_placeholders={"value": str(value)},
             )
 
         _LOGGER.info("✅ %s impostato a %s °C", label, value)

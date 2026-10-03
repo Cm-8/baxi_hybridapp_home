@@ -1,0 +1,57 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "failure_alert": {
+        "default": "mdi:check-circle",
+        "state": { "on": "mdi:alert-box" }
+      },
+      "warning_alert": {
+        "default": "mdi:check-circle-outline",
+        "state": { "on": "mdi:alert-box-outline" }
+      }
+    },
+    "button": {
+      "update_data": { "default": "mdi:update" },
+      "test_failure": { "default": "mdi:test-tube" }
+    },
+    "datetime": {
+      "holiday_mode_end": { "default": "mdi:calendar-end" }
+    },
+    "number": {
+      "cooling_setpoint": { "default": "mdi:snowflake-thermometer" }
+    },
+    "select": {
+      "system_mode": { "default": "mdi:tune" },
+      "season_mode": { "default": "mdi:sun-snowflake" }
+    },
+    "sensor": {
+      "external_temperature": { "default": "mdi:thermometer" },
+      "internal_temperature": { "default": "mdi:thermometer" },
+      "boiler_flow_temperature": { "default": "mdi:thermometer" },
+      "dhw_storage_temperature": { "default": "mdi:thermometer" },
+      "dhw_aux_storage_temperature": { "default": "mdi:thermometer" },
+      "pdc_exit_temperature": { "default": "mdi:thermometer" },
+      "pdc_return_temperature": { "default": "mdi:thermometer" },
+      "setpoint_instant": { "default": "mdi:target" },
+      "setpoint_comfort": { "default": "mdi:target" },
+      "setpoint_eco": { "default": "mdi:target" },
+      "cooling_setpoint": { "default": "mdi:target" },
+      "water_pressure": { "default": "mdi:gauge" },
+      "system_mode": { "default": "mdi:engine" },
+      "season_mode": { "default": "mdi:sun-snowflake-variant" },
+      "system_operation_icon": { "default": "mdi:information-outline" },
+      "holiday_mode_end": { "default": "mdi:calendar-end" },
+      "system_operation_mode": { "default": "mdi:target" },
+      "sanitary_schedule": { "default": "mdi:calendar-clock" },
+      "failure_count_24h": { "default": "mdi:alert-circle" },
+      "failure_count_7d": { "default": "mdi:alert-circle-outline" }
+    },
+    "switch": {
+      "holiday_mode": { "default": "mdi:palm-tree" }
+    }
+  },
+  "services": {
+    "set_comfort": { "service": "mdi:water-boiler" },
+    "set_eco": { "service": "mdi:leaf" }
+  }
+}

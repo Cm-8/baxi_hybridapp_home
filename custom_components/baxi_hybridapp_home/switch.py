@@ -24,6 +24,7 @@ from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
+    DOMAIN,
     PARAM_ID_HOLIDAY_MODE_END,
     HOLIDAY_MODE_DISABLE_VALUE,
     WRITE_GRACE_SECONDS,
@@ -40,9 +41,9 @@ PARALLEL_UPDATES = 1
 class BaxiHolidayModeSwitch(CoordinatorEntity, SwitchEntity):
     """Interruttore Modo Vacanza (attiva/disattiva la programmazione vacanza)."""
 
-    _attr_name = "Modo Vacanza"
+    _attr_has_entity_name = True
+    _attr_translation_key = "holiday_mode"
     _attr_unique_id = "baxi_holiday_mode_switch"
-    _attr_icon = "mdi:palm-tree"
     _attr_entity_registry_enabled_default = False
 
     def __init__(self, runtime: BaxiRuntimeData) -> None:
@@ -75,7 +76,8 @@ class BaxiHolidayModeSwitch(CoordinatorEntity, SwitchEntity):
         if target is None or target <= now:
             # Nessun invio: l'errore compare nell'interfaccia e lo switch resta Off.
             raise ServiceValidationError(
-                "Imposta prima una data di fine futura in 'Modo Vacanza Fine', poi attiva lo switch."
+                translation_domain=DOMAIN,
+                translation_key="holiday_end_required",
             )
 
         epoch_ms = int(target.timestamp() * 1000)
@@ -92,7 +94,8 @@ class BaxiHolidayModeSwitch(CoordinatorEntity, SwitchEntity):
 
         if not ok:
             raise HomeAssistantError(
-                "Attivazione del modo vacanza non riuscita: il cloud Baxi non ha accettato la richiesta."
+                translation_domain=DOMAIN,
+                translation_key="holiday_on_failed",
             )
 
         _LOGGER.info("✅ Modo vacanza attivato fino a %s", target.isoformat())
@@ -116,7 +119,8 @@ class BaxiHolidayModeSwitch(CoordinatorEntity, SwitchEntity):
 
         if not ok:
             raise HomeAssistantError(
-                "Disattivazione del modo vacanza non riuscita: il cloud Baxi non ha accettato la richiesta."
+                translation_domain=DOMAIN,
+                translation_key="holiday_off_failed",
             )
 
         _LOGGER.info("✅ Modo vacanza disattivato")

@@ -14,6 +14,7 @@ from homeassistant.const import UnitOfTemperature
 from homeassistant.exceptions import HomeAssistantError
 import asyncio
 from .const import (
+    DOMAIN,
     PARAM_ID_SETPOINT_COMFORT, PARAM_ID_SETPOINT_ECO,
     SANITARY_MIN_TEMP, SANITARY_MAX_TEMP,
     WRITE_GRACE_SECONDS,
@@ -36,9 +37,11 @@ class BaxiSanitaryBase:
         # aggiornamento (False se il cloud è irraggiungibile).
         return self._coordinator.last_update_success and self._api.dhw_storage_temp is not None
 
-    def _raise_write_failed(self, label: str, value: float):
+    def _raise_write_failed(self, translation_key: str, value: float):
         raise HomeAssistantError(
-            f"Impostazione {label} a {value:.0f} °C non riuscita: il cloud Baxi non ha accettato la richiesta."
+            translation_domain=DOMAIN,
+            translation_key=translation_key,
+            translation_placeholders={"value": f"{value:.0f}"},
         )
 
     async def _grace_refresh(self):
@@ -75,7 +78,8 @@ class BaxiSanitaryComfort(BaxiSanitaryBase, WaterHeaterEntity):
     Entità Comfort
     """
 
-    _attr_name = "Sanitario Comfort"
+    _attr_has_entity_name = True
+    _attr_translation_key = "dhw_comfort"
     _attr_unique_id = "baxi_water_heater_comfort"
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_supported_features = WaterHeaterEntityFeature.TARGET_TEMPERATURE
@@ -163,7 +167,7 @@ class BaxiSanitaryComfort(BaxiSanitaryBase, WaterHeaterEntity):
         )
     
         if not ok:
-            self._raise_write_failed("Sanitario Comfort", new_t)
+            self._raise_write_failed("comfort_setpoint_failed", new_t)
 
         if ok:
             # 1) Aggiorna subito in locale (optimistic UI)
@@ -199,7 +203,8 @@ class BaxiSanitaryEco(BaxiSanitaryBase, WaterHeaterEntity):
     Entità Eco
     """
 
-    _attr_name = "Sanitario Eco"
+    _attr_has_entity_name = True
+    _attr_translation_key = "dhw_eco"
     _attr_unique_id = "baxi_water_heater_eco"
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_supported_features = WaterHeaterEntityFeature.TARGET_TEMPERATURE
@@ -286,7 +291,7 @@ class BaxiSanitaryEco(BaxiSanitaryBase, WaterHeaterEntity):
         )
     
         if not ok:
-            self._raise_write_failed("Sanitario Eco", new_t)
+            self._raise_write_failed("eco_setpoint_failed", new_t)
 
         if ok:
             # 1) Aggiorna subito in locale (optimistic UI)

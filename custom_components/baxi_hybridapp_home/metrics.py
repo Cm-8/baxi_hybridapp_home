@@ -200,7 +200,7 @@ class BaxiEnergySensorEntityDescription(SensorEntityDescription):
 ENERGY_SENSOR_TYPES: tuple[BaxiEnergySensorEntityDescription, ...] = (
     BaxiEnergySensorEntityDescription(
         key="energia_totale_pdc",
-        name="Energia totale PDC",
+        translation_key="energia_totale_pdc",
         metric_name="Energia totale pdc",
         entity_registry_enabled_default=False,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -209,7 +209,7 @@ ENERGY_SENSOR_TYPES: tuple[BaxiEnergySensorEntityDescription, ...] = (
     ),
     BaxiEnergySensorEntityDescription(
         key="energia_totale_caldaia",
-        name="Energia totale caldaia",
+        translation_key="energia_totale_caldaia",
         metric_name="Energia totale caldaia",
         entity_registry_enabled_default=False,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -218,7 +218,7 @@ ENERGY_SENSOR_TYPES: tuple[BaxiEnergySensorEntityDescription, ...] = (
     ),
     BaxiEnergySensorEntityDescription(
         key="energia_totale_resistenze",
-        name="Energia totale resistenze",
+        translation_key="energia_totale_resistenze",
         metric_name="Energia totale delle resistenze",
         entity_registry_enabled_default=False,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -227,7 +227,7 @@ ENERGY_SENSOR_TYPES: tuple[BaxiEnergySensorEntityDescription, ...] = (
     ),
     BaxiEnergySensorEntityDescription(
         key="energia_totale_globale",
-        name="Energia totale globale",
+        translation_key="energia_totale_globale",
         metric_name="Energia totale globale",
         entity_registry_enabled_default=False,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -236,7 +236,7 @@ ENERGY_SENSOR_TYPES: tuple[BaxiEnergySensorEntityDescription, ...] = (
     ),
     BaxiEnergySensorEntityDescription(
         key="energia_totale_globale_day",
-        name="Energia totale globale per day",
+        translation_key="energia_totale_globale_day",
         metric_name="Energia totale globale per day",
         entity_registry_enabled_default=False,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -245,7 +245,7 @@ ENERGY_SENSOR_TYPES: tuple[BaxiEnergySensorEntityDescription, ...] = (
     ),
     BaxiEnergySensorEntityDescription(
         key="energia_parziale_caldaia",
-        name="Energia parziale caldaia",
+        translation_key="energia_parziale_caldaia",
         metric_name="Energia parziale caldaia",
         entity_registry_enabled_default=False,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -254,7 +254,7 @@ ENERGY_SENSOR_TYPES: tuple[BaxiEnergySensorEntityDescription, ...] = (
     ),
     BaxiEnergySensorEntityDescription(
         key="energia_parziale_pdc",
-        name="Energia parziale PDC",
+        translation_key="energia_parziale_pdc",
         metric_name="Energia parziale pdc",
         entity_registry_enabled_default=False,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -263,7 +263,7 @@ ENERGY_SENSOR_TYPES: tuple[BaxiEnergySensorEntityDescription, ...] = (
     ),
     BaxiEnergySensorEntityDescription(
         key="energia_parziale_resistenze",
-        name="Energia parziale resistenze",
+        translation_key="energia_parziale_resistenze",
         metric_name="Energia parziale delle resistenze",
         entity_registry_enabled_default=False,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,

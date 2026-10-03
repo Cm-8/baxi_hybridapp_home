@@ -19,6 +19,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
 from .const import (
+    DOMAIN,
     WRITE_GRACE_SECONDS,
     COMMAND_ID_MODE_AUTOMATICO,
     COMMAND_ID_MODE_SOLO_SANITARIO,
@@ -65,14 +66,14 @@ class BaxiSystemModeSelect(CoordinatorEntity, SelectEntity):
     commandId corrispondente all'opzione selezionata.
     """
 
-    _attr_icon = "mdi:tune"
+    _attr_has_entity_name = True
+    _attr_translation_key = "system_mode"
     _attr_options = MODE_OPTIONS
 
     def __init__(self, coordinator, api) -> None:
         super().__init__(coordinator)
         self._api = api
         self._attr_unique_id = "baxi_system_mode_select"
-        self._attr_name = "Modo Impianto"
 
         prefix = "baxi"
         serial_number = getattr(self._api, "serialNumber", None) or "unknown"
@@ -98,7 +99,11 @@ class BaxiSystemModeSelect(CoordinatorEntity, SelectEntity):
         """Invia il comando di cambio modalità al device Baxi."""
         command_id = _MODE_TO_COMMAND.get(option)
         if command_id is None:
-            raise ServiceValidationError(f"Opzione modo impianto '{option}' non riconosciuta.")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="invalid_option",
+                translation_placeholders={"option": option},
+            )
 
         _LOGGER.info("🔄 Cambio modo impianto → %s (commandId: %s)", option, command_id)
         ok = await self.hass.async_add_executor_job(
@@ -107,7 +112,9 @@ class BaxiSystemModeSelect(CoordinatorEntity, SelectEntity):
         )
         if not ok:
             raise HomeAssistantError(
-                f"Cambio modo impianto a '{option}' non riuscito: il cloud Baxi non ha accettato il comando."
+                translation_domain=DOMAIN,
+                translation_key="system_mode_failed",
+                translation_placeholders={"option": option},
             )
 
         _LOGGER.info("✅ Modo impianto impostato a '%s'", option)
@@ -133,14 +140,14 @@ class BaxiSeasonModeSelect(CoordinatorEntity, SelectEntity):
     PUT /data/commands con il commandId corrispondente all'opzione.
     """
 
-    _attr_icon = "mdi:sun-snowflake"
+    _attr_has_entity_name = True
+    _attr_translation_key = "season_mode"
     _attr_options = SEASON_OPTIONS
 
     def __init__(self, coordinator, api) -> None:
         super().__init__(coordinator)
         self._api = api
         self._attr_unique_id = "baxi_season_mode_select"
-        self._attr_name = "Modo Stagione"
 
         prefix = "baxi"
         serial_number = getattr(self._api, "serialNumber", None) or "unknown"
@@ -166,7 +173,11 @@ class BaxiSeasonModeSelect(CoordinatorEntity, SelectEntity):
         """Invia il comando di cambio stagione al device Baxi."""
         command_id = _SEASON_TO_COMMAND.get(option)
         if command_id is None:
-            raise ServiceValidationError(f"Opzione modo stagione '{option}' non riconosciuta.")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="invalid_option",
+                translation_placeholders={"option": option},
+            )
 
         _LOGGER.info("🔄 Cambio modo stagione → %s (commandId: %s)", option, command_id)
         ok = await self.hass.async_add_executor_job(
@@ -175,7 +186,9 @@ class BaxiSeasonModeSelect(CoordinatorEntity, SelectEntity):
         )
         if not ok:
             raise HomeAssistantError(
-                f"Cambio modo stagione a '{option}' non riuscito: il cloud Baxi non ha accettato il comando."
+                translation_domain=DOMAIN,
+                translation_key="season_mode_failed",
+                translation_placeholders={"option": option},
             )
 
         _LOGGER.info("✅ Modo stagione impostato a '%s'", option)
