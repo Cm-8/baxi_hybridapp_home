@@ -67,9 +67,43 @@ def test_null_plant_mode_is_automatico(api, cloud):
 
 
 def test_holiday_end_float_epoch(api, cloud):
+    cloud["Modo vacanza"] = values_response("0001")
     cloud["Data/Ora fine modo vacanza"] = values_response(1784797954954.0)
     api.fetch_simple_metrics()
     assert api.holiday_mode_end == datetime(2026, 7, 23, 9, 12, 34, 954000, tzinfo=timezone.utc)
+
+
+def test_holiday_end_ignored_when_holiday_is_off(api, cloud):
+    # A vacanza spenta il cloud manda comunque una "data": l'ora del suo ultimo
+    # ricalcolo. Non è una fine vacanza e non va mostrata.
+    cloud["Modo vacanza"] = values_response("0000")
+    cloud["Data/Ora fine modo vacanza"] = values_response(1784797954954.0)
+    api.fetch_simple_metrics()
+    assert api.holiday_mode == "Off"
+    assert api.holiday_mode_end is None
+    assert api.holiday_mode_end_timestamp is None
+
+
+# --- Esiti delle richieste (base per l'indisponibilità del cloud) ----------------
+
+
+def test_request_stats_all_failed(api, cloud):
+    # Nessuna risposta: è il caso "cloud irraggiungibile".
+    api.reset_request_stats()
+    api.fetch_simple_metrics()
+    ok, failed = api.request_stats()
+    assert ok == 0
+    assert "Temperatura esterna" in failed
+
+
+def test_request_stats_partial_failure(api, cloud):
+    cloud["Temperatura esterna"] = values_response("21.5")
+    api.reset_request_stats()
+    api.fetch_simple_metrics()
+    ok, failed = api.request_stats()
+    assert ok == 1
+    assert "Temperatura esterna" not in failed
+    assert "Pressione impianto" in failed
 
 
 # --- Energia (fetch_energy_metrics) ------------------------------------------------

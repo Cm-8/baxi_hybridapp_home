@@ -7,6 +7,10 @@
         "data": {
           "username": "Email",
           "password": "Password"
+        },
+        "data_description": {
+          "username": "L'email con cui accedi all'app Baxi HybridApp.",
+          "password": "La password del tuo account Baxi HybridApp."
         }
       },
       "reauth_confirm": {
@@ -14,6 +18,9 @@
         "description": "Le credenziali per {username} non sono più valide. Inserisci la nuova password.",
         "data": {
           "password": "Password"
+        },
+        "data_description": {
+          "password": "La nuova password del tuo account Baxi HybridApp."
         }
       }
     },

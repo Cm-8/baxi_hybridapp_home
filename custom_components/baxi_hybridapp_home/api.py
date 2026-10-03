@@ -12,7 +12,7 @@ from time import sleep as _sleep
 from homeassistant.util import dt as dt_util
 import logging
 from zoneinfo import ZoneInfo
-from urllib.parse import quote_plus
+from urllib.parse import parse_qs, quote_plus, urlparse
 from .const import (
     APIKEY, TENANT, DEV_BROWSER,
     DEV_MODEL, DEV_ID, PLATFORM,
@@ -20,6 +20,13 @@ from .const import (
 from .metrics import SIMPLE_METRICS, SimpleMetricSpec, ENERGY_SENSOR_TYPES
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _request_label(url: str) -> str:
+    """Nome breve di una richiesta per i log: il metricName, se presente."""
+    parsed = urlparse(url)
+    name = parse_qs(parsed.query).get("metricName")
+    return name[0] if name else parsed.path.rsplit("/", 1)[-1]
 
 
 def _mask_serial(serial) -> str:
@@ -128,6 +135,8 @@ class BaxiHybridAppAPI:
         # Coda dei "nuovi" alert dell'ultimo fetch: il coordinator la consuma
         # nell'event loop per fire event + log su Logbook.
         self.new_alerts_pending: list[dict] = []
+        # Esiti delle richieste di lettura del ciclo corrente (vedi _make_request).
+        self.reset_request_stats()
 
     def login(self):
         """Esegue il login e solleva eccezioni tipizzate.
@@ -301,12 +310,36 @@ class BaxiHybridAppAPI:
             return None
         return secs
 
+    def reset_request_stats(self) -> None:
+        """Azzera i contatori delle richieste di lettura (inizio ciclo di polling)."""
+        self._requests_ok = 0
+        self._requests_failed: list[str] = []
+
+    def request_stats(self) -> tuple[int, list[str]]:
+        """Richieste riuscite e nomi di quelle fallite dall'ultimo reset."""
+        return self._requests_ok, list(self._requests_failed)
+
     def _make_request(self, url: str):
+        """GET di lettura (vedi _http_get_json) con conteggio degli esiti.
+
+        Il coordinator usa i contatori per distinguere una singola richiesta
+        fallita (valore precedente conservato) dal cloud irraggiungibile.
+        """
+        data = self._http_get_json(url)
+        if data is None:
+            self._requests_failed.append(_request_label(url))
+        else:
+            self._requests_ok += 1
+        return data
+
+    def _http_get_json(self, url: str):
         """
         GET autenticata con gestione centralizzata di:
         - token mancante / 401  → ri-autentica e ritenta una volta
         - 429 (rate limit)      → onora Retry-After ≤ MAX_RETRY_AFTER_SECONDS e ritenta una volta
         Riusa la sessione HTTP della classe (keep-alive, no TLS handshake ripetuto).
+        Errori di rete e risposte non-ok sono loggati solo in debug: il
+        riepilogo per ciclo (o l'indisponibilità) lo logga il coordinator.
         """
         if not self.token:
             _LOGGER.warning("⚠️ Nessun token: provo a ri-autenticare.")
@@ -349,10 +382,16 @@ class BaxiHybridAppAPI:
 
             if response.ok:
                 return response.json()
-            else:
-                _LOGGER.error("❌ Errore nella richiesta %s: %s", url, response.text)
-                return None
+            _LOGGER.debug(
+                "❌ HTTP %s su %s: %s", response.status_code, url, response.text[:300],
+            )
+            return None
+        except requests.RequestException as e:
+            # Rete/timeout: atteso durante un'interruzione del cloud.
+            _LOGGER.debug("❌ Richiesta a %s non riuscita: %s", url, e)
+            return None
         except Exception as e:
+            # Inatteso (es. JSON non valido): resta visibile con traceback.
             _LOGGER.exception("❌ Eccezione nella richiesta a %s: %s", url, e)
             return None
 
@@ -428,6 +467,12 @@ class BaxiHybridAppAPI:
         """Legge in sequenza tutte le metriche definite in SIMPLE_METRICS."""
         for spec in SIMPLE_METRICS:
             self._fetch_one(spec)
+        # "Data/Ora fine modo vacanza" è calcolata dal cloud: a vacanza spenta
+        # non arriva vuota ma con l'ora del suo ultimo ricalcolo (circa ogni 2
+        # ore). È una data di fine valida solo a vacanza attiva.
+        if self.holiday_mode != "On":
+            self.holiday_mode_end = None
+            self.holiday_mode_end_timestamp = None
 
     # ----- I vecchi fetch_<metrica> per-attributo sono stati collassati in -----
     # fetch_simple_metrics() + SIMPLE_METRICS (dispatcher tabellare, vedi sopra).

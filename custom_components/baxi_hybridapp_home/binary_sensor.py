@@ -25,8 +25,10 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, DATA_KEY_API
 from .device import build_device_info
+
+# Sola lettura, aggiornata dal coordinator: nessun limite al parallelismo.
+PARALLEL_UPDATES = 0
 
 
 class BaxiAlertBinarySensor(CoordinatorEntity, BinarySensorEntity):
@@ -114,8 +116,8 @@ class BaxiAlertBinarySensor(CoordinatorEntity, BinarySensorEntity):
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    api = hass.data[DOMAIN][DATA_KEY_API]
-    coordinator = hass.data[DOMAIN]["coordinator"]
+    api = entry.runtime_data.api
+    coordinator = entry.runtime_data.coordinator
     async_add_entities([
         BaxiAlertBinarySensor(
             coordinator, api,
