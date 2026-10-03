@@ -113,5 +113,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: BaxiConfigEntry) -> bool
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: BaxiConfigEntry) -> bool:
-    # entry.runtime_data (api, coordinator, staging vacanza) viene scartato con la entry.
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload_ok:
+        # Logout dal cloud (invalida il refreshToken) e chiusura della sessione
+        # HTTP, best-effort. Il resto di entry.runtime_data viene scartato con la entry.
+        await hass.async_add_executor_job(entry.runtime_data.api.close)
+    return unload_ok
