@@ -58,6 +58,9 @@ class BaxiConnectionError(BaxiApiError):
 class BaxiHybridAppAPI:
     BASE_URL = "https://baxi.servitly.com/api"
     LOGIN_URL = BASE_URL + "/identity/users/login?apiKey=" + APIKEY
+    # Rinnovo JWT scaduto via refreshToken (Bearer = token scaduto).
+    RENEW_URL = BASE_URL + "/identity/users/me/renewToken"
+    LOGOUT_URL = BASE_URL + "/identity/users/me/logout"
     THINGS_URL = BASE_URL + "/v2/identity/users/me/things"
     # Endpoint user-level (NON per-thing): ritorna gli alert di tutti i device
     # dell'account. Filtriamo per self.thingId in fetch_historical_alerts.
@@ -86,6 +89,9 @@ class BaxiHybridAppAPI:
         })
         self.token = None
         self.refreshToken = None
+        self.userId = None
+        self.tenantId = None
+        self.tokenExpirationTimestamp = None  # epoch ms, solo informativo
         self.thingId = None
         self.thingModel = None
         self.thingSwVersion = None
@@ -185,6 +191,9 @@ class BaxiHybridAppAPI:
 
         self.token = token
         self.refreshToken = data.get("refreshToken")
+        self.userId = data.get("userId")
+        self.tenantId = data.get("tenantId")
+        self.tokenExpirationTimestamp = data.get("tokenExpirationTimestamp")
         # safe token
         safe = {**data, "token": "***", "refreshToken": "***"}
         _LOGGER.info("✅ BAXI Login successful: %s", json.dumps(safe)[:300])
@@ -210,23 +219,100 @@ class BaxiHybridAppAPI:
         except Exception as e:
             _LOGGER.exception("❌ BAXI Login exception: %s", e)
 
-    def get_thingid (self) -> str:
-        if not self.token:
-            _LOGGER.warning("⚠️ Nessun token: provo a ri-autenticare...")
-            self.authenticate()
-            if not self.token:
-                _LOGGER.error("❌ Impossibile autenticarsi.")
-                return None
-                
-        # Solo l'authorization è specifica per la chiamata; il resto sta sulla session.
-        headers = {'authorization': f'Bearer {self.token}'}
+    def renew_token(self) -> bool:
+        """Rinnova il JWT scaduto usando il refreshToken (niente password).
+
+        POST /identity/users/me/renewToken con Bearer = token scaduto e body
+        {refreshToken, userId, tenantId}. Servitly consente il rinnovo solo a
+        JWT scaduto, quindi va chiamato in risposta a un 401.
+        Ritorna True se il token è stato rinnovato; non solleva.
+        """
+        if not (self.token and self.refreshToken and self.userId and self.tenantId):
+            return False
+
+        payload = json.dumps({
+            "refreshToken": self.refreshToken,
+            "userId": self.userId,
+            "tenantId": self.tenantId,
+        })
+        headers = {
+            'authorization': f'Bearer {self.token}',
+            'accept': 'application/json',
+            'content-type': 'application/json',
+        }
 
         try:
-            response = self._session.get(
-                self.THINGS_URL,
-                headers=headers,
+            response = self._session.post(
+                self.RENEW_URL, headers=headers, data=payload,
                 timeout=self.REQUEST_TIMEOUT,
             )
+        except requests.exceptions.RequestException as e:
+            _LOGGER.warning("⚠️ Rinnovo token non riuscito (rete): %s", e)
+            return False
+
+        if not response.ok:
+            _LOGGER.warning("⚠️ Rinnovo token rifiutato (HTTP %s)", response.status_code)
+            return False
+
+        try:
+            data = response.json()
+        except ValueError:
+            _LOGGER.warning("⚠️ Rinnovo token: risposta non JSON")
+            return False
+
+        token = data.get("token") if isinstance(data, dict) else None
+        if not token:
+            _LOGGER.warning("⚠️ Rinnovo token: nessun token nella risposta")
+            return False
+
+        self.token = token
+        # Se il cloud ruota il refreshToken lo aggiorniamo, altrimenti teniamo il vecchio.
+        self.refreshToken = data.get("refreshToken") or self.refreshToken
+        self.tokenExpirationTimestamp = data.get("tokenExpirationTimestamp")
+        _LOGGER.info("🔄 BAXI token rinnovato via refreshToken")
+        return True
+
+    def _reauthenticate(self) -> None:
+        """Dopo un 401: prova il renewToken, se fallisce ripiega sul login completo."""
+        if self.renew_token():
+            return
+        _LOGGER.warning("🔐 Rinnovo token non disponibile, eseguo login completo...")
+        self.authenticate()
+
+    def logout(self) -> None:
+        """Chiude la sessione lato cloud invalidando il refreshToken (best-effort).
+
+        Chiamato all'unload dell'integrazione e dopo le login di sola validazione
+        del config flow, per non lasciare sessioni orfane sull'account. Non solleva.
+        """
+        if self.token and self.refreshToken:
+            try:
+                response = self._session.post(
+                    self.LOGOUT_URL,
+                    headers={
+                        'authorization': f'Bearer {self.token}',
+                        'content-type': 'application/json',
+                    },
+                    data=json.dumps({"refreshToken": self.refreshToken}),
+                    timeout=self.REQUEST_TIMEOUT,
+                )
+                _LOGGER.debug("👋 BAXI logout (HTTP %s)", response.status_code)
+            except requests.exceptions.RequestException as e:
+                _LOGGER.debug("👋 BAXI logout non riuscito: %s", e)
+        self.token = None
+        self.refreshToken = None
+
+    def close(self) -> None:
+        """Logout dal cloud e chiusura della sessione HTTP (unload / fine validazione)."""
+        self.logout()
+        self._session.close()
+
+    def get_thingid (self) -> str:
+        response = self._request("GET", self.THINGS_URL)
+        if response is None:
+            return None
+
+        try:
             if response.ok:
                 data = response.json()
                 content = data.get("content", [])
@@ -332,14 +418,17 @@ class BaxiHybridAppAPI:
             self._requests_ok += 1
         return data
 
-    def _http_get_json(self, url: str):
+    def _request(self, method: str, url: str, headers: dict | None = None, data=None):
         """
-        GET autenticata con gestione centralizzata di:
-        - token mancante / 401  → ri-autentica e ritenta una volta
+        Richiesta autenticata (GET o PUT) con gestione centralizzata di:
+        - token mancante        → login
+        - 401 (token scaduto)   → renewToken (fallback: login completo) e ritenta una volta
         - 429 (rate limit)      → onora Retry-After ≤ MAX_RETRY_AFTER_SECONDS e ritenta una volta
         Riusa la sessione HTTP della classe (keep-alive, no TLS handshake ripetuto).
-        Errori di rete e risposte non-ok sono loggati solo in debug: il
-        riepilogo per ciclo (o l'indisponibilità) lo logga il coordinator.
+        Ritorna la response (anche non-ok), oppure None se non è possibile
+        autenticarsi, il 429 non è ritentabile o la richiesta non va a buon fine.
+        Gli errori di rete sono loggati solo in debug: il riepilogo per ciclo
+        (o l'indisponibilità) lo logga il coordinator.
         """
         if not self.token:
             _LOGGER.warning("⚠️ Nessun token: provo a ri-autenticare.")
@@ -348,51 +437,69 @@ class BaxiHybridAppAPI:
                 _LOGGER.error("❌ Impossibile autenticarsi.")
                 return None
 
-        try:
-            response = self._session.get(
-                url, headers=self._auth_headers(), timeout=self.REQUEST_TIMEOUT,
+        def send():
+            # Header ricostruiti a ogni invio: dopo il rinnovo il Bearer cambia.
+            return self._session.request(
+                method, url,
+                headers={**(headers or {}), **self._auth_headers()},
+                data=data,
+                timeout=self.REQUEST_TIMEOUT,
             )
 
-            # 401: token scaduto → ri-autentica e ritenta una sola volta
+        try:
+            response = send()
+
+            # 401: token scaduto → rinnova (o ri-login) e ritenta una sola volta.
+            # Evento atteso (JWT da 1 ora): solo debug; i fallimenti del rinnovo
+            # restano warning.
             if response.status_code == 401:
-                _LOGGER.warning("🔐 Token scaduto, riprovo autenticazione...")
-                self.authenticate()
-                response = self._session.get(
-                    url, headers=self._auth_headers(), timeout=self.REQUEST_TIMEOUT,
-                )
+                _LOGGER.debug("🔐 Token scaduto, rinnovo in corso...")
+                self._reauthenticate()
+                if not self.token:
+                    _LOGGER.error("❌ Impossibile autenticarsi.")
+                    return None
+                response = send()
 
             # 429: rate limit → backoff via Retry-After e ritenta una sola volta
             if response.status_code == 429:
                 delay = self._parse_retry_after(response)
-                if delay is not None:
+                if delay is None:
                     _LOGGER.warning(
-                        "⏳ Rate limit (429) su %s, attendo %ss e riprovo.",
-                        url, delay,
-                    )
-                    _sleep(delay)
-                    response = self._session.get(
-                        url, headers=self._auth_headers(), timeout=self.REQUEST_TIMEOUT,
-                    )
-                else:
-                    _LOGGER.warning(
-                        "⏳ Rate limit (429) su %s senza Retry-After utile — salto.",
-                        url,
+                        "⏳ Rate limit (429) su %s %s senza Retry-After utile — salto.",
+                        method, url,
                     )
                     return None
+                _LOGGER.warning(
+                    "⏳ Rate limit (429) su %s %s, attendo %ss e riprovo.",
+                    method, url, delay,
+                )
+                _sleep(delay)
+                response = send()
 
-            if response.ok:
-                return response.json()
+            return response
+        except requests.RequestException as e:
+            # Rete/timeout: atteso durante un'interruzione del cloud.
+            _LOGGER.debug("❌ Richiesta %s %s non riuscita: %s", method, url, e)
+            return None
+        except Exception as e:
+            # Inatteso: resta visibile con traceback.
+            _LOGGER.exception("❌ Eccezione nella richiesta %s %s: %s", method, url, e)
+            return None
+
+    def _http_get_json(self, url: str):
+        """GET autenticata (vedi _request) che ritorna il JSON, o None se non riesce."""
+        response = self._request("GET", url)
+        if response is None:
+            return None
+        if not response.ok:
             _LOGGER.debug(
                 "❌ HTTP %s su %s: %s", response.status_code, url, response.text[:300],
             )
             return None
-        except requests.RequestException as e:
-            # Rete/timeout: atteso durante un'interruzione del cloud.
-            _LOGGER.debug("❌ Richiesta a %s non riuscita: %s", url, e)
-            return None
-        except Exception as e:
-            # Inatteso (es. JSON non valido): resta visibile con traceback.
-            _LOGGER.exception("❌ Eccezione nella richiesta a %s: %s", url, e)
+        try:
+            return response.json()
+        except ValueError as e:
+            _LOGGER.warning("❌ Risposta non JSON da %s: %s", url, e)
             return None
 
     def _metric_url(self, metric_name: str) -> str:
@@ -804,13 +911,6 @@ class BaxiHybridAppAPI:
         con body vuoto (HTTP 204 atteso). Usato per le modalità operative:
         Automatico, Standby, Solo Sanitario.
         """
-        if not self.token:
-            _LOGGER.warning("⚠️ Nessun token, provo a ri-autenticare...")
-            self.authenticate()
-            if not self.token:
-                _LOGGER.error("❌ Impossibile autenticarsi per PUT command.")
-                return False
-
         if not self.thingId:
             _LOGGER.warning("⚠️ Nessun thingId, provo a recuperarlo...")
             self.get_thingid()
@@ -819,68 +919,25 @@ class BaxiHybridAppAPI:
                 return False
 
         url = f"{self.BASE_URL}/data/commands?commandId={command_id}&thingId={self.thingId}"
-
-        headers = {
-            'authorization': f'Bearer {self.token}',
-            'content-type': 'application/json',
-        }
-
-        try:
-            response = self._session.put(
-                url, headers=headers, data=None, timeout=self.REQUEST_TIMEOUT,
-            )
-
-            # 401: ri-autentica e ritenta una sola volta
-            if response.status_code == 401:
-                _LOGGER.warning("🔐 Token scaduto, ri-autentico...")
-                self.authenticate()
-                headers['authorization'] = f'Bearer {self.token}'
-                response = self._session.put(
-                    url, headers=headers, data=None, timeout=self.REQUEST_TIMEOUT,
-                )
-
-            # 429: backoff via Retry-After e ritenta una sola volta
-            if response.status_code == 429:
-                delay = self._parse_retry_after(response)
-                if delay is not None:
-                    _LOGGER.warning(
-                        "⏳ Rate limit (429) su PUT command %s, attendo %ss e riprovo.",
-                        command_id, delay,
-                    )
-                    _sleep(delay)
-                    response = self._session.put(
-                        url, headers=headers, data=None, timeout=self.REQUEST_TIMEOUT,
-                    )
-                else:
-                    _LOGGER.warning(
-                        "⏳ Rate limit (429) su PUT command %s senza Retry-After utile — abbandono.",
-                        command_id,
-                    )
-                    return False
-
-            # 204 = No Content → successo
-            if response.status_code == 204 or response.ok:
-                _LOGGER.info("📤✅ Comando %s eseguito (HTTP %s)", command_id, response.status_code)
-                return True
-            else:
-                _LOGGER.error("❌ Errore PUT command %s → HTTP %s: %s", command_id, response.status_code, response.text)
-                return False
-        except Exception as e:
-            _LOGGER.exception("❌ Eccezione nel PUT command %s: %s", command_id, e)
+        response = self._request(
+            "PUT", url, headers={'content-type': 'application/json'},
+        )
+        if response is None:
+            _LOGGER.error("❌ PUT command %s non eseguito.", command_id)
             return False
+
+        # 204 = No Content → successo
+        if response.ok:
+            _LOGGER.info("📤✅ Comando %s eseguito (HTTP %s)", command_id, response.status_code)
+            return True
+        _LOGGER.error("❌ Errore PUT command %s → HTTP %s: %s", command_id, response.status_code, response.text)
+        return False
 
     def set_configuration_parameter(self, parameter_id: str, value: float | int | str):
         """
         Esegue una chiamata PUT per aggiornare un parametro configurabile
         (es. setpoint eco, comfort, ecc.)
         """
-        if not self.token:
-            _LOGGER.warning("⚠️ Nessun token, provo a ri-autenticare...")
-            self.authenticate()
-            if not self.token:
-                _LOGGER.error("❌ Impossibile autenticarsi per PUT.")
-                return False
-
         if not self.thingId:
             _LOGGER.warning("⚠️ Nessun thingId, provo a recuperarlo...")
             self.get_thingid()
@@ -898,52 +955,15 @@ class BaxiHybridAppAPI:
             }
         ])
 
-        # Header specifici della PUT: i comuni stanno sulla session.
-        headers = {
-            'authorization': f'Bearer {self.token}',
-            'content-type': 'application/json',
-        }
-
-        try:
-            response = self._session.put(
-                url, headers=headers, data=payload, timeout=self.REQUEST_TIMEOUT,
-            )
-
-            # 401: ri-autentica e ritenta una sola volta
-            if response.status_code == 401:
-                _LOGGER.warning("🔐 Token scaduto, ri-autentico...")
-                self.authenticate()
-                headers['authorization'] = f'Bearer {self.token}'
-                response = self._session.put(
-                    url, headers=headers, data=payload, timeout=self.REQUEST_TIMEOUT,
-                )
-
-            # 429: backoff via Retry-After e ritenta una sola volta
-            if response.status_code == 429:
-                delay = self._parse_retry_after(response)
-                if delay is not None:
-                    _LOGGER.warning(
-                        "⏳ Rate limit (429) su PUT %s, attendo %ss e riprovo.",
-                        parameter_id, delay,
-                    )
-                    _sleep(delay)
-                    response = self._session.put(
-                        url, headers=headers, data=payload, timeout=self.REQUEST_TIMEOUT,
-                    )
-                else:
-                    _LOGGER.warning(
-                        "⏳ Rate limit (429) su PUT %s senza Retry-After utile — abbandono.",
-                        parameter_id,
-                    )
-                    return False
-
-            if response.ok:
-                _LOGGER.info("📤✅ PUT parametro %s impostato a %s", parameter_id, value)
-                return True
-            else:
-                _LOGGER.error("❌ Errore PUT parametro %s → %s", parameter_id, response.text)
-                return False
-        except Exception as e:
-            _LOGGER.exception("❌ Eccezione nella PUT parametro %s: %s", parameter_id, e)
+        response = self._request(
+            "PUT", url, headers={'content-type': 'application/json'}, data=payload,
+        )
+        if response is None:
+            _LOGGER.error("❌ PUT parametro %s non eseguita.", parameter_id)
             return False
 
+        if response.ok:
+            _LOGGER.info("📤✅ PUT parametro %s impostato a %s", parameter_id, value)
+            return True
+        _LOGGER.error("❌ Errore PUT parametro %s → %s", parameter_id, response.text)
+        return False
