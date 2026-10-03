@@ -28,7 +28,6 @@ POLLING_INTERVAL: timedelta = timedelta(minutes=10)
 WRITE_GRACE_SECONDS = 30
 
 DOMAIN = "baxi_hybridapp_home"
-DATA_KEY_API = "api"
 
 APIKEY = "%2FY0ZcwoKJDmtRjXZzsOUmSJUoVQgT5Pka3F38EoD8ng0"
 TENANT = 'baxi'
@@ -43,14 +42,10 @@ PARAM_ID_SETPOINT_COMFORT = "5bec6274dbdf4f0008a6e012"
 PARAM_ID_SETPOINT_ECO     = "5bec6275dbdf4f0008a6e013"
 PARAM_ID_SETPOINT_RAFFRESCAMENTO = "5bec6273dbdf4f0008a6e011"
 PARAM_ID_HOLIDAY_MODE_END = "5bec63132898ef0008034886"
-# Valore inviato per DISATTIVARE la vacanza: la stringa "-1" (confermato da
-# cattura della PUT di spegnimento dell'app — vedi PUT Modo Vacanza.http).
+# Valore inviato per DISATTIVARE la vacanza: la stringa "-1".
 # NB: è una stringa, non un intero; l'attivazione invia invece l'epoch ms
 # come numero.
 HOLIDAY_MODE_DISABLE_VALUE = "-1"
-# Chiave in hass.data[DOMAIN] per la data di fine vacanza "in staging":
-# il datetime la memorizza qui senza inviare, lo switch la legge e la applica.
-HOLIDAY_STAGED_KEY = "holiday_mode_staged_end"
 
 # Command IDs — Modo Impianto (PUT /data/commands?commandId=...&thingId=...)
 COMMAND_ID_MODE_STANDBY        = "5bec6335dbdf4f0008a6e059"

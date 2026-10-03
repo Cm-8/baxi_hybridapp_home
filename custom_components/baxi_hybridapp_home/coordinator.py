@@ -7,6 +7,8 @@ custom_components/baxi_hybridapp_home/coordinator.py
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
+from datetime import datetime
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import __version__ as ha_version
@@ -94,6 +96,8 @@ class BaxiDataUpdateCoordinator(DataUpdateCoordinator):
         # Log DOPO auth+thingId: thingModel e thingDefinitionName sono garantiti
         self._log_fetch_info()
         await self._async_log_capabilities_once()
+        # Conteggio esiti delle richieste di lettura di questo ciclo.
+        self.api.reset_request_stats()
         # Metriche "semplici" (un valore per metric_name): tutte in un unico
         # dispatcher tabellare, vedi SIMPLE_METRICS in metrics.py.
         await self.hass.async_add_executor_job(self.api.fetch_simple_metrics)
@@ -104,6 +108,21 @@ class BaxiDataUpdateCoordinator(DataUpdateCoordinator):
         # Historical alerts (FAILURE/WARNING): popola active/last/conteggi
         # sull'istanza API e accoda i nuovi alert in api.new_alerts_pending.
         await self.hass.async_add_executor_job(self.api.fetch_historical_alerts)
+        # Una richiesta fallita conserva il valore precedente. Se però non ne è
+        # riuscita nessuna il cloud è irraggiungibile: UpdateFailed rende le
+        # entità non disponibili e il coordinator lo logga una volta sola
+        # (e una volta al ritorno), invece di un errore per ogni metrica.
+        ok, failed = self.api.request_stats()
+        if failed and not ok:
+            raise UpdateFailed(
+                f"Cloud Baxi non raggiungibile: nessuna delle {len(failed)} richieste è riuscita"
+            )
+        if failed:
+            _LOGGER.warning(
+                "⚠️ %d richieste su %d non riuscite in questo ciclo (valori precedenti mantenuti): %s",
+                len(failed), ok + len(failed),
+                ", ".join(failed[:8]) + (" …" if len(failed) > 8 else ""),
+            )
         # Per ogni alert mai visto in questa sessione:
         #   1) fire event sul bus HA → trigger per automazioni (severity in payload)
         #   2) entry nel Logbook → "sezione attività" dell'integrazione
@@ -140,3 +159,17 @@ class BaxiDataUpdateCoordinator(DataUpdateCoordinator):
                 blocking=False,
             )
         return True
+
+
+@dataclass
+class BaxiRuntimeData:
+    """Dati di runtime della config entry, in entry.runtime_data (regola runtime-data)."""
+
+    api: BaxiHybridAppAPI
+    coordinator: BaxiDataUpdateCoordinator
+    # Data di fine vacanza impostata a vacanza spenta e non ancora applicata:
+    # la scrive il datetime "Modo Vacanza Fine", la applica lo switch.
+    holiday_staged_end: datetime | None = None
+
+
+type BaxiConfigEntry = ConfigEntry[BaxiRuntimeData]

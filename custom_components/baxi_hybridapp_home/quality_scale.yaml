@@ -1,0 +1,100 @@
+# Self-assessment against the Home Assistant Integration Quality Scale
+# (https://developers.home-assistant.io/docs/core/integration-quality-scale/).
+# Official tiers are assigned only to core integrations: this file tracks
+# progress. hassfest does not validate it for custom integrations.
+rules:
+  # Bronze
+  action-setup: done
+  appropriate-polling: done
+  brands:
+    status: todo
+    comment: No brand images yet; the HACS validation skips them (ignore brands).
+  common-modules:
+    status: todo
+    comment: The coordinator is in coordinator.py; there is no shared entity.py base class yet.
+  config-flow: done
+  config-flow-test-coverage: todo
+  dependency-transparency:
+    status: done
+    comment: No external requirements; requests ships with Home Assistant.
+  docs-actions: done
+  docs-conditions:
+    status: exempt
+    comment: The integration provides no conditions.
+  docs-high-level-description: done
+  docs-installation-instructions: done
+  docs-removal-instructions: done
+  docs-triggers:
+    status: exempt
+    comment: The integration provides no triggers (alerts are exposed as a bus event).
+  entity-event-setup: done
+  entity-unique-id: done
+  has-entity-name:
+    status: todo
+    comment: Only the energy sensors use has_entity_name.
+  runtime-data: done
+  test-before-configure: done
+  test-before-setup: done
+  unique-config-entry: done
+
+  # Silver
+  action-exceptions: done
+  config-entry-unloading: done
+  docs-configuration-parameters:
+    status: exempt
+    comment: The integration has no options.
+  docs-installation-parameters: done
+  entity-unavailable: done
+  integration-owner: done
+  log-when-unavailable: done
+  parallel-updates: done
+  reauthentication-flow: done
+  test-coverage:
+    status: todo
+    comment: Tests cover parsers, the metrics dispatcher and module imports; not yet the config flow and the entities.
+
+  # Gold
+  devices: done
+  diagnostics: done
+  discovery:
+    status: exempt
+    comment: Cloud service, nothing to discover on the local network.
+  discovery-update-info:
+    status: exempt
+    comment: Cloud service, no discovery.
+  docs-data-update: done
+  docs-examples: done
+  docs-known-limitations: done
+  docs-supported-devices: done
+  docs-supported-functions: done
+  docs-troubleshooting: done
+  docs-use-cases: todo
+  dynamic-devices:
+    status: exempt
+    comment: One Baxi system per account and config entry.
+  entity-category:
+    status: todo
+    comment: Only alerts, buttons and alert counters are diagnostic.
+  entity-device-class:
+    status: todo
+    comment: Mapped states (boiler/heat pump status, modes) could use the enum device class.
+  entity-disabled-by-default: done
+  entity-translations: todo
+  exception-translations: todo
+  icon-translations: todo
+  reconfiguration-flow: todo
+  repair-issues:
+    status: exempt
+    comment: No user-actionable issues to raise.
+  stale-devices:
+    status: exempt
+    comment: A single device per config entry.
+
+  # Platinum
+  async-dependency:
+    status: todo
+    comment: Not planned; the client uses requests in the executor by design.
+  inject-websession:
+    status: todo
+    comment: Not planned; see async-dependency.
+  strict-typing: todo
