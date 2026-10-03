@@ -11,21 +11,26 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 from datetime import datetime, timezone
-from .const import DOMAIN, DATA_KEY_API
 from .device import build_device_info
 from .metrics import ENERGY_SENSOR_TYPES
 
+# Sola lettura, aggiornata dal coordinator: nessun limite al parallelismo.
+PARALLEL_UPDATES = 0
+
 class BaxiBaseSensor(CoordinatorEntity, SensorEntity):
-    def __init__(self, coordinator, api, name, unique_id, value_key, unit, device_class, icon):
+    # Nome = nome del device + nome tradotto (translations/<lingua>.json,
+    # sezione entity.sensor.<translation_key>); icone statiche in icons.json.
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator, api, translation_key, unique_id, value_key, unit, device_class):
         super().__init__(coordinator)
         self._api = api
         self._attr_unique_id = unique_id
-        self._name = name
+        self._attr_translation_key = translation_key
         self._value_key = value_key
         self._attr_native_unit_of_measurement = unit
         self._attr_device_class = device_class
         self._attr_state_class = SensorStateClass.MEASUREMENT
-        self._attr_icon = icon
         
         #sensorName
         prefix = "baxi"
@@ -36,12 +41,10 @@ class BaxiBaseSensor(CoordinatorEntity, SensorEntity):
         self._attr_suggested_object_id = f"{prefix}_{serial_slug}_{key_slug}"
 
     @property
-    def name(self):
-        return self._name
-
-    @property
     def available(self) -> bool:
-        return getattr(self._api, self._value_key, None) is not None
+        # Non disponibile se il cloud è irraggiungibile (ultimo aggiornamento
+        # del coordinator fallito) o se il device non espone la metrica.
+        return super().available and getattr(self._api, self._value_key, None) is not None
 
     @property
     def device_info(self):
@@ -56,12 +59,11 @@ class ExternalTemperatureSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Temp. Esterna",
+            translation_key="external_temperature",
             unique_id="baxi_external_temperature",
             value_key="temp_ext",
             unit=UnitOfTemperature.CELSIUS,
             device_class=SensorDeviceClass.TEMPERATURE,
-            icon="mdi:thermometer"
         )
 
 class InternalTemperatureSensor(BaxiBaseSensor):
@@ -69,12 +71,11 @@ class InternalTemperatureSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Temp. Interna",
+            translation_key="internal_temperature",
             unique_id="baxi_internal_temperature",
             value_key="temp_int",
             unit=UnitOfTemperature.CELSIUS,
             device_class=SensorDeviceClass.TEMPERATURE,
-            icon="mdi:thermometer"
         )
 
 class BoilerFlowTempSensor(BaxiBaseSensor):
@@ -82,12 +83,11 @@ class BoilerFlowTempSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Temp. Mandata Caldaia",
+            translation_key="boiler_flow_temperature",
             unique_id="baxi_boiler_flow_temperature",
             value_key="boiler_flow_temp",
             unit=UnitOfTemperature.CELSIUS,
             device_class=SensorDeviceClass.TEMPERATURE,
-            icon="mdi:thermometer"
         )
 
 class DHWStorageTempSensor(BaxiBaseSensor):
@@ -95,12 +95,11 @@ class DHWStorageTempSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Temp. Accumulo Sanitario",
+            translation_key="dhw_storage_temperature",
             unique_id="baxi_dhw_storage_temperature",
             value_key="dhw_storage_temp",
             unit=UnitOfTemperature.CELSIUS,
             device_class=SensorDeviceClass.TEMPERATURE,
-            icon="mdi:thermometer"
         )
         
 class DHWAuxStorageTempSensor(BaxiBaseSensor):
@@ -108,12 +107,11 @@ class DHWAuxStorageTempSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Temp. Accumulo Ausiliario",
+            translation_key="dhw_aux_storage_temperature",
             unique_id="baxi_dhw_aux_storage_temperature",
             value_key="dhw_aux_storage_temp",
             unit=UnitOfTemperature.CELSIUS,
             device_class=SensorDeviceClass.TEMPERATURE,
-            icon="mdi:thermometer"
         )
 
 class PDCExitTempSensor(BaxiBaseSensor):
@@ -121,12 +119,11 @@ class PDCExitTempSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Temp. Uscita PDC",
+            translation_key="pdc_exit_temperature",
             unique_id="baxi_pdc_exit_temperature",
             value_key="pdc_exit_temp",
             unit=UnitOfTemperature.CELSIUS,
             device_class=SensorDeviceClass.TEMPERATURE,
-            icon="mdi:thermometer"
         )
 
 class PDCReturnTempSensor(BaxiBaseSensor):
@@ -134,12 +131,11 @@ class PDCReturnTempSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Temp. Ritorno PDC",
+            translation_key="pdc_return_temperature",
             unique_id="baxi_pdc_return_temperature",
             value_key="pdc_return_temp",
             unit=UnitOfTemperature.CELSIUS,
             device_class=SensorDeviceClass.TEMPERATURE,
-            icon="mdi:thermometer"
         )
 
 class SetpointInstantTempSensor(BaxiBaseSensor):
@@ -147,12 +143,11 @@ class SetpointInstantTempSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Setpoint Sanitario Istantaneo",
+            translation_key="setpoint_instant",
             unique_id="baxi_setpoint_instant_temperature",
             value_key="setpoint_instant_temp",
             unit=UnitOfTemperature.CELSIUS,
             device_class=SensorDeviceClass.TEMPERATURE,
-            icon="mdi:target"
         )
 
 class SetpointComfortTempSensor(BaxiBaseSensor):
@@ -160,12 +155,11 @@ class SetpointComfortTempSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Setpoint Sanitario Comfort",
+            translation_key="setpoint_comfort",
             unique_id="baxi_setpoint_comfort_temperature",
             value_key="setpoint_comfort_temp",
             unit=UnitOfTemperature.CELSIUS,
             device_class=SensorDeviceClass.TEMPERATURE,
-            icon="mdi:target"
         )
 
 class SetpointEcoTempSensor(BaxiBaseSensor):
@@ -173,12 +167,11 @@ class SetpointEcoTempSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Setpoint Sanitario Eco",
+            translation_key="setpoint_eco",
             unique_id="baxi_setpoint_eco_temperature",
             value_key="setpoint_eco_temp",
             unit=UnitOfTemperature.CELSIUS,
             device_class=SensorDeviceClass.TEMPERATURE,
-            icon="mdi:target"
         )
 
 class SetpointRaffrescamentoTempSensor(BaxiBaseSensor):
@@ -190,12 +183,11 @@ class SetpointRaffrescamentoTempSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Setpoint Raffrescamento",
+            translation_key="cooling_setpoint",
             unique_id="baxi_setpoint_raffrescamento_temperature",
             value_key="setpoint_raffrescamento_temp",
             unit=UnitOfTemperature.CELSIUS,
             device_class=SensorDeviceClass.TEMPERATURE,
-            icon="mdi:target"
         )
 
     @property
@@ -207,12 +199,11 @@ class WaterPressureSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Pressione Impianto",
+            translation_key="water_pressure",
             unique_id="baxi_water_pressure",
             value_key="water_pressure",
             unit=UnitOfPressure.BAR,
             device_class=SensorDeviceClass.PRESSURE,
-            icon="mdi:gauge"
         )
         
 class SanitaryOnSensor(BaxiBaseSensor):
@@ -223,12 +214,11 @@ class SanitaryOnSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Sanitario",
+            translation_key="sanitary_on",
             unique_id="baxi_sanitary_on",
             value_key="sanitary_on",
             unit=None,
             device_class=None,
-            icon="mdi:water-boiler"
         )
         # Assicuriamoci di non ereditare unità o device_class numerica
         self._attr_native_unit_of_measurement = None
@@ -262,12 +252,11 @@ class SystemModeSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Modalità Impianto",
+            translation_key="system_mode",
             unique_id="baxi_system_mode",
             value_key="system_mode",
             unit=None,
             device_class=None,
-            icon="mdi:engine"
         )
         # assicuriamoci che non sia preso come misura
         self._attr_native_unit_of_measurement = None
@@ -292,12 +281,11 @@ class SeasonModeSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Modalità Stagione",
+            translation_key="season_mode",
             unique_id="baxi_season_mode",
             value_key="season_mode",
             unit=None,
             device_class=None,
-            icon="mdi:sun-snowflake-variant"
         )
         # Assicuriamoci anche che non venga ereditato nulla di numerico
         self._attr_native_unit_of_measurement = None
@@ -321,12 +309,11 @@ class FlameStatusSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Stato Fiamma",
+            translation_key="flame_status",
             unique_id="baxi_flame_status",
             value_key="flame_status",
             unit=None,
             device_class=None,
-            icon="mdi:fire"
         )
         self._attr_native_unit_of_measurement = None
         self._attr_device_class = None
@@ -352,12 +339,11 @@ class SystemOperationIcon(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Icona Funzionamento Sistema",
+            translation_key="system_operation_icon",
             unique_id="baxi_system_operation_icon",
             value_key="system_operation_icon",
             unit=None,
             device_class=None,
-            icon="mdi:information-outline"
         )
         self._attr_native_unit_of_measurement = None
         self._attr_device_class = None
@@ -365,11 +351,6 @@ class SystemOperationIcon(BaxiBaseSensor):
     @property
     def native_value(self):
         return getattr(self._api, self._value_key)
-
-    @property
-    def icon(self):
-        val = (getattr(self._api, self._value_key) or "").lower()
-        return "mdi:information-outline" if val == "on" else "mdi:information-outline"
 
     @property
     def state_class(self):
@@ -383,12 +364,11 @@ class HolidayModeSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Modo Vacanza",
+            translation_key="holiday_mode",
             unique_id="baxi_holiday_mode",
             value_key="holiday_mode",
             unit=None,
             device_class=None,
-            icon="mdi:palm-tree"
         )
         self._attr_native_unit_of_measurement = None
         self._attr_device_class = None
@@ -413,7 +393,7 @@ class HolidayModeEndSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Modo Vacanza Fine",
+            translation_key="holiday_mode_end",
             unique_id="baxi_holiday_mode_end",
             value_key="holiday_mode_end",
             unit=None,
@@ -421,9 +401,15 @@ class HolidayModeEndSensor(BaxiBaseSensor):
             # con device_class TIMESTAMP la UI mostra data/ora localizzata e il
             # valore è confrontabile nelle automazioni.
             device_class=SensorDeviceClass.TIMESTAMP,
-            icon="mdi:calendar-end"
         )
         self._attr_native_unit_of_measurement = None
+
+    @property
+    def available(self) -> bool:
+        # A vacanza spenta la data di fine non esiste: l'entità resta
+        # disponibile con stato "sconosciuto", invece di risultare guasta.
+        # Dipende dallo stato vacanza, non dalla presenza della data.
+        return self.coordinator.last_update_success and getattr(self._api, "holiday_mode", None) is not None
 
     @property
     def native_value(self):
@@ -441,12 +427,11 @@ class StatusBoiler(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Stato caldaia",
+            translation_key="boiler_status",
             unique_id="baxi_status_boiler",
             value_key="status_boiler",
             unit=None,
             device_class=None,
-            icon="mdi:water-boiler"
         )
         self._attr_native_unit_of_measurement = None
         self._attr_device_class = None
@@ -471,12 +456,11 @@ class StatusPDC(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Stato PDC",
+            translation_key="heat_pump_status",
             unique_id="baxi_status_pdc",
             value_key="status_pdc",
             unit=None,
             device_class=None,
-            icon="mdi:heat-pump"
         )
         self._attr_native_unit_of_measurement = None
         self._attr_device_class = None
@@ -501,12 +485,11 @@ class PowerBoiler(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Potenza Caldaia",
+            translation_key="boiler_power",
             unique_id="baxi_power_boiler",
             value_key="power_boiler",
             unit=PERCENTAGE,
             device_class=SensorDeviceClass.POWER_FACTOR,  # usa %
-            icon="mdi:fire"
         )
 
     @property
@@ -547,12 +530,11 @@ class PowerPDC(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Potenza PDC",
+            translation_key="heat_pump_power",
             unique_id="baxi_power_pdc",
             value_key="power_pdc",
             unit=PERCENTAGE,
             device_class=SensorDeviceClass.POWER_FACTOR,  # usa %
-            icon="mdi:fire"
         )
 
     @property
@@ -593,12 +575,11 @@ class SystemOperationMode(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Modo funzionamento sistema",
+            translation_key="system_operation_mode",
             unique_id="baxi_system_operation_mode",
             value_key="system_operation_mode",
             unit=None,
             device_class=None,
-            icon="mdi:target"
         )
         self._attr_native_unit_of_measurement = None
         self._attr_device_class = None
@@ -617,12 +598,11 @@ class SanitaryScheduleStateSensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name="Schedulatore Sanitario (stato)",
+            translation_key="sanitary_schedule",
             unique_id="baxi_sanitary_schedule_state",
             value_key="sanitary_mode_now",  # stringa: "Comfort" | "Eco"
             unit=None,
             device_class=None,
-            icon="mdi:calendar-clock",
         )
         # 🔒 forza NON numerico (sovrascrivi eventuali default del base)
         self._attr_native_unit_of_measurement = None
@@ -644,9 +624,10 @@ class SanitaryScheduleStateSensor(BaxiBaseSensor):
 
     @property
     def available(self):
-        # opzionale: disponibile solo se parsing ok
+        # disponibile solo se il cloud risponde e il parsing è ok
         return (
-            getattr(self._api, "sanitary_scheduler_status", None) == "ok"
+            self.coordinator.last_update_success
+            and getattr(self._api, "sanitary_scheduler_status", None) == "ok"
             and getattr(self._api, "sanitary_mode_now", None) is not None
         )
 
@@ -679,12 +660,11 @@ class FailureCount24hSensor(BaxiBaseSensor):
     def __init__(self, coordinator, api):
         super().__init__(
             coordinator, api,
-            name="Failure ultime 24h",
+            translation_key="failure_count_24h",
             unique_id="baxi_failure_count_24h",
             value_key="failure_count_24h",
             unit=None,
             device_class=None,
-            icon="mdi:alert-circle",
         )
 
 
@@ -694,12 +674,11 @@ class FailureCount7dSensor(BaxiBaseSensor):
     def __init__(self, coordinator, api):
         super().__init__(
             coordinator, api,
-            name="Failure ultimi 7g",
+            translation_key="failure_count_7d",
             unique_id="baxi_failure_count_7d",
             value_key="failure_count_7d",
             unit=None,
             device_class=None,
-            icon="mdi:alert-circle-outline",
         )
 
 
@@ -709,15 +688,13 @@ class BaxiEnergySensor(BaxiBaseSensor):
         super().__init__(
             coordinator,
             api,
-            name=description.name,
+            translation_key=description.translation_key,
             unique_id=f"baxi_{description.key}",
             value_key=description.key,
             unit=getattr(description, "native_unit_of_measurement", None),
             device_class=getattr(description, "device_class", None),
-            icon=getattr(description, "icon", None),
         )
         self.entity_description = description
-        self._attr_has_entity_name = True
         
         sc = getattr(description, "state_class", None)
         if sc is not None:
@@ -747,8 +724,8 @@ class BaxiEnergySensor(BaxiBaseSensor):
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    api = hass.data[DOMAIN][DATA_KEY_API]
-    coordinator = hass.data[DOMAIN]["coordinator"]
+    api = entry.runtime_data.api
+    coordinator = entry.runtime_data.coordinator
 
     sensors = [
         ExternalTemperatureSensor(coordinator, api),

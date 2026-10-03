@@ -48,6 +48,8 @@ class BaxiHybridAppHomeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("❌ Errore inatteso nella validazione credenziali")
                 errors["base"] = "unknown"
             else:
+                # Login di sola validazione: chiudi subito la sessione cloud.
+                await self.hass.async_add_executor_job(api.close)
                 return self.async_create_entry(
                     title="Baxi HybridApp Home",
                     data=user_input
@@ -81,6 +83,8 @@ class BaxiHybridAppHomeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("❌ Errore inatteso nella ri-autenticazione")
                 errors["base"] = "unknown"
             else:
+                # Login di sola validazione: chiudi subito la sessione cloud.
+                await self.hass.async_add_executor_job(api.close)
                 return self.async_update_reload_and_abort(
                     reauth_entry,
                     data_updates={"password": user_input["password"]},

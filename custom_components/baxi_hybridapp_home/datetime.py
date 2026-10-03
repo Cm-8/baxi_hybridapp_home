@@ -5,7 +5,7 @@ Entità "Modo Vacanza Fine": data/ora di fine vacanza.
 
 Comportamento in base allo stato della vacanza (come nell'app Baxi):
 - vacanza SPENTA → impostare la data la mette in SOLO staging locale
-  (hass.data[DOMAIN][HOLIDAY_STAGED_KEY]); l'invio effettivo avviene quando si
+  (entry.runtime_data.holiday_staged_end); l'invio effettivo avviene quando si
   attiva lo switch "Modo Vacanza". Evita attivazioni accidentali.
 - vacanza ATTIVA → impostare la data la invia SUBITO (estendi/accorcia il
   periodo), perché a vacanza in corso cambiare la fine è un'azione voluta.
@@ -20,35 +20,40 @@ import logging
 from datetime import datetime
 
 from homeassistant.components.datetime import DateTimeEntity
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
-    DOMAIN, DATA_KEY_API,
+    DOMAIN,
     PARAM_ID_HOLIDAY_MODE_END,
-    HOLIDAY_STAGED_KEY,
     WRITE_GRACE_SECONDS,
 )
+from .coordinator import BaxiRuntimeData
 from .device import build_device_info
 
 _LOGGER = logging.getLogger(__name__)
+
+# Scritture verso il device: una alla volta.
+PARALLEL_UPDATES = 1
 
 
 class BaxiHolidayModeEnd(CoordinatorEntity, DateTimeEntity):
     """Data/ora fine modo vacanza — staging se spenta, invio diretto se attiva."""
 
-    _attr_name = "Modo Vacanza Fine"
+    _attr_has_entity_name = True
+    _attr_translation_key = "holiday_mode_end"
     _attr_unique_id = "baxi_holiday_mode_end"
-    _attr_icon = "mdi:calendar-end"
     _attr_entity_registry_enabled_default = False
 
-    def __init__(self, coordinator, api) -> None:
-        super().__init__(coordinator)
-        self._api = api
+    def __init__(self, runtime: BaxiRuntimeData) -> None:
+        super().__init__(runtime.coordinator)
+        self._runtime = runtime
+        self._api = runtime.api
 
     @property
     def native_value(self) -> datetime | None:
         """Mostra la data in staging se presente, altrimenti quella dal cloud."""
-        staged = self.hass.data[DOMAIN].get(HOLIDAY_STAGED_KEY)
+        staged = self._runtime.holiday_staged_end
         if isinstance(staged, datetime):
             return staged
         val = getattr(self._api, "holiday_mode_end", None)
@@ -63,7 +68,7 @@ class BaxiHolidayModeEnd(CoordinatorEntity, DateTimeEntity):
 
         if not active:
             # Vacanza spenta: memorizza in locale, nessun invio al cloud.
-            self.hass.data[DOMAIN][HOLIDAY_STAGED_KEY] = value
+            self._runtime.holiday_staged_end = value
             _LOGGER.info(
                 "🏖️ Data fine vacanza in staging: %s — attiva lo switch "
                 "'Modo Vacanza' per applicare",
@@ -85,16 +90,19 @@ class BaxiHolidayModeEnd(CoordinatorEntity, DateTimeEntity):
             epoch_ms,
         )
 
-        if ok:
-            _LOGGER.info("✅ Fine vacanza aggiornata a %s", value.isoformat())
-            # Optimistic + pulizia di un eventuale staging residuo.
-            self._api.holiday_mode_end = value
-            self.hass.data[DOMAIN][HOLIDAY_STAGED_KEY] = None
-            self.async_write_ha_state()
-            await self._log(f"fine aggiornata a {value.isoformat()}")
-            self.hass.async_create_task(self._grace_refresh())
-        else:
-            _LOGGER.error("❌ Aggiornamento fine vacanza fallito")
+        if not ok:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="holiday_end_failed",
+            )
+
+        _LOGGER.info("✅ Fine vacanza aggiornata a %s", value.isoformat())
+        # Optimistic + pulizia di un eventuale staging residuo.
+        self._api.holiday_mode_end = value
+        self._runtime.holiday_staged_end = None
+        self.async_write_ha_state()
+        await self._log(f"fine aggiornata a {value.isoformat()}")
+        self.hass.async_create_task(self._grace_refresh())
 
     async def _log(self, message: str) -> None:
         """Scrive una entry nel Logbook."""
@@ -121,7 +129,4 @@ class BaxiHolidayModeEnd(CoordinatorEntity, DateTimeEntity):
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
     """Setup datetime entities."""
-    api = hass.data[DOMAIN][DATA_KEY_API]
-    coordinator = hass.data[DOMAIN]["coordinator"]
-
-    async_add_entities([BaxiHolidayModeEnd(coordinator, api)])
+    async_add_entities([BaxiHolidayModeEnd(entry.runtime_data)])

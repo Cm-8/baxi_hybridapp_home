@@ -21,6 +21,12 @@ This extension is only compatible with devices:
 - [Cronotermostato modulante - Kit pannello di controllo wi fi da esterno (Baxi website)](https://www.youtube.com/redirect?event=video_description&redir_token=QUFFLUhqa2tDRmdtdDdKWFViSkpSbkViWmtqUldxX2o3UXxBQ3Jtc0tsZ0VnT0hxN2ZhUEk0MkVMU1ZvOE5fMVhDZEZnalkwNFhCRHBYU2lFQ2ljZnRFQ3JtdmFjcnRfZWtNYXNQVC1FOEx3SEwyd00zRUVGVzlTMDU2Ym1KR29SdjNvMWxsTlIzNlB6eU9ZcFNPbEZ4MHQzTQ&q=https%3A%2F%2Fwww.baxi.it%2Fprodotti%2Fdigital%2Fkit-pannello-di-controllo-wi-fi-da-esterno&v=RW-ZO0UKzrE)
 - [Pannello di controllo WI-FI - (Youtube video)](https://www.youtube.com/watch?v=RW-ZO0UKzrE)
 
+Other systems supported by the Baxi HybridApp, **not yet tested** with this integration:
+- Artemis systems
+- Luna OpenTherm built-in systems
+
+Readings may partly work; the controls use model-specific commands and may not. If you own one of these systems, please [open an issue](https://github.com/Cm-8/baxi_hybridapp_home/issues) and attach the diagnostics (see [Troubleshooting](#troubleshooting)).
+
 
 ---
 
@@ -56,7 +62,7 @@ This extension is only compatible with devices:
 - **Boiler Status** — boiler state (On / Off)
 - **PDC Status** — heat pump state (On / Avvio / Off; "Avvio" is the short start-up phase)
 - **Holiday Mode** — whether holiday mode is active (On / Off)
-- **Holiday Mode End** — end date/time of the active holiday period
+- **Holiday Mode End** — end date/time of the active holiday period (unknown while holiday mode is off)
 - **System Operation Icon** — icon code from the Baxi cloud status (disabled by default)
 
 ### ⚡ Energy Sensors
@@ -144,6 +150,35 @@ Credentials are validated against the Baxi cloud before the integration is creat
 
 If your password changes later, Home Assistant will automatically ask you to re-authenticate — just enter the new password, no need to remove and re-add the integration.
 
+Entity names and messages follow the Home Assistant language (Italian or English) and are shown with the device name in front, as usual in Home Assistant (for example *Baxi HybridApp Home Temp. Esterna*).
+
+---
+
+## Service actions
+
+| Action | Description |
+|---|---|
+| `baxi_hybridapp_home.set_comfort` | Sets the DHW **Comfort** setpoint (`value`: 30–52 °C) |
+| `baxi_hybridapp_home.set_eco` | Sets the DHW **Eco** setpoint (`value`: 30–52 °C) |
+
+```yaml
+action: baxi_hybridapp_home.set_comfort
+data:
+  value: 45
+```
+
+The same actions are available as device actions in the automation editor. Like the controls, they show an error if the Baxi cloud rejects the request; the new value is confirmed from the cloud about 30 seconds later.
+
+---
+
+## Removal
+
+1. Go to **Settings** > **Devices & Services**, open **Baxi HybridApp Home** and select **⋮** > **Delete**.
+2. If you installed it via HACS, remove it from HACS; if you installed it manually, delete the `custom_components/baxi_hybridapp_home` folder.
+3. Restart Home Assistant.
+
+Removing the integration changes nothing on your Baxi system or in the Baxi app.
+
 ---
 
 ## Push Notification Blueprint
@@ -160,6 +195,21 @@ https://raw.githubusercontent.com/Cm-8/baxi_hybridapp_home/main/blueprints/autom
 ```
 
 Then create an automation from the blueprint, select your mobile notify service and the desired severity filter.
+
+---
+
+## Troubleshooting
+
+- **All entities unavailable** — no request to the Baxi cloud succeeded: the entities recover by themselves at the next successful refresh. Check that the Baxi app works.
+- **A single entity unavailable** — your system may not provide that measurement (for example, flame status on an all-electric system).
+- **"Sconosciuto (…)" value** — the cloud sent a code the integration does not know yet: open an issue saying which mode the system was in.
+- **Debug logs** — add to `configuration.yaml` and restart:
+  ```yaml
+  logger:
+    logs:
+      custom_components.baxi_hybridapp_home: debug
+  ```
+- **Diagnostics** — integration page > **⋮** > **Download diagnostics**, then attach the file to the issue (credentials and serial number are redacted).
 
 ---
 

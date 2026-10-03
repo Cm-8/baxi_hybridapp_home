@@ -25,8 +25,10 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, DATA_KEY_API
 from .device import build_device_info
+
+# Sola lettura, aggiornata dal coordinator: nessun limite al parallelismo.
+PARALLEL_UPDATES = 0
 
 
 class BaxiAlertBinarySensor(CoordinatorEntity, BinarySensorEntity):
@@ -36,6 +38,9 @@ class BaxiAlertBinarySensor(CoordinatorEntity, BinarySensorEntity):
     # Stessa categoria del pulsante "Aggiorna dati Baxi": compare nella sezione
     # "Diagnostica" del device card invece che nei sensori principali.
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    # Nome tradotto (entity.binary_sensor.<translation_key>); icone per stato
+    # (on = alert attivo) in icons.json.
+    _attr_has_entity_name = True
 
     def __init__(
         self,
@@ -43,25 +48,16 @@ class BaxiAlertBinarySensor(CoordinatorEntity, BinarySensorEntity):
         api,
         *,
         severity: str,
-        name: str,
+        translation_key: str,
         unique_id: str,
         enabled_default: bool,
-        icon: str | None = None,
-        icon_off: str | None = None,
     ) -> None:
         super().__init__(coordinator)
         self._api = api
         self._severity = severity
-        self._attr_name = name
+        self._attr_translation_key = translation_key
         self._attr_unique_id = unique_id
         self._attr_entity_registry_enabled_default = enabled_default
-        # icon     → icona quando is_on=True (alert attivo)
-        # icon_off → icona quando is_on=False (nessun alert). Se None, viene
-        #            usata icon anche in stato off (icona statica).
-        self._icon_on = icon
-        self._icon_off = icon_off
-        if icon is not None and icon_off is None:
-            self._attr_icon = icon
         # Attributi sull'istanza API da cui leggere stato corrente e ultimo evento.
         self._active_attr = (
             "active_failure_alert" if severity == "FAILURE"
@@ -75,14 +71,6 @@ class BaxiAlertBinarySensor(CoordinatorEntity, BinarySensorEntity):
     @property
     def is_on(self) -> bool:
         return getattr(self._api, self._active_attr, None) is not None
-
-    @property
-    def icon(self) -> str | None:
-        # Se è stato configurato icon_off, l'icona è condizionale; altrimenti
-        # HA legge _attr_icon (statico).
-        if self._icon_off is not None:
-            return self._icon_on if self.is_on else self._icon_off
-        return self._attr_icon
 
     @property
     def available(self) -> bool:
@@ -114,25 +102,21 @@ class BaxiAlertBinarySensor(CoordinatorEntity, BinarySensorEntity):
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    api = hass.data[DOMAIN][DATA_KEY_API]
-    coordinator = hass.data[DOMAIN]["coordinator"]
+    api = entry.runtime_data.api
+    coordinator = entry.runtime_data.coordinator
     async_add_entities([
         BaxiAlertBinarySensor(
             coordinator, api,
             severity="FAILURE",
-            name="Failure",
+            translation_key="failure_alert",
             unique_id="baxi_failure_alert_active",
             enabled_default=True,
-            icon="mdi:alert-box",
-            icon_off="mdi:check-circle",
         ),
         BaxiAlertBinarySensor(
             coordinator, api,
             severity="WARNING",
-            name="Warning",
+            translation_key="warning_alert",
             unique_id="baxi_warning_alert_active",
             enabled_default=False,
-            icon="mdi:alert-box-outline",
-            icon_off="mdi:check-circle-outline",
         ),
     ])

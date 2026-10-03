@@ -11,9 +11,10 @@ from homeassistant.components.water_heater import (
     WaterHeaterEntityFeature,
 )
 from homeassistant.const import UnitOfTemperature
+from homeassistant.exceptions import HomeAssistantError
 import asyncio
 from .const import (
-    DOMAIN, DATA_KEY_API,
+    DOMAIN,
     PARAM_ID_SETPOINT_COMFORT, PARAM_ID_SETPOINT_ECO,
     SANITARY_MIN_TEMP, SANITARY_MAX_TEMP,
     WRITE_GRACE_SECONDS,
@@ -21,11 +22,27 @@ from .const import (
 from .device import build_device_info
 from homeassistant.util import dt as dt_util
 
+# Scritture verso il device: una alla volta.
+PARALLEL_UPDATES = 1
+
 # ---------------------------------------------------------
 # Classe base con helper comuni per Comfort/Eco
 # ---------------------------------------------------------
 class BaxiSanitaryBase:
     #"""Metodi e utility comuni per entità Comfort/Eco."""
+
+    @property
+    def available(self) -> bool:
+        # Non è una CoordinatorEntity: controlla l'esito dell'ultimo
+        # aggiornamento (False se il cloud è irraggiungibile).
+        return self._coordinator.last_update_success and self._api.dhw_storage_temp is not None
+
+    def _raise_write_failed(self, translation_key: str, value: float):
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key=translation_key,
+            translation_placeholders={"value": f"{value:.0f}"},
+        )
 
     async def _grace_refresh(self):
         """Attende il read-back del device e riallinea dal cloud."""
@@ -61,7 +78,8 @@ class BaxiSanitaryComfort(BaxiSanitaryBase, WaterHeaterEntity):
     Entità Comfort
     """
 
-    _attr_name = "Sanitario Comfort"
+    _attr_has_entity_name = True
+    _attr_translation_key = "dhw_comfort"
     _attr_unique_id = "baxi_water_heater_comfort"
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_supported_features = WaterHeaterEntityFeature.TARGET_TEMPERATURE
@@ -73,9 +91,6 @@ class BaxiSanitaryComfort(BaxiSanitaryBase, WaterHeaterEntity):
         self._mode_override: str | None = None
 
     # ---------------- Base ----------------
-    @property
-    def available(self) -> bool:
-        return self._api.dhw_storage_temp is not None
 
     @property
     def current_temperature(self):
@@ -151,6 +166,9 @@ class BaxiSanitaryComfort(BaxiSanitaryBase, WaterHeaterEntity):
             self._api.set_configuration_parameter, param_id, int(new_t)
         )
     
+        if not ok:
+            self._raise_write_failed("comfort_setpoint_failed", new_t)
+
         if ok:
             # 1) Aggiorna subito in locale (optimistic UI)
             self._api.setpoint_comfort_temp = new_t
@@ -185,7 +203,8 @@ class BaxiSanitaryEco(BaxiSanitaryBase, WaterHeaterEntity):
     Entità Eco
     """
 
-    _attr_name = "Sanitario Eco"
+    _attr_has_entity_name = True
+    _attr_translation_key = "dhw_eco"
     _attr_unique_id = "baxi_water_heater_eco"
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_supported_features = WaterHeaterEntityFeature.TARGET_TEMPERATURE
@@ -197,9 +216,6 @@ class BaxiSanitaryEco(BaxiSanitaryBase, WaterHeaterEntity):
         self._mode_override: str | None = None
 
     # ---------------- Base ----------------
-    @property
-    def available(self) -> bool:
-        return self._api.dhw_storage_temp is not None
         
     @property
     def current_temperature(self):
@@ -274,6 +290,9 @@ class BaxiSanitaryEco(BaxiSanitaryBase, WaterHeaterEntity):
             self._api.set_configuration_parameter, param_id, int(new_t)
         )
     
+        if not ok:
+            self._raise_write_failed("eco_setpoint_failed", new_t)
+
         if ok:
             # 1) Aggiorna subito in locale (optimistic UI)
             self._api.setpoint_eco_temp = new_t
@@ -303,8 +322,8 @@ class BaxiSanitaryEco(BaxiSanitaryBase, WaterHeaterEntity):
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    api = hass.data[DOMAIN][DATA_KEY_API]
-    coordinator = hass.data[DOMAIN]["coordinator"]
+    api = entry.runtime_data.api
+    coordinator = entry.runtime_data.coordinator
     # Aggiungo sia l'entità read-only sia quella di test scrivibile
     async_add_entities(
         [

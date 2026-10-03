@@ -1,0 +1,164 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Baxi HybridApp setup",
+        "description": "Enter the credentials of your Baxi HybridApp account.",
+        "data": {
+          "username": "Email",
+          "password": "Password"
+        },
+        "data_description": {
+          "username": "The email you use to sign in to the Baxi HybridApp.",
+          "password": "The password of your Baxi HybridApp account."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Baxi HybridApp re-authentication",
+        "description": "The credentials for {username} are no longer valid. Enter the new password.",
+        "data": {
+          "password": "Password"
+        },
+        "data_description": {
+          "password": "The new password of your Baxi HybridApp account."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect",
+      "invalid_auth": "Invalid authentication",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This integration is already configured.",
+      "reauth_successful": "Re-authentication was successful."
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "failure_alert": { "name": "Failure" },
+      "warning_alert": { "name": "Warning" }
+    },
+    "button": {
+      "update_data": { "name": "Refresh" },
+      "test_failure": { "name": "Test failure" }
+    },
+    "datetime": {
+      "holiday_mode_end": { "name": "Holiday mode end" }
+    },
+    "number": {
+      "cooling_setpoint": { "name": "Cooling setpoint" }
+    },
+    "select": {
+      "system_mode": { "name": "Plant mode" },
+      "season_mode": { "name": "Season mode" }
+    },
+    "sensor": {
+      "external_temperature": { "name": "Outdoor temperature" },
+      "internal_temperature": { "name": "Indoor temperature" },
+      "boiler_flow_temperature": { "name": "Boiler flow temperature" },
+      "dhw_storage_temperature": { "name": "DHW storage temperature" },
+      "dhw_aux_storage_temperature": { "name": "DHW auxiliary storage temperature" },
+      "pdc_exit_temperature": { "name": "Heat pump outlet temperature" },
+      "pdc_return_temperature": { "name": "Heat pump return temperature" },
+      "setpoint_instant": { "name": "DHW instantaneous setpoint" },
+      "setpoint_comfort": { "name": "DHW comfort setpoint" },
+      "setpoint_eco": { "name": "DHW eco setpoint" },
+      "cooling_setpoint": { "name": "Cooling setpoint" },
+      "water_pressure": { "name": "Water pressure" },
+      "sanitary_on": { "name": "Domestic hot water" },
+      "system_mode": { "name": "Plant mode" },
+      "season_mode": { "name": "Season mode" },
+      "flame_status": { "name": "Flame status" },
+      "system_operation_icon": { "name": "System operation icon" },
+      "holiday_mode": { "name": "Holiday mode" },
+      "holiday_mode_end": { "name": "Holiday mode end" },
+      "boiler_status": { "name": "Boiler status" },
+      "heat_pump_status": { "name": "Heat pump status" },
+      "boiler_power": { "name": "Boiler power" },
+      "heat_pump_power": { "name": "Heat pump power" },
+      "system_operation_mode": { "name": "System operation mode" },
+      "sanitary_schedule": { "name": "DHW schedule" },
+      "failure_count_24h": { "name": "Failures in the last 24 hours" },
+      "failure_count_7d": { "name": "Failures in the last 7 days" },
+      "energia_totale_pdc": { "name": "Heat pump total energy" },
+      "energia_totale_caldaia": { "name": "Boiler total energy" },
+      "energia_totale_resistenze": { "name": "Electric heaters total energy" },
+      "energia_totale_globale": { "name": "Total energy" },
+      "energia_totale_globale_day": { "name": "Total energy today" },
+      "energia_parziale_caldaia": { "name": "Boiler partial energy" },
+      "energia_parziale_pdc": { "name": "Heat pump partial energy" },
+      "energia_parziale_resistenze": { "name": "Electric heaters partial energy" }
+    },
+    "switch": {
+      "holiday_mode": { "name": "Holiday mode" }
+    },
+    "water_heater": {
+      "dhw_comfort": { "name": "DHW comfort" },
+      "dhw_eco": { "name": "DHW eco" }
+    }
+  },
+  "exceptions": {
+    "entry_not_loaded": {
+      "message": "The Baxi HybridApp Home integration is not loaded."
+    },
+    "invalid_option": {
+      "message": "Unknown option {option}."
+    },
+    "system_mode_failed": {
+      "message": "Changing the plant mode to {option} failed: the Baxi cloud did not accept the command."
+    },
+    "season_mode_failed": {
+      "message": "Changing the season mode to {option} failed: the Baxi cloud did not accept the command."
+    },
+    "comfort_setpoint_failed": {
+      "message": "Setting the comfort setpoint to {value} °C failed: the Baxi cloud did not accept the request."
+    },
+    "eco_setpoint_failed": {
+      "message": "Setting the eco setpoint to {value} °C failed: the Baxi cloud did not accept the request."
+    },
+    "cooling_setpoint_failed": {
+      "message": "Setting the cooling setpoint to {value} °C failed: the Baxi cloud did not accept the request."
+    },
+    "holiday_end_required": {
+      "message": "Set a future end date in Holiday mode end first, then turn on the switch."
+    },
+    "holiday_on_failed": {
+      "message": "Turning on holiday mode failed: the Baxi cloud did not accept the request."
+    },
+    "holiday_off_failed": {
+      "message": "Turning off holiday mode failed: the Baxi cloud did not accept the request."
+    },
+    "holiday_end_failed": {
+      "message": "Updating the holiday end date failed: the Baxi cloud did not accept the request."
+    }
+  },
+  "device_automation": {
+    "action_type": {
+      "set_comfort": "Set DHW comfort setpoint",
+      "set_eco": "Set DHW eco setpoint"
+    }
+  },
+  "services": {
+    "set_comfort": {
+      "name": "Set DHW comfort setpoint",
+      "description": "Sets the domestic hot water temperature for Comfort mode (°C).",
+      "fields": {
+        "value": {
+          "name": "Temperature",
+          "description": "Desired comfort temperature (30–52 °C)."
+        }
+      }
+    },
+    "set_eco": {
+      "name": "Set DHW eco setpoint",
+      "description": "Sets the domestic hot water temperature for Eco mode (°C).",
+      "fields": {
+        "value": {
+          "name": "Temperature",
+          "description": "Desired eco temperature (30–52 °C)."
+        }
+      }
+    }
+  }
+}

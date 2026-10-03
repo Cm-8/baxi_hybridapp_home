@@ -14,11 +14,12 @@ import asyncio
 import logging
 
 from homeassistant.components.select import SelectEntity
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
 from .const import (
-    DOMAIN, DATA_KEY_API,
+    DOMAIN,
     WRITE_GRACE_SECONDS,
     COMMAND_ID_MODE_AUTOMATICO,
     COMMAND_ID_MODE_SOLO_SANITARIO,
@@ -31,6 +32,9 @@ from .const import (
 from .device import build_device_info
 
 _LOGGER = logging.getLogger(__name__)
+
+# Scritture verso il device: una alla volta.
+PARALLEL_UPDATES = 1
 
 # Mapping opzione leggibile → commandId Servitly
 _MODE_TO_COMMAND: dict[str, str] = {
@@ -62,14 +66,14 @@ class BaxiSystemModeSelect(CoordinatorEntity, SelectEntity):
     commandId corrispondente all'opzione selezionata.
     """
 
-    _attr_icon = "mdi:tune"
+    _attr_has_entity_name = True
+    _attr_translation_key = "system_mode"
     _attr_options = MODE_OPTIONS
 
     def __init__(self, coordinator, api) -> None:
         super().__init__(coordinator)
         self._api = api
         self._attr_unique_id = "baxi_system_mode_select"
-        self._attr_name = "Modo Impianto"
 
         prefix = "baxi"
         serial_number = getattr(self._api, "serialNumber", None) or "unknown"
@@ -84,8 +88,8 @@ class BaxiSystemModeSelect(CoordinatorEntity, SelectEntity):
 
     @property
     def available(self) -> bool:
-        """Disponibile quando l'API ha restituito un valore per system_mode."""
-        return getattr(self._api, "system_mode", None) is not None
+        """Disponibile se il cloud risponde e ha restituito un valore per system_mode."""
+        return super().available and getattr(self._api, "system_mode", None) is not None
 
     @property
     def device_info(self) -> dict:
@@ -95,25 +99,31 @@ class BaxiSystemModeSelect(CoordinatorEntity, SelectEntity):
         """Invia il comando di cambio modalità al device Baxi."""
         command_id = _MODE_TO_COMMAND.get(option)
         if command_id is None:
-            _LOGGER.warning("⚠️ Opzione modo impianto '%s' non riconosciuta.", option)
-            return
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="invalid_option",
+                translation_placeholders={"option": option},
+            )
 
         _LOGGER.info("🔄 Cambio modo impianto → %s (commandId: %s)", option, command_id)
         ok = await self.hass.async_add_executor_job(
             self._api.send_command,
             command_id,
         )
+        if not ok:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="system_mode_failed",
+                translation_placeholders={"option": option},
+            )
 
-        if ok:
-            _LOGGER.info("✅ Modo impianto impostato a '%s'", option)
-            # Optimistic: la UI mostra subito la nuova modalità. Il refresh
-            # arriva dopo la grazia, quando il device ha ri-pubblicato la
-            # metrica (read-back) — senza bloccare la service call.
-            self._api.system_mode = option
-            self.async_write_ha_state()
-            self.hass.async_create_task(self._grace_refresh())
-        else:
-            _LOGGER.error("❌ Cambio modo impianto fallito per '%s'", option)
+        _LOGGER.info("✅ Modo impianto impostato a '%s'", option)
+        # Optimistic: la UI mostra subito la nuova modalità. Il refresh
+        # arriva dopo la grazia, quando il device ha ri-pubblicato la
+        # metrica (read-back) — senza bloccare la service call.
+        self._api.system_mode = option
+        self.async_write_ha_state()
+        self.hass.async_create_task(self._grace_refresh())
 
     async def _grace_refresh(self) -> None:
         """Attende il read-back del device e riallinea dal cloud."""
@@ -130,14 +140,14 @@ class BaxiSeasonModeSelect(CoordinatorEntity, SelectEntity):
     PUT /data/commands con il commandId corrispondente all'opzione.
     """
 
-    _attr_icon = "mdi:sun-snowflake"
+    _attr_has_entity_name = True
+    _attr_translation_key = "season_mode"
     _attr_options = SEASON_OPTIONS
 
     def __init__(self, coordinator, api) -> None:
         super().__init__(coordinator)
         self._api = api
         self._attr_unique_id = "baxi_season_mode_select"
-        self._attr_name = "Modo Stagione"
 
         prefix = "baxi"
         serial_number = getattr(self._api, "serialNumber", None) or "unknown"
@@ -152,8 +162,8 @@ class BaxiSeasonModeSelect(CoordinatorEntity, SelectEntity):
 
     @property
     def available(self) -> bool:
-        """Disponibile quando l'API ha restituito un valore per season_mode."""
-        return getattr(self._api, "season_mode", None) is not None
+        """Disponibile se il cloud risponde e ha restituito un valore per season_mode."""
+        return super().available and getattr(self._api, "season_mode", None) is not None
 
     @property
     def device_info(self) -> dict:
@@ -163,23 +173,29 @@ class BaxiSeasonModeSelect(CoordinatorEntity, SelectEntity):
         """Invia il comando di cambio stagione al device Baxi."""
         command_id = _SEASON_TO_COMMAND.get(option)
         if command_id is None:
-            _LOGGER.warning("⚠️ Opzione modo stagione '%s' non riconosciuta.", option)
-            return
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="invalid_option",
+                translation_placeholders={"option": option},
+            )
 
         _LOGGER.info("🔄 Cambio modo stagione → %s (commandId: %s)", option, command_id)
         ok = await self.hass.async_add_executor_job(
             self._api.send_command,
             command_id,
         )
+        if not ok:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="season_mode_failed",
+                translation_placeholders={"option": option},
+            )
 
-        if ok:
-            _LOGGER.info("✅ Modo stagione impostato a '%s'", option)
-            # Optimistic + refresh differito, come per il modo impianto.
-            self._api.season_mode = option
-            self.async_write_ha_state()
-            self.hass.async_create_task(self._grace_refresh())
-        else:
-            _LOGGER.error("❌ Cambio modo stagione fallito per '%s'", option)
+        _LOGGER.info("✅ Modo stagione impostato a '%s'", option)
+        # Optimistic + refresh differito, come per il modo impianto.
+        self._api.season_mode = option
+        self.async_write_ha_state()
+        self.hass.async_create_task(self._grace_refresh())
 
     async def _grace_refresh(self) -> None:
         """Attende il read-back del device e riallinea dal cloud."""
@@ -188,8 +204,8 @@ class BaxiSeasonModeSelect(CoordinatorEntity, SelectEntity):
 
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
-    api = hass.data[DOMAIN][DATA_KEY_API]
-    coordinator = hass.data[DOMAIN]["coordinator"]
+    api = entry.runtime_data.api
+    coordinator = entry.runtime_data.coordinator
     async_add_entities([
         BaxiSystemModeSelect(coordinator, api),
         BaxiSeasonModeSelect(coordinator, api),

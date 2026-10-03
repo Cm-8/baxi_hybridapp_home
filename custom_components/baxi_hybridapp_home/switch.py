@@ -20,31 +20,36 @@ import logging
 from datetime import datetime, timezone
 
 from homeassistant.components.switch import SwitchEntity
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
-    DOMAIN, DATA_KEY_API,
+    DOMAIN,
     PARAM_ID_HOLIDAY_MODE_END,
     HOLIDAY_MODE_DISABLE_VALUE,
-    HOLIDAY_STAGED_KEY,
     WRITE_GRACE_SECONDS,
 )
+from .coordinator import BaxiRuntimeData
 from .device import build_device_info
 
 _LOGGER = logging.getLogger(__name__)
+
+# Scritture verso il device: una alla volta.
+PARALLEL_UPDATES = 1
 
 
 class BaxiHolidayModeSwitch(CoordinatorEntity, SwitchEntity):
     """Interruttore Modo Vacanza (attiva/disattiva la programmazione vacanza)."""
 
-    _attr_name = "Modo Vacanza"
+    _attr_has_entity_name = True
+    _attr_translation_key = "holiday_mode"
     _attr_unique_id = "baxi_holiday_mode_switch"
-    _attr_icon = "mdi:palm-tree"
     _attr_entity_registry_enabled_default = False
 
-    def __init__(self, coordinator, api) -> None:
-        super().__init__(coordinator)
-        self._api = api
+    def __init__(self, runtime: BaxiRuntimeData) -> None:
+        super().__init__(runtime.coordinator)
+        self._runtime = runtime
+        self._api = runtime.api
 
     @property
     def is_on(self) -> bool:
@@ -57,7 +62,7 @@ class BaxiHolidayModeSwitch(CoordinatorEntity, SwitchEntity):
 
     def _target_end(self) -> datetime | None:
         """Data da inviare: staging se presente, altrimenti quella dal cloud."""
-        staged = self.hass.data[DOMAIN].get(HOLIDAY_STAGED_KEY)
+        staged = self._runtime.holiday_staged_end
         if isinstance(staged, datetime):
             return staged
         server = getattr(self._api, "holiday_mode_end", None)
@@ -69,13 +74,11 @@ class BaxiHolidayModeSwitch(CoordinatorEntity, SwitchEntity):
         now = datetime.now(timezone.utc)
 
         if target is None or target <= now:
-            _LOGGER.warning(
-                "⚠️ Modo vacanza: imposta prima una data di fine futura "
-                "nell'entità 'Modo Vacanza Fine', poi attiva lo switch."
+            # Nessun invio: l'errore compare nell'interfaccia e lo switch resta Off.
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="holiday_end_required",
             )
-            # Nessun invio: ripristina lo stato reale (resta Off).
-            self.async_write_ha_state()
-            return
 
         epoch_ms = int(target.timestamp() * 1000)
         _LOGGER.info(
@@ -89,17 +92,20 @@ class BaxiHolidayModeSwitch(CoordinatorEntity, SwitchEntity):
             epoch_ms,
         )
 
-        if ok:
-            _LOGGER.info("✅ Modo vacanza attivato fino a %s", target.isoformat())
-            # Optimistic + pulizia staging
-            self._api.holiday_mode = "On"
-            self._api.holiday_mode_end = target
-            self.hass.data[DOMAIN][HOLIDAY_STAGED_KEY] = None
-            self.async_write_ha_state()
-            await self._log(f"attivato fino a {target.isoformat()}")
-            self.hass.async_create_task(self._grace_refresh())
-        else:
-            _LOGGER.error("❌ Attivazione modo vacanza fallita")
+        if not ok:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="holiday_on_failed",
+            )
+
+        _LOGGER.info("✅ Modo vacanza attivato fino a %s", target.isoformat())
+        # Optimistic + pulizia staging
+        self._api.holiday_mode = "On"
+        self._api.holiday_mode_end = target
+        self._runtime.holiday_staged_end = None
+        self.async_write_ha_state()
+        await self._log(f"attivato fino a {target.isoformat()}")
+        self.hass.async_create_task(self._grace_refresh())
 
     async def async_turn_off(self, **kwargs) -> None:
         """Disattiva la vacanza inviando un valore nullo."""
@@ -111,17 +117,20 @@ class BaxiHolidayModeSwitch(CoordinatorEntity, SwitchEntity):
             HOLIDAY_MODE_DISABLE_VALUE,
         )
 
-        if ok:
-            _LOGGER.info("✅ Modo vacanza disattivato")
-            # Optimistic + pulizia staging
-            self._api.holiday_mode = "Off"
-            self._api.holiday_mode_end = None
-            self.hass.data[DOMAIN][HOLIDAY_STAGED_KEY] = None
-            self.async_write_ha_state()
-            await self._log("disattivato")
-            self.hass.async_create_task(self._grace_refresh())
-        else:
-            _LOGGER.error("❌ Disattivazione modo vacanza fallita")
+        if not ok:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="holiday_off_failed",
+            )
+
+        _LOGGER.info("✅ Modo vacanza disattivato")
+        # Optimistic + pulizia staging
+        self._api.holiday_mode = "Off"
+        self._api.holiday_mode_end = None
+        self._runtime.holiday_staged_end = None
+        self.async_write_ha_state()
+        await self._log("disattivato")
+        self.hass.async_create_task(self._grace_refresh())
 
     async def _log(self, message: str) -> None:
         """Scrive una entry nel Logbook."""
@@ -148,7 +157,4 @@ class BaxiHolidayModeSwitch(CoordinatorEntity, SwitchEntity):
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
     """Setup switch entities."""
-    api = hass.data[DOMAIN][DATA_KEY_API]
-    coordinator = hass.data[DOMAIN]["coordinator"]
-
-    async_add_entities([BaxiHolidayModeSwitch(coordinator, api)])
+    async_add_entities([BaxiHolidayModeSwitch(entry.runtime_data)])

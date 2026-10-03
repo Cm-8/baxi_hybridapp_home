@@ -57,6 +57,24 @@ _Response:_
     "tokenExpirationTimestamp": 1741236233774
 }
 ```
+## _Renew Token Endpoint:_
+<sup> Ref: https://learn.servitly.com/apidocs/renew-jwt-token </sup>
+> [!NOTE]
+> The JWT has a limited duration: once expired (HTTP 401) it can be renewed with the refreshToken, without sending the credentials again. The JWT can be renewed only when expired.
+
+### POST `/identity/users/me/renewToken`
+The `Authorization` header carries the **expired** Bearer token.
+
+_Request Body:_
+```json
+{
+  "refreshToken": "{{refreshToken}}",
+  "userId": "{{userId}}",
+  "tenantId": "{{tenantId}}"
+}
+```
+_Response:_ same shape as the login response (`token`, `refreshToken`, `tokenExpirationTimestamp`, ...).
+
 ## _LogOut Endpoint:_
 <sup> Ref: https://learn.servitly.com/apidocs/user-login-credentials </sup>
 > [!NOTE]

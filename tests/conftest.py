@@ -29,16 +29,17 @@ def api():
 
 @pytest.fixture
 def cloud(api, monkeypatch):
-    """Sostituisce _make_request con risposte preparate, indicizzate per metricName.
+    """Sostituisce lo strato HTTP con risposte preparate, indicizzate per metricName.
 
     Una metrica senza risposta impostata restituisce None: lo stesso esito di
-    una richiesta fallita (rete, timeout, errore server).
+    una richiesta fallita (rete, timeout, errore server). Viene sostituito
+    _http_get_json e non _make_request, così il conteggio degli esiti resta vero.
     """
     responses = {}
 
-    def fake_request(url):
+    def fake_http_get_json(url):
         name = parse_qs(urlparse(url).query).get("metricName", [None])[0]
         return responses.get(name)
 
-    monkeypatch.setattr(api, "_make_request", fake_request)
+    monkeypatch.setattr(api, "_http_get_json", fake_http_get_json)
     return responses

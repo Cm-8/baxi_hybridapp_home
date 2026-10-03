@@ -7,6 +7,10 @@
         "data": {
           "username": "Email",
           "password": "Password"
+        },
+        "data_description": {
+          "username": "L'email con cui accedi all'app Baxi HybridApp.",
+          "password": "La password del tuo account Baxi HybridApp."
         }
       },
       "reauth_confirm": {
@@ -14,6 +18,9 @@
         "description": "Le credenziali per {username} non sono più valide. Inserisci la nuova password.",
         "data": {
           "password": "Password"
+        },
+        "data_description": {
+          "password": "La nuova password del tuo account Baxi HybridApp."
         }
       }
     },
@@ -28,81 +35,102 @@
     }
   },
   "entity": {
-    "sensor": {
-      "baxi_external_temperature": {
-        "name": "Temperatura Esterna",
-        "device_class": "temperature"
-      },
-      "baxi_internal_temperature": {
-        "name": "Temperatura Interna",
-        "device_class": "temperature"
-      },
-      "baxi_boiler_flow_temperature": {
-        "name": "Temperatura Mandata Caldaia",
-        "device_class": "temperature"
-      },
-      "baxi_dhw_storage_temperature": {
-        "name": "Temperatura Accumulo Sanitario",
-        "device_class": "temperature"
-      },
-      "baxi_water_pressure": {
-        "name": "Pressione Impianto",
-        "device_class": "pressure"
-      },
-      "baxi_sanitary_on": {
-        "name": "Sanitario On",
-        "device_class": null
-      },
-      "baxi_system_mode": {
-        "name": "Modalità Impianto",
-        "device_class": null
-      },
-      "baxi_season_mode": {
-        "name": "Modalità Stagione",
-        "device_class": null
-      },
-      "baxi_dhw_aux_storage_temperature": {
-        "name": "Temperatura Accumulo Ausiliario",
-        "device_class": "temperature"
-      },
-      "baxi_pdc_exit_temperature": {
-        "name": "Temperatura Uscita PDC",
-        "device_class": "temperature"
-      },
-      "baxi_pdc_return_temperature": {
-        "name": "Temperatura Ritorno PDC",
-        "device_class": "temperature"
-      },
-      "baxi_setpoint_instant_temperature": {
-        "name": "Setpoint Sanitario Istantaneo",
-        "device_class": "temperature"
-      },
-      "baxi_setpoint_comfort_temperature": {
-        "name": "Setpoint Sanitario Comfort",
-        "device_class": "temperature"
-      },
-      "baxi_setpoint_eco_temperature": {
-        "name": "Setpoint Sanitario Eco",
-        "device_class": "temperature"
-      },
-      "baxi_flame_status": {
-        "name": "Stato Fiamma",
-        "device_class": null
-      },
-      "baxi_sanitary_schedule_state": {
-        "name": "Schedulatore Sanitario",
-        "device_class": null
-      }
+    "binary_sensor": {
+      "failure_alert": { "name": "Failure" },
+      "warning_alert": { "name": "Warning" }
+    },
+    "button": {
+      "update_data": { "name": "Aggiorna" },
+      "test_failure": { "name": "Test Failure" }
     },
     "datetime": {
-      "baxi_holiday_mode_end": {
-        "name": "Modo Vacanza Fine"
-      }
+      "holiday_mode_end": { "name": "Modo Vacanza Fine" }
+    },
+    "number": {
+      "cooling_setpoint": { "name": "Setpoint Raffrescamento" }
+    },
+    "select": {
+      "system_mode": { "name": "Modo Impianto" },
+      "season_mode": { "name": "Modo Stagione" }
+    },
+    "sensor": {
+      "external_temperature": { "name": "Temp. Esterna" },
+      "internal_temperature": { "name": "Temp. Interna" },
+      "boiler_flow_temperature": { "name": "Temp. Mandata Caldaia" },
+      "dhw_storage_temperature": { "name": "Temp. Accumulo Sanitario" },
+      "dhw_aux_storage_temperature": { "name": "Temp. Accumulo Ausiliario" },
+      "pdc_exit_temperature": { "name": "Temp. Uscita PDC" },
+      "pdc_return_temperature": { "name": "Temp. Ritorno PDC" },
+      "setpoint_instant": { "name": "Setpoint Sanitario Istantaneo" },
+      "setpoint_comfort": { "name": "Setpoint Sanitario Comfort" },
+      "setpoint_eco": { "name": "Setpoint Sanitario Eco" },
+      "cooling_setpoint": { "name": "Setpoint Raffrescamento" },
+      "water_pressure": { "name": "Pressione Impianto" },
+      "sanitary_on": { "name": "Sanitario" },
+      "system_mode": { "name": "Modalità Impianto" },
+      "season_mode": { "name": "Modalità Stagione" },
+      "flame_status": { "name": "Stato Fiamma" },
+      "system_operation_icon": { "name": "Icona Funzionamento Sistema" },
+      "holiday_mode": { "name": "Modo Vacanza" },
+      "holiday_mode_end": { "name": "Modo Vacanza Fine" },
+      "boiler_status": { "name": "Stato caldaia" },
+      "heat_pump_status": { "name": "Stato PDC" },
+      "boiler_power": { "name": "Potenza Caldaia" },
+      "heat_pump_power": { "name": "Potenza PDC" },
+      "system_operation_mode": { "name": "Modo funzionamento sistema" },
+      "sanitary_schedule": { "name": "Schedulatore Sanitario (stato)" },
+      "failure_count_24h": { "name": "Failure ultime 24h" },
+      "failure_count_7d": { "name": "Failure ultimi 7g" },
+      "energia_totale_pdc": { "name": "Energia totale PDC" },
+      "energia_totale_caldaia": { "name": "Energia totale caldaia" },
+      "energia_totale_resistenze": { "name": "Energia totale resistenze" },
+      "energia_totale_globale": { "name": "Energia totale globale" },
+      "energia_totale_globale_day": { "name": "Energia totale globale per day" },
+      "energia_parziale_caldaia": { "name": "Energia parziale caldaia" },
+      "energia_parziale_pdc": { "name": "Energia parziale PDC" },
+      "energia_parziale_resistenze": { "name": "Energia parziale resistenze" }
     },
     "switch": {
-      "baxi_holiday_mode_switch": {
-        "name": "Modo Vacanza"
-      }
+      "holiday_mode": { "name": "Modo Vacanza" }
+    },
+    "water_heater": {
+      "dhw_comfort": { "name": "Sanitario Comfort" },
+      "dhw_eco": { "name": "Sanitario Eco" }
+    }
+  },
+  "exceptions": {
+    "entry_not_loaded": {
+      "message": "L'integrazione Baxi HybridApp Home non è caricata."
+    },
+    "invalid_option": {
+      "message": "Opzione {option} non riconosciuta."
+    },
+    "system_mode_failed": {
+      "message": "Cambio del modo impianto a {option} non riuscito: il cloud Baxi non ha accettato il comando."
+    },
+    "season_mode_failed": {
+      "message": "Cambio del modo stagione a {option} non riuscito: il cloud Baxi non ha accettato il comando."
+    },
+    "comfort_setpoint_failed": {
+      "message": "Impostazione del setpoint Comfort a {value} °C non riuscita: il cloud Baxi non ha accettato la richiesta."
+    },
+    "eco_setpoint_failed": {
+      "message": "Impostazione del setpoint Eco a {value} °C non riuscita: il cloud Baxi non ha accettato la richiesta."
+    },
+    "cooling_setpoint_failed": {
+      "message": "Impostazione del setpoint di raffrescamento a {value} °C non riuscita: il cloud Baxi non ha accettato la richiesta."
+    },
+    "holiday_end_required": {
+      "message": "Imposta prima una data di fine futura in Modo Vacanza Fine, poi attiva lo switch."
+    },
+    "holiday_on_failed": {
+      "message": "Attivazione del modo vacanza non riuscita: il cloud Baxi non ha accettato la richiesta."
+    },
+    "holiday_off_failed": {
+      "message": "Disattivazione del modo vacanza non riuscita: il cloud Baxi non ha accettato la richiesta."
+    },
+    "holiday_end_failed": {
+      "message": "Aggiornamento della fine vacanza non riuscito: il cloud Baxi non ha accettato la richiesta."
     }
   },
   "device_automation": {
