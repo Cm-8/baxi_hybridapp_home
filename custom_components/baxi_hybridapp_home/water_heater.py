@@ -11,9 +11,9 @@ from homeassistant.components.water_heater import (
     WaterHeaterEntityFeature,
 )
 from homeassistant.const import UnitOfTemperature
+from homeassistant.exceptions import HomeAssistantError
 import asyncio
 from .const import (
-    DOMAIN, DATA_KEY_API,
     PARAM_ID_SETPOINT_COMFORT, PARAM_ID_SETPOINT_ECO,
     SANITARY_MIN_TEMP, SANITARY_MAX_TEMP,
     WRITE_GRACE_SECONDS,
@@ -21,11 +21,25 @@ from .const import (
 from .device import build_device_info
 from homeassistant.util import dt as dt_util
 
+# Scritture verso il device: una alla volta.
+PARALLEL_UPDATES = 1
+
 # ---------------------------------------------------------
 # Classe base con helper comuni per Comfort/Eco
 # ---------------------------------------------------------
 class BaxiSanitaryBase:
     #"""Metodi e utility comuni per entità Comfort/Eco."""
+
+    @property
+    def available(self) -> bool:
+        # Non è una CoordinatorEntity: controlla l'esito dell'ultimo
+        # aggiornamento (False se il cloud è irraggiungibile).
+        return self._coordinator.last_update_success and self._api.dhw_storage_temp is not None
+
+    def _raise_write_failed(self, label: str, value: float):
+        raise HomeAssistantError(
+            f"Impostazione {label} a {value:.0f} °C non riuscita: il cloud Baxi non ha accettato la richiesta."
+        )
 
     async def _grace_refresh(self):
         """Attende il read-back del device e riallinea dal cloud."""
@@ -73,9 +87,6 @@ class BaxiSanitaryComfort(BaxiSanitaryBase, WaterHeaterEntity):
         self._mode_override: str | None = None
 
     # ---------------- Base ----------------
-    @property
-    def available(self) -> bool:
-        return self._api.dhw_storage_temp is not None
 
     @property
     def current_temperature(self):
@@ -151,6 +162,9 @@ class BaxiSanitaryComfort(BaxiSanitaryBase, WaterHeaterEntity):
             self._api.set_configuration_parameter, param_id, int(new_t)
         )
     
+        if not ok:
+            self._raise_write_failed("Sanitario Comfort", new_t)
+
         if ok:
             # 1) Aggiorna subito in locale (optimistic UI)
             self._api.setpoint_comfort_temp = new_t
@@ -197,9 +211,6 @@ class BaxiSanitaryEco(BaxiSanitaryBase, WaterHeaterEntity):
         self._mode_override: str | None = None
 
     # ---------------- Base ----------------
-    @property
-    def available(self) -> bool:
-        return self._api.dhw_storage_temp is not None
         
     @property
     def current_temperature(self):
@@ -274,6 +285,9 @@ class BaxiSanitaryEco(BaxiSanitaryBase, WaterHeaterEntity):
             self._api.set_configuration_parameter, param_id, int(new_t)
         )
     
+        if not ok:
+            self._raise_write_failed("Sanitario Eco", new_t)
+
         if ok:
             # 1) Aggiorna subito in locale (optimistic UI)
             self._api.setpoint_eco_temp = new_t
@@ -303,8 +317,8 @@ class BaxiSanitaryEco(BaxiSanitaryBase, WaterHeaterEntity):
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    api = hass.data[DOMAIN][DATA_KEY_API]
-    coordinator = hass.data[DOMAIN]["coordinator"]
+    api = entry.runtime_data.api
+    coordinator = entry.runtime_data.coordinator
     # Aggiungo sia l'entità read-only sia quella di test scrivibile
     async_add_entities(
         [

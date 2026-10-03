@@ -17,12 +17,12 @@ import logging
 
 from homeassistant.components.number import NumberDeviceClass, NumberEntity
 from homeassistant.const import UnitOfTemperature
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 
 from .const import (
-    DOMAIN, DATA_KEY_API,
     PARAM_ID_SETPOINT_RAFFRESCAMENTO,
     COOLING_MIN_TEMP, COOLING_MAX_TEMP,
     WRITE_GRACE_SECONDS,
@@ -30,6 +30,9 @@ from .const import (
 from .device import build_device_info
 
 _LOGGER = logging.getLogger(__name__)
+
+# Scritture verso il device: una alla volta.
+PARALLEL_UPDATES = 1
 
 
 class BaxiCoolingSetpointNumber(CoordinatorEntity, NumberEntity):
@@ -68,8 +71,8 @@ class BaxiCoolingSetpointNumber(CoordinatorEntity, NumberEntity):
 
     @property
     def available(self) -> bool:
-        """Disponibile solo se il device espone la metrica (issue #6)."""
-        return getattr(self._api, "setpoint_raffrescamento_temp", None) is not None
+        """Disponibile se il cloud risponde e il device espone la metrica (issue #6)."""
+        return super().available and getattr(self._api, "setpoint_raffrescamento_temp", None) is not None
 
     @property
     def device_info(self) -> dict:
@@ -88,8 +91,10 @@ class BaxiCoolingSetpointNumber(CoordinatorEntity, NumberEntity):
         )
 
         if not ok:
-            _LOGGER.error("❌ SET setpoint raffrescamento fallita per %s °C", new_t)
-            return
+            raise HomeAssistantError(
+                f"Impostazione Setpoint Raffrescamento a {new_t:.0f} °C non riuscita: "
+                "il cloud Baxi non ha accettato la richiesta."
+            )
 
         # 1) Aggiorna subito in locale (optimistic UI)
         self._api.setpoint_raffrescamento_temp = new_t
@@ -128,6 +133,6 @@ class BaxiCoolingSetpointNumber(CoordinatorEntity, NumberEntity):
 
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
-    api = hass.data[DOMAIN][DATA_KEY_API]
-    coordinator = hass.data[DOMAIN]["coordinator"]
-    async_add_entities([BaxiCoolingSetpointNumber(coordinator, api)])
+    async_add_entities([
+        BaxiCoolingSetpointNumber(entry.runtime_data.coordinator, entry.runtime_data.api),
+    ])

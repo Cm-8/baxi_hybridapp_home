@@ -11,9 +11,11 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 from datetime import datetime, timezone
-from .const import DOMAIN, DATA_KEY_API
 from .device import build_device_info
 from .metrics import ENERGY_SENSOR_TYPES
+
+# Sola lettura, aggiornata dal coordinator: nessun limite al parallelismo.
+PARALLEL_UPDATES = 0
 
 class BaxiBaseSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator, api, name, unique_id, value_key, unit, device_class, icon):
@@ -41,7 +43,9 @@ class BaxiBaseSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def available(self) -> bool:
-        return getattr(self._api, self._value_key, None) is not None
+        # Non disponibile se il cloud è irraggiungibile (ultimo aggiornamento
+        # del coordinator fallito) o se il device non espone la metrica.
+        return super().available and getattr(self._api, self._value_key, None) is not None
 
     @property
     def device_info(self):
@@ -426,6 +430,13 @@ class HolidayModeEndSensor(BaxiBaseSensor):
         self._attr_native_unit_of_measurement = None
 
     @property
+    def available(self) -> bool:
+        # A vacanza spenta la data di fine non esiste: l'entità resta
+        # disponibile con stato "sconosciuto", invece di risultare guasta.
+        # Dipende dallo stato vacanza, non dalla presenza della data.
+        return self.coordinator.last_update_success and getattr(self._api, "holiday_mode", None) is not None
+
+    @property
     def native_value(self):
         return getattr(self._api, self._value_key)
 
@@ -644,9 +655,10 @@ class SanitaryScheduleStateSensor(BaxiBaseSensor):
 
     @property
     def available(self):
-        # opzionale: disponibile solo se parsing ok
+        # disponibile solo se il cloud risponde e il parsing è ok
         return (
-            getattr(self._api, "sanitary_scheduler_status", None) == "ok"
+            self.coordinator.last_update_success
+            and getattr(self._api, "sanitary_scheduler_status", None) == "ok"
             and getattr(self._api, "sanitary_mode_now", None) is not None
         )
 
@@ -747,8 +759,8 @@ class BaxiEnergySensor(BaxiBaseSensor):
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    api = hass.data[DOMAIN][DATA_KEY_API]
-    coordinator = hass.data[DOMAIN]["coordinator"]
+    api = entry.runtime_data.api
+    coordinator = entry.runtime_data.coordinator
 
     sensors = [
         ExternalTemperatureSensor(coordinator, api),

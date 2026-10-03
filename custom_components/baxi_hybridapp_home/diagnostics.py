@@ -20,7 +20,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import __version__ as ha_version
 from homeassistant.core import HomeAssistant
 
-from .const import DATA_KEY_API, DOMAIN, INTEGRATION_VERSION
+from .const import INTEGRATION_VERSION
 from .metrics import ENERGY_SENSOR_TYPES, SIMPLE_METRICS
 
 TO_REDACT = {"username", "password", "serialNumber"}
@@ -75,7 +75,7 @@ async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> dict[str, Any]:
     """Ritorna la diagnostica per la config entry."""
-    api = hass.data[DOMAIN][DATA_KEY_API]
+    api = entry.runtime_data.api
 
     # Cataloghi statici del modello: fetch on-demand (3 GET), sempre freschi.
     capabilities = await hass.async_add_executor_job(api.fetch_capabilities)

@@ -7,11 +7,14 @@ from homeassistant.components.button import ButtonEntity, ButtonEntityDescriptio
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
-from .const import DOMAIN, DATA_KEY_API
+from .const import DOMAIN
 from .device import build_device_info
 import logging
 
 _LOGGER = logging.getLogger(__name__)
+
+# Le pressioni non scrivono sul device (refresh / evento di test).
+PARALLEL_UPDATES = 0
 
 UPDATE_DATA_DESCRIPTION = ButtonEntityDescription(
     key="update_data",
@@ -144,8 +147,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
     Baxi HybridApp → ⋮ → Ricarica) e il pulsante apparirà nella sezione
     Diagnostica. Disattivando il debug e ricaricando, il pulsante scompare.
     """
-    api = hass.data[DOMAIN][DATA_KEY_API]
-    coordinator = hass.data[DOMAIN]["coordinator"]
+    api = entry.runtime_data.api
+    coordinator = entry.runtime_data.coordinator
 
     buttons = [BaxiUpdateButton(coordinator, api)]
     if _LOGGER.isEnabledFor(logging.DEBUG):
