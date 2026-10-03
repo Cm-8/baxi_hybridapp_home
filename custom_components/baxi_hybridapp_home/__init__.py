@@ -147,7 +147,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
-        hass.data[DOMAIN].pop(DATA_KEY_API)
+        api = hass.data[DOMAIN].pop(DATA_KEY_API)
+        # Chiude la sessione cloud (invalida il refreshToken), best-effort.
+        await hass.async_add_executor_job(api.logout)
         hass.data[DOMAIN].pop("coordinator")
         hass.data[DOMAIN].pop(HOLIDAY_STAGED_KEY, None)
     return unload_ok
