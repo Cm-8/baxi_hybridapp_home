@@ -413,7 +413,8 @@ class BaxiHybridAppAPI:
 
             # 401: token scaduto → rinnova (o ri-login) e ritenta una sola volta
             if response.status_code == 401:
-                _LOGGER.warning("🔐 Token scaduto, rinnovo in corso...")
+                # Evento atteso (JWT da 1h): solo debug. I fallimenti del rinnovo restano warning.
+                _LOGGER.debug("🔐 Token scaduto, rinnovo in corso...")
                 self._reauthenticate()
                 if not self.token:
                     _LOGGER.error("❌ Impossibile autenticarsi.")
