@@ -150,6 +150,8 @@ Credentials are validated against the Baxi cloud before the integration is creat
 
 If your password changes later, Home Assistant will automatically ask you to re-authenticate — just enter the new password, no need to remove and re-add the integration.
 
+To update the credentials yourself at any time, open the integration and select **⋮** > **Reconfigure**. The account must stay the same: to add a different Baxi system, add a new integration.
+
 Entity names and messages follow the Home Assistant language (Italian or English) and are shown with the device name in front, as usual in Home Assistant (for example *Baxi HybridApp Home Temp. Esterna*).
 
 ---

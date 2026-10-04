@@ -13,7 +13,7 @@ rules:
     status: todo
     comment: The coordinator is in coordinator.py; there is no shared entity.py base class yet.
   config-flow: done
-  config-flow-test-coverage: todo
+  config-flow-test-coverage: done
   dependency-transparency:
     status: done
     comment: No external requirements; requests ships with Home Assistant.
@@ -49,7 +49,9 @@ rules:
   reauthentication-flow: done
   test-coverage:
     status: todo
-    comment: Tests cover parsers, the metrics dispatcher and module imports; not yet the config flow and the entities.
+    comment: >-
+      About 57% overall (config flow 98%, metrics 97%); entity platforms and
+      the coordinator are only partly covered.
 
   # Gold
   devices: done
@@ -88,7 +90,7 @@ rules:
       Static icons are in icons.json. Nine entities keep a state-dependent icon
       in code because their states (e.g. "On", "Solo Sanitario") are not
       lowercase translation keys; moving them requires the enum states change.
-  reconfiguration-flow: todo
+  reconfiguration-flow: done
   repair-issues:
     status: exempt
     comment: No user-actionable issues to raise.

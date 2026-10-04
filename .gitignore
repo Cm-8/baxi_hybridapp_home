@@ -5,4 +5,6 @@ CLAUDE.md
 **/*.pyc
 .pytest_cache/
 .venv/
+.coverage
+htmlcov/
 ToDo.md

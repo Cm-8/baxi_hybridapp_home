@@ -22,6 +22,18 @@
         "data_description": {
           "password": "La nuova password del tuo account Baxi HybridApp."
         }
+      },
+      "reconfigure": {
+        "title": "Riconfigurazione Baxi HybridApp",
+        "description": "Aggiorna le credenziali del tuo account Baxi HybridApp. L'account deve restare lo stesso.",
+        "data": {
+          "username": "Email",
+          "password": "Password"
+        },
+        "data_description": {
+          "username": "L'email con cui accedi all'app Baxi HybridApp.",
+          "password": "La password del tuo account Baxi HybridApp."
+        }
       }
     },
     "error": {
@@ -31,7 +43,9 @@
     },
     "abort": {
       "already_configured": "Questa integrazione è già configurata.",
-      "reauth_successful": "Ri-autenticazione completata con successo."
+      "reauth_successful": "Ri-autenticazione completata con successo.",
+      "reconfigure_successful": "Riconfigurazione completata con successo.",
+      "wrong_account": "L'email appartiene a un altro account. Per un impianto diverso aggiungi una nuova integrazione."
     }
   },
   "entity": {
