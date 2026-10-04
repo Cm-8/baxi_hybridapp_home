@@ -25,8 +25,11 @@ _LOGGER = logging.getLogger(__name__)
 def _request_label(url: str) -> str:
     """Nome breve di una richiesta per i log: il metricName, se presente."""
     parsed = urlparse(url)
-    name = parse_qs(parsed.query).get("metricName")
-    return name[0] if name else parsed.path.rsplit("/", 1)[-1]
+    names = parse_qs(parsed.query).get("metricName")
+    endpoint = parsed.path.rsplit("/", 1)[-1]
+    if names and len(names) > 1:
+        return f"{endpoint} ({len(names)} metriche)"
+    return names[0] if names else endpoint
 
 
 def _mask_serial(serial) -> str:
@@ -75,6 +78,10 @@ class BaxiHybridAppAPI:
     # ciclo e ritentare al prossimo refresh del coordinator.
     MAX_RETRY_AFTER_SECONDS = 30
     REQUEST_TIMEOUT = 15
+    # GET /data/lastValues: massimo di metricName per richiesta, e fallimenti di
+    # fila (con le letture singole che riescono) dopo cui non la si tenta più.
+    LAST_VALUES_MAX_METRICS = 50
+    LAST_VALUES_MAX_FAILURES = 3
 
     def __init__(self, username, password):
         self.username = username
@@ -143,6 +150,9 @@ class BaxiHybridAppAPI:
         self.new_alerts_pending: list[dict] = []
         # Esiti delle richieste di lettura del ciclo corrente (vedi _make_request).
         self.reset_request_stats()
+        # Lettura multipla dei sensori energia (vedi fetch_energy_metrics).
+        self._last_values_enabled = True
+        self._last_values_failures = 0
 
     def login(self):
         """Esegue il login e solleva eccezioni tipizzate.
@@ -586,53 +596,131 @@ class BaxiHybridAppAPI:
     # Restano qui sotto solo i fetch con logica non-banale: energia e scheduler.
 
     # 🔴 Sensori energia
+    def _fetch_last_values(self, metric_names) -> dict[str, dict] | None:
+        """Ultimo campione di più metriche con GET /data/lastValues.
+
+        Fino a LAST_VALUES_MAX_METRICS metricName per richiesta (oltre si fanno
+        più richieste). Ritorna {metricName: {"value": ..., "timestamp": ...}}
+        per le metriche presenti nella risposta, oppure None se una richiesta
+        non riesce.
+        """
+        if not self.thingId:
+            raise RuntimeError("thingId non inizializzato")
+        names = list(dict.fromkeys(metric_names))
+        samples: dict[str, dict] = {}
+        for start in range(0, len(names), self.LAST_VALUES_MAX_METRICS):
+            chunk = names[start:start + self.LAST_VALUES_MAX_METRICS]
+            params = "&".join(f"metricName={quote_plus(n)}" for n in chunk)
+            data = self._make_request(
+                f"{self.BASE_URL}/data/lastValues?thingId={self.thingId}&{params}"
+            )
+            if not isinstance(data, dict):
+                return None
+            for item in data.get("data") or []:
+                if isinstance(item, dict) and item.get("metric") in chunk:
+                    samples[item["metric"]] = {
+                        "value": item.get("value"),
+                        "timestamp": item.get("ts", item.get("timestamp")),
+                    }
+        return samples
+
+    def _last_value_single(self, metric_name: str) -> dict | None:
+        """Ultimo campione di una sola metrica con /data/values (stesso formato di _fetch_last_values).
+
+        None se la richiesta non riesce; KeyError/IndexError/TypeError se la
+        risposta non contiene un campione (gestite dal chiamante).
+        """
+        data = self._make_request(self._metric_url(metric_name))
+        if not data:
+            return None
+        item = data["data"][0]
+        return {"value": item["values"][0]["value"], "timestamp": item.get("timestamp")}
+
+    def _apply_energy_sample(self, desc, sample: dict | None) -> None:
+        """Converte un campione energia in kWh e lo salva (stessa logica per lettura multipla e singola)."""
+        if sample is None:
+            # Richiesta non riuscita: valore non disponibile (come le letture singole).
+            setattr(self, desc.key, None)
+            self.energy_timestamp[desc.key] = None
+            return
+
+        raw_val = sample["value"]
+        ts = sample["timestamp"]
+        if isinstance(ts, str):
+            try:
+                ts = int(float(ts))
+            except ValueError:
+                ts = None
+
+        # prova a convertire in float (Servitly spesso manda stringhe)
+        try:
+            val = float(str(raw_val).replace(",", "."))
+        except (TypeError, ValueError):
+            val = None
+
+        # ✅ WORKAROUND SOLO per "energia_totale_globale_day"
+        if val is not None and ts and desc.key == "energia_totale_globale_day":
+            sample_local_date = datetime.fromtimestamp(
+                ts / 1000, tz=dt_util.DEFAULT_TIME_ZONE
+            ).date()
+            today_local_date = dt_util.now().date()
+
+            # Se il campione non è di oggi, forza 0 finché non arriva il nuovo giorno
+            if sample_local_date != today_local_date:
+                val = 0.0
+
+        setattr(self, desc.key, val)
+        self.energy_timestamp[desc.key] = ts
+        _LOGGER.debug("⚡ %s = %s kWh", desc.metric_name, val)
+
     def fetch_energy_metrics(self):
         """
         Legge tutte le metriche energia definite in ENERGY_SENSOR_TYPES.
         Salva i valori su self.<key> e (opzionale) i timestamp su self.energy_timestamp[key].
+
+        Una sola richiesta GET /data/lastValues per tutte le metriche, invece di
+        una per metrica. Le metriche assenti dalla risposta (o tutte, se la
+        richiesta multipla non riesce) vengono lette singolarmente come prima:
+        il risultato è lo stesso delle letture singole.
         """
+        names = [desc.metric_name for desc in ENERGY_SENSOR_TYPES]
+        bulk = self._fetch_last_values(names) if self._last_values_enabled else None
+        if bulk is not None:
+            self._last_values_failures = 0
+            missing = [n for n in names if n not in bulk]
+            if missing:
+                _LOGGER.debug(
+                    "⚡ Metriche energia assenti da lastValues, lette singolarmente: %s",
+                    ", ".join(missing),
+                )
+        elif self._last_values_enabled:
+            _LOGGER.debug("⚡ lastValues non riuscita: letture singole per l'energia")
+
+        ok_before = self._requests_ok
         for desc in ENERGY_SENSOR_TYPES:
+            sample = (bulk or {}).get(desc.metric_name)
             try:
-                data = self._make_request(self._metric_url(desc.metric_name))
-                if not data:
-                    setattr(self, desc.key, None)
-                    self.energy_timestamp[desc.key] = None
-                    continue
-
-                item = data["data"][0]
-                raw_val = item["values"][0]["value"]
-                ts = item.get("timestamp")
-
-                # prova a convertire in float (Servitly spesso manda stringhe)
-                try:
-                    val = float(str(raw_val).replace(",", "."))
-                except (TypeError, ValueError):
-                    val = None
-
-                # ✅ WORKAROUND SOLO per "energia_totale_globale_day"
-                if val is not None and ts and desc.key == "energia_totale_globale_day":
-                    sample_local_date = datetime.fromtimestamp(
-                        ts / 1000, tz=dt_util.DEFAULT_TIME_ZONE
-                    ).date()
-                    today_local_date = dt_util.now().date()
-                
-                    # Se il campione non è di oggi, forza 0 finché non arriva il nuovo giorno
-                    if sample_local_date != today_local_date:
-                        val = 0.0
-
-                setattr(self, desc.key, val)
-                self.energy_timestamp[desc.key] = ts
-
-                _LOGGER.debug("⚡ %s = %s kWh", desc.metric_name, val)
-
+                if sample is None:
+                    sample = self._last_value_single(desc.metric_name)
+                self._apply_energy_sample(desc, sample)
             except (KeyError, IndexError, TypeError) as e:
                 setattr(self, desc.key, None)
                 self.energy_timestamp[desc.key] = None
                 _LOGGER.warning(
-                    "⚠️ Parsing fallito (energia: %s): %s — response 📦: %s",
-                    desc.metric_name, e, json.dumps(data)[:300] if 'data' in locals() and data else "None"
+                    "⚠️ Parsing fallito (energia: %s): %s — campione 📦: %s",
+                    desc.metric_name, e, str(sample)[:300],
                 )
 
+        # La richiesta multipla fallisce mentre quelle singole riescono: dopo
+        # alcuni cicli di fila l'endpoint è considerato non disponibile per
+        # questo impianto (fino al riavvio), per non pagare una richiesta in più.
+        if bulk is None and self._last_values_enabled and self._requests_ok > ok_before:
+            self._last_values_failures += 1
+            if self._last_values_failures >= self.LAST_VALUES_MAX_FAILURES:
+                self._last_values_enabled = False
+                _LOGGER.info(
+                    "ℹ️ lastValues non disponibile per questo impianto: uso le letture singole"
+                )
 
     def fetch_sanitary_scheduler(self):
         data = self._make_request(self._metric_url("Schedulatore - Sanitario"))

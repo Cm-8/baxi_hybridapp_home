@@ -27,19 +27,46 @@ def api():
     return client
 
 
+class FakeCloud(dict):
+    """Risposte di /data/values per metricName, più la lettura multipla /data/lastValues.
+
+    - cloud[metricName] = values_response(...): risposta di /data/values; una
+      metrica senza risposta restituisce None (= richiesta fallita).
+    - cloud.last_values: None = /data/lastValues fallisce (default, come prima
+      della lettura multipla); un dict {metricName: (value, ts)} = metriche
+      presenti nella risposta multipla.
+    - cloud.calls: elenco delle richieste fatte, come ("values", nome) o
+      ("lastValues", [nomi]).
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.last_values = None
+        self.calls = []
+
+    def get_json(self, url):
+        parsed = urlparse(url)
+        names = parse_qs(parsed.query).get("metricName", [])
+        if parsed.path.endswith("/data/lastValues"):
+            self.calls.append(("lastValues", names))
+            if self.last_values is None:
+                return None
+            return {"data": [
+                {"metric": n, "ts": self.last_values[n][1], "value": self.last_values[n][0]}
+                for n in names if n in self.last_values
+            ]}
+        name = names[0] if names else None
+        self.calls.append(("values", name))
+        return self.get(name)
+
+
 @pytest.fixture
 def cloud(api, monkeypatch):
-    """Sostituisce lo strato HTTP con risposte preparate, indicizzate per metricName.
+    """Sostituisce lo strato HTTP con un cloud simulato (vedi FakeCloud).
 
-    Una metrica senza risposta impostata restituisce None: lo stesso esito di
-    una richiesta fallita (rete, timeout, errore server). Viene sostituito
-    _http_get_json e non _make_request, così il conteggio degli esiti resta vero.
+    Viene sostituito _http_get_json e non _make_request, così il conteggio
+    degli esiti delle richieste resta vero.
     """
-    responses = {}
-
-    def fake_http_get_json(url):
-        name = parse_qs(urlparse(url).query).get("metricName", [None])[0]
-        return responses.get(name)
-
-    monkeypatch.setattr(api, "_http_get_json", fake_http_get_json)
-    return responses
+    fake = FakeCloud()
+    monkeypatch.setattr(api, "_http_get_json", fake.get_json)
+    return fake
