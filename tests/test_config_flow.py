@@ -5,14 +5,16 @@ il gestore delle config entry (FakeConfigEntries) e il client del cloud.
 """
 
 import asyncio
+from datetime import timedelta
 from types import SimpleNamespace
 
 import pytest
 from homeassistant.data_entry_flow import AbortFlow, FlowResultType
 
-from custom_components.baxi_hybridapp_home import config_flow
+from custom_components.baxi_hybridapp_home import _async_options_updated, config_flow
 from custom_components.baxi_hybridapp_home.api import BaxiAuthError, BaxiConnectionError
 from custom_components.baxi_hybridapp_home.const import DOMAIN
+from custom_components.baxi_hybridapp_home.coordinator import polling_interval
 
 USER = {"username": "User@Example.com ", "password": "secret"}
 
@@ -77,10 +79,11 @@ def fake_api(monkeypatch):
     return FakeApi
 
 
-def existing_entry():
+def existing_entry(options=None):
     return SimpleNamespace(
         entry_id="entry-1", unique_id="user@example.com", title="Baxi HybridApp Home",
         data={"username": "user@example.com", "password": "old"}, source="user",
+        options=options or {},
     )
 
 
@@ -185,3 +188,68 @@ def test_reconfigure_wrong_password_keeps_entry(fake_api):
                  .async_step_reconfigure({"username": "user@example.com", "password": "bad"}))
     assert result["errors"] == {"base": "invalid_auth"}
     assert entry.data["password"] == "old"
+
+
+# --- Opzioni (pulsante Configura) ---------------------------------------------------
+
+
+def options_flow(entry):
+    handler = config_flow.BaxiHybridAppHomeFlowHandler.async_get_options_flow(entry)
+    handler.hass, handler.handler, handler.flow_id = FakeHass([entry]), entry.entry_id, "flow-2"
+    handler.context = {}
+    return handler
+
+
+def interval_field(result):
+    return next(k for k in result["data_schema"].schema if str(k) == "polling_interval")
+
+
+def test_options_form_defaults_to_five_minutes():
+    result = run(options_flow(existing_entry()).async_step_init())
+    assert result["type"] is FlowResultType.FORM and result["step_id"] == "init"
+    field = interval_field(result)
+    assert field.default() == "5"
+    assert result["data_schema"].schema[field].config["options"] == ["2", "5", "10"]
+
+
+def test_options_form_shows_current_interval():
+    result = run(options_flow(existing_entry({"polling_interval": 2})).async_step_init())
+    assert interval_field(result).default() == "2"
+
+
+def test_options_store_minutes_as_number():
+    result = run(options_flow(existing_entry()).async_step_init({"polling_interval": "10"}))
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"] == {"polling_interval": 10}
+
+
+def test_polling_interval_from_options():
+    assert polling_interval(existing_entry()) == timedelta(minutes=5)
+    assert polling_interval(existing_entry({"polling_interval": 10})) == timedelta(minutes=10)
+
+
+def entry_with_coordinator(options, current_minutes):
+    refreshes = []
+
+    async def refresh():
+        refreshes.append(True)
+
+    coordinator = SimpleNamespace(update_interval=timedelta(minutes=current_minutes),
+                                  async_request_refresh=refresh)
+    entry = existing_entry(options)
+    entry.runtime_data = SimpleNamespace(coordinator=coordinator)
+    return entry, coordinator, refreshes
+
+
+def test_new_interval_applied_right_away():
+    entry, coordinator, refreshes = entry_with_coordinator({"polling_interval": 2}, 5)
+    run(_async_options_updated(None, entry))
+    assert coordinator.update_interval == timedelta(minutes=2)
+    assert refreshes == [True]  # il ciclo immediato riprogramma il timer
+
+
+def test_entry_update_without_new_interval_changes_nothing():
+    # Es. ri-autenticazione: la entry cambia ma l'intervallo no.
+    entry, coordinator, refreshes = entry_with_coordinator({}, 5)
+    run(_async_options_updated(None, entry))
+    assert coordinator.update_interval == timedelta(minutes=5) and not refreshes

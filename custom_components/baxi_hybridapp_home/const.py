@@ -11,15 +11,19 @@ custom_components/baxi_hybridapp_home/const.py
 
 import json
 from pathlib import Path
-from datetime import timedelta
 
 # Versione letta direttamente da manifest.json — rimane automaticamente
 # in sync senza dover duplicare il numero in due posti.
 _manifest = json.loads((Path(__file__).parent / "manifest.json").read_text(encoding="utf-8"))
 INTEGRATION_VERSION: str = _manifest.get("version", "?")
 
-# Intervallo di polling del coordinator (modificare qui per tutti i cicli).
-POLLING_INTERVAL: timedelta = timedelta(minutes=10)
+# Intervallo di polling del coordinator, in minuti: si sceglie con il
+# pulsante Configura (opzione CONF_POLLING_INTERVAL della config entry),
+# altrimenti vale il predefinito. Con la lettura multipla un ciclo costa
+# circa 3 richieste al cloud.
+CONF_POLLING_INTERVAL = "polling_interval"
+POLLING_INTERVAL_OPTIONS = (2, 5, 10)
+DEFAULT_POLLING_INTERVAL = 5
 
 # Grazia dopo una scrittura (PUT parametro/comando) prima del refresh dal
 # cloud: il device deve applicare e ri-pubblicare la metrica (read-back).

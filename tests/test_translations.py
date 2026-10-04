@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from custom_components.baxi_hybridapp_home import _SANITARY_SERVICES
+from custom_components.baxi_hybridapp_home.const import CONF_POLLING_INTERVAL, POLLING_INTERVAL_OPTIONS
 from custom_components.baxi_hybridapp_home.metrics import ENERGY_SENSOR_TYPES
 
 PKG = Path(__file__).resolve().parents[1] / "custom_components" / "baxi_hybridapp_home"
@@ -64,6 +65,15 @@ def test_keys_follow_hassfest_rules():
             assert RE_TRANSLATION_KEY.match(key), f"entity.{platform}.{key}"
     for key in EN["exceptions"]:
         assert RE_TRANSLATION_KEY.match(key), f"exceptions.{key}"
+    for selector, spec in EN["selector"].items():
+        for key in spec["options"]:
+            assert RE_TRANSLATION_KEY.match(key), f"selector.{selector}.options.{key}"
+
+
+def test_polling_interval_choices_are_translated():
+    options = EN["selector"][CONF_POLLING_INTERVAL]["options"]
+    assert set(options) == {str(m) for m in POLLING_INTERVAL_OPTIONS}
+    assert CONF_POLLING_INTERVAL in EN["options"]["step"]["init"]["data"]
 
 
 @pytest.mark.parametrize("translations", [IT, EN], ids=["it", "en"])

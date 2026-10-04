@@ -47,4 +47,4 @@ Custom integration for [Home Assistant](https://home-assistant.io) to monitor an
 🩺 **Diagnostics**
 - Downloadable JSON report with current values and the full device capability catalog (commands, parameters, metrics)
 
-Data is fetched from the Baxi cloud every **10 minutes** via polling.
+Data is fetched from the Baxi cloud every **5 minutes** via polling (2, 5 or 10 minutes from the integration's **Configure** button).

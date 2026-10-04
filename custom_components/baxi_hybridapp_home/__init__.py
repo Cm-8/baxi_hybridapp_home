@@ -23,7 +23,7 @@ from .const import (
     SANITARY_MIN_TEMP, SANITARY_MAX_TEMP,
     WRITE_GRACE_SECONDS,
 )
-from .coordinator import BaxiConfigEntry, BaxiDataUpdateCoordinator, BaxiRuntimeData
+from .coordinator import BaxiConfigEntry, BaxiDataUpdateCoordinator, BaxiRuntimeData, polling_interval
 
 _LOGGER = logging.getLogger(__name__)
 PLATFORMS = ["sensor", "water_heater", "button", "binary_sensor", "select", "number", "datetime", "switch"]
@@ -111,9 +111,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: BaxiConfigEntry) -> bool
     await coordinator.async_config_entry_first_refresh()
 
     entry.runtime_data = BaxiRuntimeData(api=api, coordinator=coordinator)
+    entry.async_on_unload(entry.add_update_listener(_async_options_updated))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
+
+
+async def _async_options_updated(hass: HomeAssistant, entry: BaxiConfigEntry) -> None:
+    """Nuovo intervallo dal pulsante Configura: applicato subito, senza ricaricare."""
+    coordinator = entry.runtime_data.coordinator
+    interval = polling_interval(entry)
+    if coordinator.update_interval == interval:
+        return  # aggiornamento della entry che non tocca le opzioni (es. ri-autenticazione)
+    coordinator.update_interval = interval
+    _LOGGER.info("⏱️ Intervallo di aggiornamento impostato a %s", interval)
+    # Il timer in corso usa ancora il vecchio intervallo: un ciclo subito lo riprogramma.
+    await coordinator.async_request_refresh()
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: BaxiConfigEntry) -> bool:

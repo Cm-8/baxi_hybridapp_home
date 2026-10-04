@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import __version__ as ha_version
@@ -18,10 +18,15 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import BaxiAuthError, BaxiConnectionError, BaxiHybridAppAPI
-from .const import DOMAIN, INTEGRATION_VERSION, POLLING_INTERVAL
+from .const import CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL, DOMAIN, INTEGRATION_VERSION
 from .metrics import ENERGY_SENSOR_TYPES, SIMPLE_METRICS
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def polling_interval(entry: ConfigEntry) -> timedelta:
+    """Intervallo scelto con il pulsante Configura, altrimenti quello predefinito."""
+    return timedelta(minutes=int(entry.options.get(CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL)))
 
 
 class BaxiDataUpdateCoordinator(DataUpdateCoordinator):
@@ -36,7 +41,7 @@ class BaxiDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER,
             config_entry=entry,
             name="baxi_hybridapp_home",
-            update_interval=POLLING_INTERVAL,
+            update_interval=polling_interval(entry),
         )
 
     def _log_fetch_info(self) -> None:
@@ -45,7 +50,7 @@ class BaxiDataUpdateCoordinator(DataUpdateCoordinator):
             "🔄 Ciclo fetch — HA: %s | Integrazione: %s | Polling: %s | Modello: %s (%s)",
             ha_version,
             INTEGRATION_VERSION,
-            POLLING_INTERVAL,
+            self.update_interval,
             self.api.thingModel or "?",
             self.api.thingDefinitionName or "?",
         )

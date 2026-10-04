@@ -100,6 +100,7 @@ async def async_get_config_entry_diagnostics(
 
     return {
         "entry": async_redact_data(dict(entry.data), TO_REDACT),
+        "options": dict(entry.options),
         "versions": {
             "home_assistant": ha_version,
             "integration": INTEGRATION_VERSION,

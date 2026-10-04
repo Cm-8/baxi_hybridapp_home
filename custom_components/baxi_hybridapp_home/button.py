@@ -49,8 +49,8 @@ class BaxiTestFailureButton(ButtonEntity):
     binary_sensor. NON contatta la cloud Baxi. Utile per testare automazioni
     legate a baxi_hybridapp_alert e per verificare le icone/stato in dashboard.
 
-    Gli alert simulati sopravvivono fino al prossimo polling reale (~10 min)
-    o finché non vengono sovrascritti.
+    Gli alert simulati sopravvivono fino al prossimo polling reale (5 min di
+    default, vedi pulsante Configura) o finché non vengono sovrascritti.
     """
 
     _attr_has_entity_name = True

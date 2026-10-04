@@ -48,6 +48,29 @@
       "wrong_account": "L'email appartiene a un altro account. Per un impianto diverso aggiungi una nuova integrazione."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opzioni Baxi HybridApp",
+        "description": "Ogni quanto Home Assistant legge i dati dal cloud Baxi.",
+        "data": {
+          "polling_interval": "Intervallo di aggiornamento"
+        },
+        "data_description": {
+          "polling_interval": "Intervalli più brevi significano più richieste al cloud Baxi. Per orari personalizzati usa un'automazione con l'azione homeassistant.update_entity su una sola entità dell'integrazione: si aggiornano anche tutte le altre."
+        }
+      }
+    }
+  },
+  "selector": {
+    "polling_interval": {
+      "options": {
+        "2": "2 minuti",
+        "5": "5 minuti (consigliato)",
+        "10": "10 minuti"
+      }
+    }
+  },
   "entity": {
     "binary_sensor": {
       "failure_alert": { "name": "Failure" },

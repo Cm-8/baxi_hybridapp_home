@@ -7,10 +7,12 @@ custom_components/baxi_hybridapp_home/config_flow.py
 import logging
 
 from homeassistant import config_entries
+from homeassistant.core import callback
+from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig, SelectSelectorMode
 import voluptuous as vol
 
 from .api import BaxiAuthError, BaxiConnectionError, BaxiHybridAppAPI
-from .const import DOMAIN
+from .const import CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL, DOMAIN, POLLING_INTERVAL_OPTIONS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,6 +31,12 @@ class BaxiHybridAppHomeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Gestione del flusso di configurazione per Baxi HybridApp Home."""
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry):
+        """Pulsante Configura dell'integrazione."""
+        return BaxiOptionsFlow()
 
     async def _async_validate_login(self, username: str, password: str) -> dict[str, str]:
         """Prova il login sul cloud (test-before-configure): errori per il form, {} se riesce.
@@ -120,4 +128,34 @@ class BaxiHybridAppHomeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 CONFIG_SCHEMA, {"username": entry.data["username"]}
             ),
             errors=errors,
+        )
+
+
+class BaxiOptionsFlow(config_entries.OptionsFlow):
+    """Intervallo di aggiornamento dei dati dal cloud (menu a tendina, in minuti).
+
+    Il nuovo valore viene applicato dal listener in __init__.py, senza ricaricare
+    l'integrazione né chiedere di nuovo la password.
+    """
+
+    async def async_step_init(self, user_input=None):
+        if user_input is not None:
+            return self.async_create_entry(
+                data={CONF_POLLING_INTERVAL: int(user_input[CONF_POLLING_INTERVAL])}
+            )
+
+        current = self.config_entry.options.get(CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL)
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema({
+                # Il selettore lavora con stringhe; le etichette ("5 minuti
+                # (consigliato)") stanno in selector.polling_interval delle traduzioni.
+                vol.Required(CONF_POLLING_INTERVAL, default=str(current)): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[str(m) for m in POLLING_INTERVAL_OPTIONS],
+                        mode=SelectSelectorMode.DROPDOWN,
+                        translation_key=CONF_POLLING_INTERVAL,
+                    )
+                ),
+            }),
         )

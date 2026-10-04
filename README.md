@@ -154,6 +154,25 @@ To update the credentials yourself at any time, open the integration and select 
 
 Entity names and messages follow the Home Assistant language (Italian or English) and are shown with the device name in front, as usual in Home Assistant (for example *Baxi HybridApp Home Temp. Esterna*).
 
+### Update interval
+
+Data is read from the Baxi cloud every **5 minutes**. To change it, open the integration and select **Configure**: you can choose 2, 5 (recommended) or 10 minutes. The new interval applies right away, without restarting and without entering the password again. Shorter intervals mean more requests to the Baxi cloud.
+
+For a custom schedule (for example every 2 minutes only during the day), use an automation with the `homeassistant.update_entity` action. **Updating a single entity of the integration updates all the others too**, so one entity is enough. Example every 2 minutes (replace the `entity_id` with the real one of your *External Temperature* sensor, from **Settings** > **Devices & Services** > **Entities**):
+
+```yaml
+- alias: "Baxi: aggiornamento ogni 2 minuti"
+  triggers:
+    - trigger: time_pattern
+      minutes: "/2"
+  actions:
+    - action: homeassistant.update_entity
+      target:
+        entity_id: sensor.baxi_temperatura_esterna
+```
+
+Use an entity that is enabled (not, for example, an energy sensor disabled by default). Updates closer than 10 seconds are merged into one. If you want only the automation to decide when to update, disable the automatic updates in the integration's **⋮** > **System options**.
+
 ---
 
 ## Service actions
@@ -218,7 +237,7 @@ Then create an automation from the blueprint, select your mobile notify service 
 ## Limitations
 
 - This is a cloud polling integration and requires an internet connection.
-- Data is refreshed every 10 minutes.
+- Data is refreshed every 5 minutes by default (2, 5 or 10 minutes from **Configure**, see [Update interval](#update-interval)).
 - Currently, only one Baxi system is supported per configuration entry.
 
 ---
