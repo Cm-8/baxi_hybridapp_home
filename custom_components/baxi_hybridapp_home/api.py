@@ -21,6 +21,16 @@ from .metrics import SIMPLE_METRICS, SimpleMetricSpec, ENERGY_SENSOR_TYPES
 
 _LOGGER = logging.getLogger(__name__)
 
+# metricName dello scheduler sanitario (parsing proprio, fuori dalle tabelle di metrics.py).
+SANITARY_SCHEDULER_METRIC = "Schedulatore - Sanitario"
+# Tutte le metriche lette a ogni ciclo: semplici, scheduler sanitario, energia
+# (34 nomi, sotto il limite di 50 di /data/lastValues).
+WIRED_METRIC_NAMES: tuple[str, ...] = tuple(dict.fromkeys(
+    [spec.metric_name for spec in SIMPLE_METRICS]
+    + [SANITARY_SCHEDULER_METRIC]
+    + [desc.metric_name for desc in ENERGY_SENSOR_TYPES]
+))
+
 
 def _request_label(url: str) -> str:
     """Nome breve di una richiesta per i log: il metricName, se presente."""
@@ -150,9 +160,10 @@ class BaxiHybridAppAPI:
         self.new_alerts_pending: list[dict] = []
         # Esiti delle richieste di lettura del ciclo corrente (vedi _make_request).
         self.reset_request_stats()
-        # Lettura multipla dei sensori energia (vedi fetch_energy_metrics).
+        # Lettura multipla di tutte le metriche (vedi fetch_all_metrics).
         self._last_values_enabled = True
         self._last_values_failures = 0
+        self._bulk_samples: dict[str, dict] | None = None
 
     def login(self):
         """Esegue il login e solleva eccezioni tipizzate.
@@ -528,22 +539,54 @@ class BaxiHybridAppAPI:
     _NO_DATA_SENTINELS = frozenset({"---", ""})
 
     # ---------------- Dispatcher metriche semplici ----------------
+    def _bulk_sample(self, metric_name: str) -> dict | None:
+        """Campione della lettura multipla del ciclo corrente, se presente (vedi fetch_all_metrics)."""
+        return (self._bulk_samples or {}).get(metric_name)
+
+    def _apply_simple_sample(self, spec: SimpleMetricSpec, raw, timestamp, context: str) -> None:
+        """Applica il valore grezzo di una metrica semplice: stesse regole per lettura multipla e singola.
+
+          - value in _NO_DATA_SENTINELS → attributo None, log debug
+          - parsing fallito             → attributo None, log warning + estratto della risposta
+        """
+        # Metrica esposta ma senza misura corrente (sentinella).
+        if isinstance(raw, str) and raw.strip() in self._NO_DATA_SENTINELS:
+            setattr(self, spec.attr, None)
+            setattr(self, f"{spec.attr}_timestamp", None)
+            _LOGGER.debug(
+                "ℹ️ %s = '%s' (sentinella no-data, ignorata)",
+                spec.metric_name, raw,
+            )
+            return
+        try:
+            value = spec.parser(raw)
+        except (KeyError, IndexError, ValueError, TypeError) as e:
+            setattr(self, spec.attr, None)
+            setattr(self, f"{spec.attr}_timestamp", None)
+            _LOGGER.warning(
+                "⚠️ Parsing fallito (%s): %s — response: %s",
+                spec.metric_name, e, context[:300],
+            )
+            return
+        setattr(self, spec.attr, value)
+        setattr(self, f"{spec.attr}_timestamp", timestamp)
+        _LOGGER.debug("%s %s = %s", spec.log_emoji, spec.metric_name, value)
+
     def _fetch_one(self, spec: SimpleMetricSpec) -> None:
         """
-        Legge una singola metrica e memorizza valore + timestamp.
+        Legge una singola metrica con /data/values e memorizza valore + timestamp.
 
         Casi gestiti (issue #6 — Baxi solo elettrica / metriche non applicabili
         al device):
+          - richiesta fallita            → valore precedente conservato
           - data["data"] == []          → attributo None, log debug (NON è errore)
-          - value in _NO_DATA_SENTINELS → attributo None, log debug
-          - parsing fail 'vero'         → attributo None, log warning + estratto JSON
-        In tutti i casi l'attributo viene azzerato: l'entità HA risulta unavailable.
+          - sentinella / parsing         → vedi _apply_simple_sample
         """
         data = self._make_request(self._metric_url(spec.metric_name))
         if not data:
             return
 
-        # Caso 1: la metrica non è esposta dal device → "data" è un array vuoto.
+        # La metrica non è esposta dal device → "data" è un array vuoto.
         items = data.get("data") or []
         if not items:
             setattr(self, spec.attr, None)
@@ -557,33 +600,32 @@ class BaxiHybridAppAPI:
         try:
             item = items[0]
             raw = item["values"][0]["value"]
-
-            # Caso 2: metrica esposta ma senza misura corrente (sentinella).
-            if isinstance(raw, str) and raw.strip() in self._NO_DATA_SENTINELS:
-                setattr(self, spec.attr, None)
-                setattr(self, f"{spec.attr}_timestamp", None)
-                _LOGGER.debug(
-                    "ℹ️ %s = '%s' (sentinella no-data, ignorata)",
-                    spec.metric_name, raw,
-                )
-                return
-
-            value = spec.parser(raw)
-            setattr(self, spec.attr, value)
-            setattr(self, f"{spec.attr}_timestamp", item["timestamp"])
-            _LOGGER.debug("%s %s = %s", spec.log_emoji, spec.metric_name, value)
-        except (KeyError, IndexError, ValueError, TypeError) as e:
+            timestamp = item["timestamp"]
+        except (KeyError, IndexError, TypeError) as e:
             setattr(self, spec.attr, None)
             setattr(self, f"{spec.attr}_timestamp", None)
             _LOGGER.warning(
                 "⚠️ Parsing fallito (%s): %s — response: %s",
                 spec.metric_name, e, json.dumps(data)[:300],
             )
+            return
+        self._apply_simple_sample(spec, raw, timestamp, json.dumps(data))
 
     def fetch_simple_metrics(self) -> None:
-        """Legge in sequenza tutte le metriche definite in SIMPLE_METRICS."""
+        """Applica tutte le metriche definite in SIMPLE_METRICS.
+
+        Usa i campioni della lettura multipla del ciclo (fetch_all_metrics); le
+        metriche assenti, o tutte se la lettura multipla non c'è, sono lette
+        singolarmente come prima.
+        """
         for spec in SIMPLE_METRICS:
-            self._fetch_one(spec)
+            sample = self._bulk_sample(spec.metric_name)
+            if sample is None:
+                self._fetch_one(spec)
+            else:
+                self._apply_simple_sample(
+                    spec, sample["value"], sample["timestamp"], json.dumps(sample, default=str),
+                )
         # "Data/Ora fine modo vacanza" è calcolata dal cloud: a vacanza spenta
         # non arriva vuota ma con l'ora del suo ultimo ricalcolo (circa ogni 2
         # ore). È una data di fine valida solo a vacanza attiva.
@@ -618,10 +660,13 @@ class BaxiHybridAppAPI:
                 return None
             for item in data.get("data") or []:
                 if isinstance(item, dict) and item.get("metric") in chunk:
-                    samples[item["metric"]] = {
-                        "value": item.get("value"),
-                        "timestamp": item.get("ts", item.get("timestamp")),
-                    }
+                    ts = item.get("ts", item.get("timestamp"))
+                    if isinstance(ts, str):
+                        try:
+                            ts = int(float(ts))
+                        except ValueError:
+                            ts = None
+                    samples[item["metric"]] = {"value": item.get("value"), "timestamp": ts}
         return samples
 
     def _last_value_single(self, metric_name: str) -> dict | None:
@@ -646,11 +691,6 @@ class BaxiHybridAppAPI:
 
         raw_val = sample["value"]
         ts = sample["timestamp"]
-        if isinstance(ts, str):
-            try:
-                ts = int(float(ts))
-            except ValueError:
-                ts = None
 
         # prova a convertire in float (Servitly spesso manda stringhe)
         try:
@@ -678,27 +718,12 @@ class BaxiHybridAppAPI:
         Legge tutte le metriche energia definite in ENERGY_SENSOR_TYPES.
         Salva i valori su self.<key> e (opzionale) i timestamp su self.energy_timestamp[key].
 
-        Una sola richiesta GET /data/lastValues per tutte le metriche, invece di
-        una per metrica. Le metriche assenti dalla risposta (o tutte, se la
-        richiesta multipla non riesce) vengono lette singolarmente come prima:
-        il risultato è lo stesso delle letture singole.
+        Usa i campioni della lettura multipla del ciclo (fetch_all_metrics); le
+        metriche assenti, o tutte se la lettura multipla non c'è, sono lette
+        singolarmente come prima.
         """
-        names = [desc.metric_name for desc in ENERGY_SENSOR_TYPES]
-        bulk = self._fetch_last_values(names) if self._last_values_enabled else None
-        if bulk is not None:
-            self._last_values_failures = 0
-            missing = [n for n in names if n not in bulk]
-            if missing:
-                _LOGGER.debug(
-                    "⚡ Metriche energia assenti da lastValues, lette singolarmente: %s",
-                    ", ".join(missing),
-                )
-        elif self._last_values_enabled:
-            _LOGGER.debug("⚡ lastValues non riuscita: letture singole per l'energia")
-
-        ok_before = self._requests_ok
         for desc in ENERGY_SENSOR_TYPES:
-            sample = (bulk or {}).get(desc.metric_name)
+            sample = self._bulk_sample(desc.metric_name)
             try:
                 if sample is None:
                     sample = self._last_value_single(desc.metric_name)
@@ -711,10 +736,43 @@ class BaxiHybridAppAPI:
                     desc.metric_name, e, str(sample)[:300],
                 )
 
-        # La richiesta multipla fallisce mentre quelle singole riescono: dopo
+    def fetch_all_metrics(self) -> None:
+        """Legge tutte le metriche del ciclo con una richiesta GET /data/lastValues.
+
+        Una sola richiesta per WIRED_METRIC_NAMES, poi metriche semplici,
+        scheduler sanitario ed energia applicano quei campioni. Le metriche
+        assenti dalla risposta, o tutte se la richiesta multipla non riesce,
+        sono lette singolarmente con /data/values come prima: il risultato è lo
+        stesso. Dopo LAST_VALUES_MAX_FAILURES fallimenti di fila mentre le
+        letture singole riescono, la lettura multipla viene disattivata fino al
+        riavvio.
+        """
+        bulk_tried = self._last_values_enabled
+        self._bulk_samples = self._fetch_last_values(WIRED_METRIC_NAMES) if bulk_tried else None
+        bulk_failed = bulk_tried and self._bulk_samples is None
+        if self._bulk_samples is not None:
+            self._last_values_failures = 0
+            missing = [n for n in WIRED_METRIC_NAMES if n not in self._bulk_samples]
+            if missing:
+                _LOGGER.debug(
+                    "📥 Metriche assenti da lastValues, lette singolarmente: %s",
+                    ", ".join(missing),
+                )
+        elif bulk_tried:
+            _LOGGER.debug("📥 lastValues non riuscita: letture singole")
+
+        ok_before = self._requests_ok
+        try:
+            self.fetch_simple_metrics()
+            self.fetch_sanitary_scheduler()
+            self.fetch_energy_metrics()
+        finally:
+            self._bulk_samples = None
+
+        # La lettura multipla fallisce mentre quelle singole riescono: dopo
         # alcuni cicli di fila l'endpoint è considerato non disponibile per
         # questo impianto (fino al riavvio), per non pagare una richiesta in più.
-        if bulk is None and self._last_values_enabled and self._requests_ok > ok_before:
+        if bulk_failed and self._requests_ok > ok_before:
             self._last_values_failures += 1
             if self._last_values_failures >= self.LAST_VALUES_MAX_FAILURES:
                 self._last_values_enabled = False
@@ -723,24 +781,31 @@ class BaxiHybridAppAPI:
                 )
 
     def fetch_sanitary_scheduler(self):
-        data = self._make_request(self._metric_url("Schedulatore - Sanitario"))
-        if not data:
-            self.sanitary_scheduler_status = "error"
-            return
+        """Programma del sanitario: campione della lettura multipla del ciclo o lettura singola."""
+        sample = self._bulk_sample(SANITARY_SCHEDULER_METRIC)
+        data = None
         try:
-            item = data["data"][0]
-            raw_str = item["values"][0]["value"]  # è una stringa JSON
+            if sample is None:
+                data = self._make_request(self._metric_url(SANITARY_SCHEDULER_METRIC))
+                if not data:
+                    self.sanitary_scheduler_status = "error"
+                    return
+                raw_str = data["data"][0]["values"][0]["value"]  # è una stringa JSON
+            else:
+                raw_str = sample["value"]
             self.sanitary_scheduler_raw = raw_str
             self._compute_sanitary_schedule_state(raw_str)
             self.sanitary_scheduler_status = "ok"
             _LOGGER.debug("📅 Schedulatore Sanitario: %s", self.sanitary_scheduler_raw)
-        except (KeyError, IndexError, ValueError, TypeError) as e:
-            # Azzera il campo, warning + debug 'data'
+        except (KeyError, IndexError, ValueError, TypeError, AttributeError) as e:
+            # Azzera il campo, warning + debug della risposta. AttributeError:
+            # JSON valido ma non un oggetto (i dispatcher non devono sollevare).
             self.sanitary_scheduler_raw = None
             self.sanitary_scheduler_status = "error"
-            _LOGGER.warning("⚠️ Parsing fallito (Schedulatore sanitario): %s — response 📦: %s", e, json.dumps(data)[:300])
-            _LOGGER.debug("📦 Contenuto data (Schedulatore sanitario): %s", data)
-    
+            response = json.dumps(data if data is not None else sample, default=str)
+            _LOGGER.warning("⚠️ Parsing fallito (Schedulatore sanitario): %s — response 📦: %s", e, response[:300])
+            _LOGGER.debug("📦 Contenuto (Schedulatore sanitario): %s", response)
+
     def _compute_sanitary_schedule_state(self, raw_str, now_dt: datetime | None = None):
         """
         Converte lo scheduler in segmenti giornalieri e calcola:

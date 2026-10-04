@@ -98,13 +98,11 @@ class BaxiDataUpdateCoordinator(DataUpdateCoordinator):
         await self._async_log_capabilities_once()
         # Conteggio esiti delle richieste di lettura di questo ciclo.
         self.api.reset_request_stats()
-        # Metriche "semplici" (un valore per metric_name): tutte in un unico
-        # dispatcher tabellare, vedi SIMPLE_METRICS in metrics.py.
-        await self.hass.async_add_executor_job(self.api.fetch_simple_metrics)
-        # Scheduler sanitario (parsing JSON con logica derivata custom)
-        await self.hass.async_add_executor_job(self.api.fetch_sanitary_scheduler)
-        # Sensori energia (tabellari via ENERGY_SENSOR_TYPES in metrics.py)
-        await self.hass.async_add_executor_job(self.api.fetch_energy_metrics)
+        # Tutte le metriche (semplici di SIMPLE_METRICS, scheduler sanitario,
+        # energia di ENERGY_SENSOR_TYPES) con una sola richiesta
+        # /data/lastValues; letture singole solo per le metriche assenti.
+        # Tutto nell'executor (lo scheduler usa ZoneInfo, che legge file).
+        await self.hass.async_add_executor_job(self.api.fetch_all_metrics)
         # Historical alerts (FAILURE/WARNING): popola active/last/conteggi
         # sull'istanza API e accoda i nuovi alert in api.new_alerts_pending.
         await self.hass.async_add_executor_job(self.api.fetch_historical_alerts)
