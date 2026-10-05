@@ -101,6 +101,9 @@ _Response:_
 ### GET `/inventory/thingDefinitions/{{thingDefinitionId}}/metrics`
 <sup>This endpoint is used to get the list of available metrics.</sup>
 
+> [!NOTE]
+> The list belongs to the device model (thingDefinition), not to the single system. The integration reads it once at startup: metrics that are not in the list are never requested, and their entities are not created.
+
 Response:
 ```json
 [
@@ -163,7 +166,7 @@ Response:
 <sup> Ref: https://learn.servitly.com/apidocs/get-thing-metrics-last-value </sup>
 
 > [!NOTE]
-> Unlike `/data/values`, `metricName` can be repeated (up to 50 times) to get the last value of several metrics in one request. The integration reads all its metrics (34) with one request per polling cycle; metrics missing from the response, or all of them if the request fails, are read one by one with `/data/values`.
+> Unlike `/data/values`, `metricName` can be repeated (up to 50 times) to get the last value of several metrics in one request. The integration reads all its metrics (46, minus those the model does not have) with one request per polling cycle; metrics missing from the response, or all of them if the request fails, are read one by one with `/data/values`.
 
 Response (one item per metric, labelled by name):
 ```json

@@ -3,18 +3,21 @@ Button platform for Baxi Hybrid App custom integration.
 
 """
 
+import asyncio
+
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
-from .const import DOMAIN
-from .device import build_device_info
+from .const import COMMAND_ID_BOOST_SANITARIO, DOMAIN, WRITE_GRACE_SECONDS
+from .device import async_add_provided_entities, build_device_info
 import logging
 
 _LOGGER = logging.getLogger(__name__)
 
-# Le pressioni non scrivono sul device (refresh / evento di test).
-PARALLEL_UPDATES = 0
+# Il boost sanitario invia un comando al device: una pressione alla volta.
+PARALLEL_UPDATES = 1
 
 UPDATE_DATA_DESCRIPTION = ButtonEntityDescription(
     key="update_data",
@@ -42,6 +45,48 @@ class BaxiUpdateButton(ButtonEntity):
     @property
     def device_info(self):
         return build_device_info(self._api)
+
+class BaxiBoostButton(ButtonEntity):
+    """Avvia il boost sanitario (comando "Boost sanitario").
+
+    Lo stato si legge dal sensore "Stato boost sanitario", la durata massima
+    dal number "Durata boost sanitario". Esiste solo se il modello ha la
+    metrica di stato del boost.
+    """
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "boost"
+    _attr_unique_id = "baxi_boost_button"
+    _source_attr = "boost_status"
+
+    def __init__(self, coordinator, api):
+        self._coordinator = coordinator
+        self._api = api
+
+    async def async_press(self):
+        _LOGGER.info("🚀 Avvio boost sanitario")
+        ok = await self.hass.async_add_executor_job(
+            self._api.send_command, COMMAND_ID_BOOST_SANITARIO,
+        )
+        if not ok:
+            raise HomeAssistantError(translation_domain=DOMAIN, translation_key="boost_failed")
+        await self.hass.services.async_call(
+            "logbook", "log",
+            {"name": "Boost sanitario", "message": "avviato", "entity_id": self.entity_id},
+            blocking=False,
+        )
+        # Lo stato del boost arriva dal cloud con ritardo: refresh differito.
+        self.hass.async_create_task(self._grace_refresh())
+
+    async def _grace_refresh(self) -> None:
+        """Attende il read-back del device e riallinea dal cloud."""
+        await asyncio.sleep(WRITE_GRACE_SECONDS)
+        await self._coordinator.async_request_refresh()
+
+    @property
+    def device_info(self):
+        return build_device_info(self._api)
+
 
 class BaxiTestFailureButton(ButtonEntity):
     """
@@ -149,9 +194,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
     api = entry.runtime_data.api
     coordinator = entry.runtime_data.coordinator
 
-    buttons = [BaxiUpdateButton(coordinator, api)]
+    buttons = [BaxiUpdateButton(coordinator, api), BaxiBoostButton(coordinator, api)]
     if _LOGGER.isEnabledFor(logging.DEBUG):
         buttons.append(BaxiTestFailureButton(coordinator, api))
         _LOGGER.debug("🧪 DEBUG attivo: esposto pulsante Test Failure")
 
-    async_add_entities(buttons, True)
+    async_add_provided_entities(hass, api, "button", buttons, async_add_entities, True)

@@ -30,6 +30,7 @@ from homeassistant.const import UnitOfEnergy
 __all__ = [
     "SimpleMetricSpec",
     "SIMPLE_METRICS",
+    "DAILY_MODE_TIME_METRICS",
     "BaxiEnergySensorEntityDescription",
     "ENERGY_SENSOR_TYPES",
 ]
@@ -90,6 +91,19 @@ _STATUS_ON_OFF = {
 }
 
 
+# Tempi giornalieri per modalità: attributo api (anche translation_key del
+# sensore) → metricName. Contatori calcolati dal cloud una volta al giorno.
+DAILY_MODE_TIME_METRICS: tuple[tuple[str, str], ...] = (
+    ("daily_time_heat_pump", "Pompa di calore giornaliero"),
+    ("daily_time_boiler", "Caldaia giornaliero"),
+    ("daily_time_heating", "Riscaldamento giornaliero"),
+    ("daily_time_cooling", "Raffrescamento giornaliero"),
+    ("daily_time_dhw", "Sanitario giornaliero"),
+    ("daily_time_solar", "Solare termico giornaliero"),
+    ("daily_time_standby", "Standby giornaliero"),
+)
+
+
 @dataclass(frozen=True)
 class SimpleMetricSpec:
     """Descrittore di una metrica letta come singolo valore da /data/values."""
@@ -120,6 +134,8 @@ SIMPLE_METRICS: tuple[SimpleMetricSpec, ...] = (
     SimpleMetricSpec("power_boiler", "Potenza caldaia - istantanea", _parse_float),
     SimpleMetricSpec("power_pdc", "Potenza PDC - istantanea", _parse_float),
     SimpleMetricSpec("sanitary_request_status", "Stato richiesta sanitario", _parse_float),
+    SimpleMetricSpec("pdc_flow_rate", "Portata flusso pdc", _parse_float),  # L/h
+    SimpleMetricSpec("boost_max_duration", "Sanitario - Tempo max boost", _parse_float),  # min
 
     # --- Stringhe mappate (codici Servitly → testo leggibile) ---------------
     SimpleMetricSpec(
@@ -176,6 +192,21 @@ SIMPLE_METRICS: tuple[SimpleMetricSpec, ...] = (
         # pompa di calore (sequenza tipica 0002 → 0001 → 0000).
         _make_mapper({**_STATUS_ON_OFF, "0002": "Avvio", "2": "Avvio"}, normalize=True),
     ),
+    # Stati on/off con codici non ancora osservati: stesso mapper di caldaia/PDC,
+    # un codice diverso compare come "Sconosciuto (<raw>)".
+    SimpleMetricSpec(
+        "boost_status", "Stato attivazione BOOST sanitario",
+        _make_mapper(_STATUS_ON_OFF, normalize=True),
+    ),
+    SimpleMetricSpec(
+        "heating_request", "Stato richiesta riscaldamento (TA) - contatto 31/31",
+        _make_mapper(_STATUS_ON_OFF, normalize=True),
+    ),
+    SimpleMetricSpec(
+        "resistances_on", "Resistenze on",
+        _make_mapper(_STATUS_ON_OFF, normalize=True),
+    ),
+    *(SimpleMetricSpec(attr, name, _parse_float, log_emoji="⏱️") for attr, name in DAILY_MODE_TIME_METRICS),
 
     # --- Passthrough: il sensore HA decide come interpretare il raw ---------
     SimpleMetricSpec("system_operation_icon", "Icona funzionamento sistema", _parse_passthrough),

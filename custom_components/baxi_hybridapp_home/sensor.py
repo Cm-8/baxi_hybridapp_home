@@ -5,14 +5,14 @@ custom_components/baxi_hybridapp_home/sensor.py
 """
 
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
-from homeassistant.const import UnitOfTemperature, UnitOfPressure, PERCENTAGE
+from homeassistant.const import UnitOfTemperature, UnitOfPressure, UnitOfTime, PERCENTAGE
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 from datetime import datetime, timezone
-from .device import build_device_info
-from .metrics import ENERGY_SENSOR_TYPES
+from .device import async_add_provided_entities, build_device_info
+from .metrics import DAILY_MODE_TIME_METRICS, ENERGY_SENSOR_TYPES
 
 # Sola lettura, aggiornata dal coordinator: nessun limite al parallelismo.
 PARALLEL_UPDATES = 0
@@ -28,6 +28,9 @@ class BaxiBaseSensor(CoordinatorEntity, SensorEntity):
         self._attr_unique_id = unique_id
         self._attr_translation_key = translation_key
         self._value_key = value_key
+        # Attributo letto: l'entità esiste solo se il modello ha la metrica
+        # (vedi async_add_provided_entities).
+        self._source_attr = value_key
         self._attr_native_unit_of_measurement = unit
         self._attr_device_class = device_class
         self._attr_state_class = SensorStateClass.MEASUREMENT
@@ -649,6 +652,105 @@ class SanitaryScheduleStateSensor(BaxiBaseSensor):
             "scheduler_status": getattr(self._api, "sanitary_scheduler_status", None),
         }
 
+class BaxiOnOffSensor(BaxiBaseSensor):
+    """Stato On/Off già mappato dall'API: testo, non una misura; icona per stato (on, off)."""
+
+    _icons = ("mdi:toggle-switch", "mdi:toggle-switch-off-outline")
+
+    def __init__(self, coordinator, api, translation_key, unique_id, value_key):
+        super().__init__(coordinator, api, translation_key, unique_id, value_key, unit=None, device_class=None)
+        self._attr_state_class = None
+
+    @property
+    def icon(self):
+        val = (getattr(self._api, self._value_key) or "").lower()
+        return self._icons[0] if val == "on" else self._icons[1]
+
+
+class BoostStatusSensor(BaxiOnOffSensor):
+    _icons = ("mdi:rocket-launch", "mdi:rocket-launch-outline")
+
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator, api,
+            translation_key="boost_status",
+            unique_id="baxi_boost_status",
+            value_key="boost_status",
+        )
+
+
+class HeatingRequestSensor(BaxiOnOffSensor):
+    """Richiesta di calore dal termostato ambiente (contatto TA 31/31)."""
+
+    _icons = ("mdi:home-thermometer", "mdi:home-thermometer-outline")
+
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator, api,
+            translation_key="heating_request",
+            unique_id="baxi_heating_request",
+            value_key="heating_request",
+        )
+
+
+class ResistancesOnSensor(BaxiOnOffSensor):
+    _icons = ("mdi:flash", "mdi:flash-off")
+
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator, api,
+            translation_key="resistances",
+            unique_id="baxi_resistances_on",
+            value_key="resistances_on",
+        )
+
+
+class PDCFlowRateSensor(BaxiBaseSensor):
+    # L/h come nell'app Baxi. Nessuna device_class: L/h non è tra le unità di
+    # portata della versione minima di HA supportata (2025.1).
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator, api,
+            translation_key="pdc_flow_rate",
+            unique_id="baxi_pdc_flow_rate",
+            value_key="pdc_flow_rate",
+            unit="L/h",
+            device_class=None,
+        )
+
+
+class DailyModeTimeSensor(BaxiBaseSensor):
+    """Tempo trascorso in una modalità nel giorno (contatore calcolato dal cloud una volta al giorno).
+
+    Unità da confermare sul campo: il valore del cloud è trattato come
+    millisecondi e mostrato in ore. Senza state_class finché l'unità non è
+    verificata, così non si registrano statistiche a lungo termine sbagliate.
+    """
+
+    _attr_entity_registry_enabled_default = False
+    _attr_suggested_unit_of_measurement = UnitOfTime.HOURS
+    _attr_suggested_display_precision = 1
+
+    def __init__(self, coordinator, api, attr):
+        super().__init__(
+            coordinator, api,
+            translation_key=attr,
+            unique_id=f"baxi_{attr}",
+            value_key=attr,
+            unit=UnitOfTime.MILLISECONDS,
+            device_class=SensorDeviceClass.DURATION,
+        )
+        self._attr_state_class = None
+
+    @property
+    def extra_state_attributes(self):
+        # Il giorno a cui si riferisce il valore (un solo calcolo al giorno).
+        ts = getattr(self._api, f"{self._value_key}_timestamp", None)
+        if not ts:
+            return {}
+        return {"metric_timestamp_utc": datetime.fromtimestamp(ts / 1000, tz=timezone.utc).isoformat()}
+
+
 # 🚨 Contatori alert FAILURE (per dashboard).
 # Letti da BaxiHybridAppAPI.fetch_historical_alerts. I binary_sensor con
 # device_class=PROBLEM vivono in binary_sensor.py — questi sono solo
@@ -758,13 +860,19 @@ async def async_setup_entry(hass, entry, async_add_entities):
         # contatori alert per dashboard
         FailureCount24hSensor(coordinator, api),
         FailureCount7dSensor(coordinator, api),
+        # boost sanitario, portata PDC, stati on/off
+        BoostStatusSensor(coordinator, api),
+        PDCFlowRateSensor(coordinator, api),
+        HeatingRequestSensor(coordinator, api),
+        ResistancesOnSensor(coordinator, api),
     ]
     # affianco i nuovi sensori energia
     sensors.extend(
         BaxiEnergySensor(coordinator, api, d)
         for d in ENERGY_SENSOR_TYPES
     )
-    async_add_entities(sensors)
+    sensors.extend(DailyModeTimeSensor(coordinator, api, attr) for attr, _ in DAILY_MODE_TIME_METRICS)
+    async_add_provided_entities(hass, api, "sensor", sensors, async_add_entities)
     
     
     

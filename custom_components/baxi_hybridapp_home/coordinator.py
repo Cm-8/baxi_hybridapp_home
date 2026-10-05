@@ -98,6 +98,11 @@ class BaxiDataUpdateCoordinator(DataUpdateCoordinator):
             await self.hass.async_add_executor_job(self.api.get_thingid)
             if not self.api.thingId:
                 raise UpdateFailed("Impossibile ottenere il thingId dal cloud Baxi")
+        # Catalogo metriche del modello: una volta per avvio (ritentato finché
+        # non riesce). Il primo ciclo gira prima della creazione delle entità,
+        # quindi le piattaforme sanno già quali metriche esistono.
+        if self.api.model_metrics is None:
+            await self.hass.async_add_executor_job(self.api.fetch_model_metrics)
         # Log DOPO auth+thingId: thingModel e thingDefinitionName sono garantiti
         self._log_fetch_info()
         await self._async_log_capabilities_once()

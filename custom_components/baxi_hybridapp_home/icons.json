@@ -12,13 +12,15 @@
     },
     "button": {
       "update_data": { "default": "mdi:update" },
-      "test_failure": { "default": "mdi:test-tube" }
+      "test_failure": { "default": "mdi:test-tube" },
+      "boost": { "default": "mdi:rocket-launch" }
     },
     "datetime": {
       "holiday_mode_end": { "default": "mdi:calendar-end" }
     },
     "number": {
-      "cooling_setpoint": { "default": "mdi:snowflake-thermometer" }
+      "cooling_setpoint": { "default": "mdi:snowflake-thermometer" },
+      "boost_duration": { "default": "mdi:timer-cog-outline" }
     },
     "select": {
       "system_mode": { "default": "mdi:tune" },
@@ -44,7 +46,15 @@
       "system_operation_mode": { "default": "mdi:target" },
       "sanitary_schedule": { "default": "mdi:calendar-clock" },
       "failure_count_24h": { "default": "mdi:alert-circle" },
-      "failure_count_7d": { "default": "mdi:alert-circle-outline" }
+      "failure_count_7d": { "default": "mdi:alert-circle-outline" },
+      "pdc_flow_rate": { "default": "mdi:pump" },
+      "daily_time_heat_pump": { "default": "mdi:heat-pump" },
+      "daily_time_boiler": { "default": "mdi:water-boiler" },
+      "daily_time_heating": { "default": "mdi:radiator" },
+      "daily_time_cooling": { "default": "mdi:snowflake" },
+      "daily_time_dhw": { "default": "mdi:water-thermometer" },
+      "daily_time_solar": { "default": "mdi:solar-panel" },
+      "daily_time_standby": { "default": "mdi:power-standby" }
     },
     "switch": {
       "holiday_mode": { "default": "mdi:palm-tree" }

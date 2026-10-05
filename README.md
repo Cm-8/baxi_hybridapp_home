@@ -48,9 +48,10 @@ Readings may partly work; the controls use model-specific commands and may not. 
 ### 💧 Pressure Sensor
 - **Water Pressure** — hydraulic circuit pressure (bar)
 
-### ⚡ Power Sensors
+### ⚡ Power and Flow Sensors
 - **Boiler Instantaneous Power** — current boiler power output
 - **PDC Instantaneous Power** — current heat pump power output
+- **Portata PDC** — heat pump flow rate (L/h)
 
 ### 🧭 Mode / Status Sensors
 - **System Mode** — current operating mode (Automatico, Standby, Solo Sanitario)
@@ -64,6 +65,11 @@ Readings may partly work; the controls use model-specific commands and may not. 
 - **Holiday Mode** — whether holiday mode is active (On / Off)
 - **Holiday Mode End** — end date/time of the active holiday period (unknown while holiday mode is off)
 - **System Operation Icon** — icon code from the Baxi cloud status (disabled by default)
+- **Richiesta Riscaldamento (TA)** — heat request from the room thermostat (On / Off)
+- **Resistenze** — electric heaters state (On / Off)
+
+### ⏱️ Daily Time per Mode
+Time spent by the system in each mode during the day: heat pump, boiler, heating, cooling, DHW, solar thermal and standby. The Baxi cloud computes these counters **once a day**. All are **disabled by default**. In this version they are shown in hours and record no long-term statistics, until the unit sent by the cloud is confirmed on real systems.
 
 ### ⚡ Energy Sensors
 All energy sensors are disabled by default and use `TOTAL_INCREASING` state class (compatible with the HA Energy dashboard).
@@ -99,6 +105,11 @@ A ready-made **blueprint** for push notifications is included — see [blueprint
 - **Sanitario Comfort** — adjustable DHW comfort temperature setpoint (30–52 °C)
 - **Sanitario Eco** — adjustable DHW eco temperature setpoint (30–52 °C)
 
+### 🚀 DHW Boost
+- **Boost Sanitario** — button that starts the DHW boost
+- **Stato Boost Sanitario** — boost state (On / Off)
+- **Durata Boost Sanitario** — maximum boost duration (10–120 min, configuration entity)
+
 ### 🏖️ Holiday Mode Control
 Mirrors the Baxi app's on/off flag, avoiding accidental sends. Both entities are **disabled by default** — enable them if you use holiday mode:
 - **Modo Vacanza Fine** — datetime entity for the end date/time. When holiday mode is **off**, setting it only *stages* the value locally (nothing is sent) — you apply it with the switch. When holiday mode is already **on**, changing it is sent immediately (extend/shorten the period).
@@ -111,8 +122,11 @@ Mirrors the Baxi app's on/off flag, avoiding accidental sends. Both entities are
 - **Aggiorna** — button to manually trigger a data refresh
 - **Test Failure** — button to simulate a FAILURE alert (only available with debug logging enabled)
 
+### 🧩 Only the data your model has
+At startup the integration reads the list of metrics of your device model from the Baxi cloud. Metrics the model does not have are not requested, and their entities are not created (if a previous version created them, they are removed). For example, **Flame Status** does not appear on all-electric systems.
+
 ### 🩺 Diagnostics
-From the integration page (**⋮** > **Download diagnostics**) you can download a JSON report with the current sensor values and the full catalog of commands, configuration parameters and metrics supported by your device model. Credentials and serial number are redacted. Attach it when opening an issue — it makes troubleshooting much faster, especially for device models not yet fully supported.
+From the integration page (**⋮** > **Download diagnostics**) you can download a JSON report with the current sensor values and the full catalog of commands, configuration parameters and metrics supported by your device model. Credentials, serial number and device ID are redacted. Attach it when opening an issue — it makes troubleshooting much faster, especially for device models not yet fully supported.
 
 ---
 
@@ -222,7 +236,7 @@ Then create an automation from the blueprint, select your mobile notify service 
 ## Troubleshooting
 
 - **All entities unavailable** — no request to the Baxi cloud succeeded: the entities recover by themselves at the next successful refresh. Check that the Baxi app works.
-- **A single entity unavailable** — your system may not provide that measurement (for example, flame status on an all-electric system).
+- **A single entity unavailable** — your system has that metric but is not sending a value for it (for example, a component that is not installed). Entities for metrics your model does not have at all are not created.
 - **"Sconosciuto (…)" value** — the cloud sent a code the integration does not know yet: open an issue saying which mode the system was in.
 - **Debug logs** — add to `configuration.yaml` and restart:
   ```yaml
@@ -230,7 +244,7 @@ Then create an automation from the blueprint, select your mobile notify service 
     logs:
       custom_components.baxi_hybridapp_home: debug
   ```
-- **Diagnostics** — integration page > **⋮** > **Download diagnostics**, then attach the file to the issue (credentials and serial number are redacted).
+- **Diagnostics** — integration page > **⋮** > **Download diagnostics**, then attach the file to the issue (credentials, serial number and device ID are redacted; in the logs the serial number and the account and device IDs show only the last 4 characters).
 
 ---
 

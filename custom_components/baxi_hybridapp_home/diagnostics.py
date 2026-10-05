@@ -20,10 +20,13 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import __version__ as ha_version
 from homeassistant.core import HomeAssistant
 
+from .api import WIRED_METRIC_NAMES
 from .const import INTEGRATION_VERSION
 from .metrics import ENERGY_SENSOR_TYPES, SIMPLE_METRICS
 
-TO_REDACT = {"username", "password", "serialNumber"}
+# thingId: identificativo del device sul cloud, non serve per le segnalazioni
+# (il modello è già in thing_definition_*).
+TO_REDACT = {"username", "password", "serialNumber", "thingId"}
 
 
 def _compact_commands(items: list) -> list[dict]:
@@ -116,6 +119,12 @@ async def async_get_config_entry_diagnostics(
                 "serialNumber": api.serialNumber,
             },
             TO_REDACT,
+        ),
+        # Metriche lette dall'integrazione ma assenti dal catalogo del modello:
+        # non vengono richieste e le entità relative non sono create.
+        "metrics_not_on_model": (
+            [n for n in WIRED_METRIC_NAMES if not api.has_metric(n)]
+            if api.model_metrics is not None else "catalogo non letto"
         ),
         "current_values": {
             "simple_metrics": simple_values,

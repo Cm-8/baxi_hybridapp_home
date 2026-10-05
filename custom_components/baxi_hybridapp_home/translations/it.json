@@ -78,13 +78,15 @@
     },
     "button": {
       "update_data": { "name": "Aggiorna" },
-      "test_failure": { "name": "Test Failure" }
+      "test_failure": { "name": "Test Failure" },
+      "boost": { "name": "Boost Sanitario" }
     },
     "datetime": {
       "holiday_mode_end": { "name": "Modo Vacanza Fine" }
     },
     "number": {
-      "cooling_setpoint": { "name": "Setpoint Raffrescamento" }
+      "cooling_setpoint": { "name": "Setpoint Raffrescamento" },
+      "boost_duration": { "name": "Durata Boost Sanitario" }
     },
     "select": {
       "system_mode": { "name": "Modo Impianto" },
@@ -125,7 +127,18 @@
       "energia_totale_globale_day": { "name": "Energia totale globale per day" },
       "energia_parziale_caldaia": { "name": "Energia parziale caldaia" },
       "energia_parziale_pdc": { "name": "Energia parziale PDC" },
-      "energia_parziale_resistenze": { "name": "Energia parziale resistenze" }
+      "energia_parziale_resistenze": { "name": "Energia parziale resistenze" },
+      "boost_status": { "name": "Stato Boost Sanitario" },
+      "heating_request": { "name": "Richiesta Riscaldamento (TA)" },
+      "resistances": { "name": "Resistenze" },
+      "pdc_flow_rate": { "name": "Portata PDC" },
+      "daily_time_heat_pump": { "name": "Tempo giornaliero PDC" },
+      "daily_time_boiler": { "name": "Tempo giornaliero caldaia" },
+      "daily_time_heating": { "name": "Tempo giornaliero riscaldamento" },
+      "daily_time_cooling": { "name": "Tempo giornaliero raffrescamento" },
+      "daily_time_dhw": { "name": "Tempo giornaliero sanitario" },
+      "daily_time_solar": { "name": "Tempo giornaliero solare termico" },
+      "daily_time_standby": { "name": "Tempo giornaliero standby" }
     },
     "switch": {
       "holiday_mode": { "name": "Modo Vacanza" }
@@ -168,6 +181,12 @@
     },
     "holiday_end_failed": {
       "message": "Aggiornamento della fine vacanza non riuscito: il cloud Baxi non ha accettato la richiesta."
+    },
+    "boost_failed": {
+      "message": "Avvio del boost sanitario non riuscito: il cloud Baxi non ha accettato il comando."
+    },
+    "boost_duration_failed": {
+      "message": "Impostazione della durata del boost sanitario a {value} min non riuscita: il cloud Baxi non ha accettato la richiesta."
     }
   },
   "device_automation": {

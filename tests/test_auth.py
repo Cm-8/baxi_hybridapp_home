@@ -99,6 +99,18 @@ def test_login_stores_identity_for_renewal(api):
     assert (api.token, api.refreshToken, api.userId, api.tenantId) == ("t", "r", "u", "x")
 
 
+def test_login_log_hides_tokens_and_masks_user_id(api, caplog):
+    api._session = FakeSession(FakeResponse(200, {
+        "token": "secret-token", "refreshToken": "secret-refresh",
+        "userId": "655e95a52b8045641cb5ca9d", "tenantId": "x",
+    }))
+    with caplog.at_level("INFO"):
+        api.login()
+    logged = caplog.text
+    assert "secret-token" not in logged and "secret-refresh" not in logged
+    assert "655e95a52b8045641cb5ca9d" not in logged and "***ca9d" in logged
+
+
 def test_write_renews_expired_token(logged_in, monkeypatch):
     api = logged_in
     api._session = FakeSession(

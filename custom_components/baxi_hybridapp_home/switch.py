@@ -30,7 +30,7 @@ from .const import (
     WRITE_GRACE_SECONDS,
 )
 from .coordinator import BaxiRuntimeData
-from .device import build_device_info
+from .device import async_add_provided_entities, build_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,6 +45,7 @@ class BaxiHolidayModeSwitch(CoordinatorEntity, SwitchEntity):
     _attr_translation_key = "holiday_mode"
     _attr_unique_id = "baxi_holiday_mode_switch"
     _attr_entity_registry_enabled_default = False
+    _source_attr = "holiday_mode"
 
     def __init__(self, runtime: BaxiRuntimeData) -> None:
         super().__init__(runtime.coordinator)
@@ -157,4 +158,7 @@ class BaxiHolidayModeSwitch(CoordinatorEntity, SwitchEntity):
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
     """Setup switch entities."""
-    async_add_entities([BaxiHolidayModeSwitch(entry.runtime_data)])
+    async_add_provided_entities(
+        hass, entry.runtime_data.api, "switch",
+        [BaxiHolidayModeSwitch(entry.runtime_data)], async_add_entities,
+    )

@@ -78,13 +78,15 @@
     },
     "button": {
       "update_data": { "name": "Refresh" },
-      "test_failure": { "name": "Test failure" }
+      "test_failure": { "name": "Test failure" },
+      "boost": { "name": "DHW boost" }
     },
     "datetime": {
       "holiday_mode_end": { "name": "Holiday mode end" }
     },
     "number": {
-      "cooling_setpoint": { "name": "Cooling setpoint" }
+      "cooling_setpoint": { "name": "Cooling setpoint" },
+      "boost_duration": { "name": "DHW boost duration" }
     },
     "select": {
       "system_mode": { "name": "Plant mode" },
@@ -125,7 +127,18 @@
       "energia_totale_globale_day": { "name": "Total energy today" },
       "energia_parziale_caldaia": { "name": "Boiler partial energy" },
       "energia_parziale_pdc": { "name": "Heat pump partial energy" },
-      "energia_parziale_resistenze": { "name": "Electric heaters partial energy" }
+      "energia_parziale_resistenze": { "name": "Electric heaters partial energy" },
+      "boost_status": { "name": "DHW boost status" },
+      "heating_request": { "name": "Heating request (thermostat)" },
+      "resistances": { "name": "Electric heaters" },
+      "pdc_flow_rate": { "name": "Heat pump flow rate" },
+      "daily_time_heat_pump": { "name": "Daily heat pump time" },
+      "daily_time_boiler": { "name": "Daily boiler time" },
+      "daily_time_heating": { "name": "Daily heating time" },
+      "daily_time_cooling": { "name": "Daily cooling time" },
+      "daily_time_dhw": { "name": "Daily DHW time" },
+      "daily_time_solar": { "name": "Daily solar thermal time" },
+      "daily_time_standby": { "name": "Daily standby time" }
     },
     "switch": {
       "holiday_mode": { "name": "Holiday mode" }
@@ -168,6 +181,12 @@
     },
     "holiday_end_failed": {
       "message": "Updating the holiday end date failed: the Baxi cloud did not accept the request."
+    },
+    "boost_failed": {
+      "message": "Starting the DHW boost failed: the Baxi cloud did not accept the command."
+    },
+    "boost_duration_failed": {
+      "message": "Setting the DHW boost duration to {value} min failed: the Baxi cloud did not accept the request."
     }
   },
   "device_automation": {

@@ -24,12 +24,19 @@ _LOGGER = logging.getLogger(__name__)
 # metricName dello scheduler sanitario (parsing proprio, fuori dalle tabelle di metrics.py).
 SANITARY_SCHEDULER_METRIC = "Schedulatore - Sanitario"
 # Tutte le metriche lette a ogni ciclo: semplici, scheduler sanitario, energia
-# (34 nomi, sotto il limite di 50 di /data/lastValues).
+# (46 nomi, sotto il limite di 50 di /data/lastValues).
 WIRED_METRIC_NAMES: tuple[str, ...] = tuple(dict.fromkeys(
     [spec.metric_name for spec in SIMPLE_METRICS]
     + [SANITARY_SCHEDULER_METRIC]
     + [desc.metric_name for desc in ENERGY_SENSOR_TYPES]
 ))
+# Attributo dell'istanza API → metrica da cui dipende: le entità che lo leggono
+# esistono solo se il modello ha quella metrica (vedi provides()).
+METRIC_OF_ATTR: dict[str, str] = {
+    **{spec.attr: spec.metric_name for spec in SIMPLE_METRICS},
+    **{desc.key: desc.metric_name for desc in ENERGY_SENSOR_TYPES},
+    "sanitary_mode_now": SANITARY_SCHEDULER_METRIC,
+}
 
 
 def _request_label(url: str) -> str:
@@ -43,10 +50,11 @@ def _request_label(url: str) -> str:
 
 
 def _mask_serial(serial) -> str:
-    """Maschera un numero di serie per i log, lasciando visibili le ultime 4 cifre.
+    """Maschera un numero di serie o un identificativo (thingId, userId) per i log.
 
-    Le ultime cifre bastano a distinguere due impianti in una segnalazione
-    senza esporre il seriale completo. Valori brevi vengono oscurati del tutto.
+    Restano visibili le ultime 4 cifre: bastano a distinguere due impianti in
+    una segnalazione senza esporre il valore completo. Valori brevi vengono
+    oscurati del tutto.
     """
     if not serial:
         return "n.d."
@@ -54,6 +62,11 @@ def _mask_serial(serial) -> str:
     if len(s) <= 4:
         return "***"
     return "***" + s[-4:]
+
+
+def _mask_url(url: str) -> str:
+    """URL per i log con il thingId mascherato (vedi _mask_serial)."""
+    return re.sub(r"(thingId=)([^&]+)", lambda m: m.group(1) + _mask_serial(m.group(2)), url)
 
 
 class BaxiApiError(Exception):
@@ -116,6 +129,9 @@ class BaxiHybridAppAPI:
         self.serialNumber = None
         self.thingDefinitionId = None    # ID del modello (thingDefinition), non del device
         self.thingDefinitionName = None  # Nome commerciale del modello (es. "CSI IN SPLIT E")
+        # Nomi delle metriche del modello (catalogo letto all'avvio, vedi
+        # fetch_model_metrics). None = catalogo non ancora noto: si legge tutto.
+        self.model_metrics: frozenset[str] | None = None
 
         # Metriche "semplici": un attributo + timestamp per ciascuna voce della
         # tabella SIMPLE_METRICS (definita a livello modulo). Aggiungerne una
@@ -215,8 +231,8 @@ class BaxiHybridAppAPI:
         self.userId = data.get("userId")
         self.tenantId = data.get("tenantId")
         self.tokenExpirationTimestamp = data.get("tokenExpirationTimestamp")
-        # safe token
-        safe = {**data, "token": "***", "refreshToken": "***"}
+        # Token oscurati, userId mascherato come il numero di serie.
+        safe = {**data, "token": "***", "refreshToken": "***", "userId": _mask_serial(self.userId)}
         _LOGGER.info("✅ BAXI Login successful: %s", json.dumps(safe)[:300])
 
     def authenticate(self):
@@ -349,7 +365,7 @@ class BaxiHybridAppAPI:
                 self.thingDefinitionId    = thing_def.get("id")
                 self.thingDefinitionName  = thing_def.get("name")
 
-                _LOGGER.info("✅ Thing ID ottenuto: %s", self.thingId)
+                _LOGGER.info("✅ Thing ID ottenuto: %s", _mask_serial(self.thingId))
                 _LOGGER.info("✅ Model ottenuto: %s | Definizione: %s (%s)",
                              self.thingModel, self.thingDefinitionName, self.thingDefinitionId)
                 # S/N mascherato: i log finiscono spesso nelle issue (la
@@ -388,6 +404,42 @@ class BaxiHybridAppAPI:
             data = self._make_request(url)
             result[key] = data if isinstance(data, list) else []
         return result
+
+    def fetch_model_metrics(self) -> bool:
+        """Legge una volta il catalogo delle metriche del modello (thingDefinition).
+
+        Serve a non leggere, e a non creare come entità, le metriche che il
+        modello non ha (es. Flame status su un impianto solo elettrico). Non
+        conta negli esiti del ciclo e non solleva: se non riesce il catalogo
+        resta None, si legge tutto come prima e si ritenta al ciclo successivo.
+        """
+        if not self.thingDefinitionId:
+            return False
+        data = self._http_get_json(
+            f"{self.BASE_URL}/inventory/thingDefinitions/{self.thingDefinitionId}/metrics"
+        )
+        if not isinstance(data, list):
+            _LOGGER.debug("📚 Catalogo metriche del modello non disponibile, riprovo al prossimo ciclo")
+            return False
+        self.model_metrics = frozenset(
+            m["name"] for m in data if isinstance(m, dict) and m.get("name")
+        )
+        missing = [n for n in WIRED_METRIC_NAMES if n not in self.model_metrics]
+        _LOGGER.debug(
+            "📚 Catalogo %s: %d metriche; non presenti su questo modello: %s",
+            self.thingDefinitionName or "?", len(self.model_metrics),
+            ", ".join(missing) or "nessuna",
+        )
+        return True
+
+    def has_metric(self, metric_name: str) -> bool:
+        """False solo se il catalogo del modello è noto e non contiene la metrica."""
+        return self.model_metrics is None or metric_name in self.model_metrics
+
+    def provides(self, attr: str) -> bool:
+        """Il modello fornisce il valore dell'attributo? (True se non dipende da una metrica)."""
+        metric = METRIC_OF_ATTR.get(attr)
+        return metric is None or self.has_metric(metric)
 
     def _auth_headers(self) -> dict:
         """Header per le chiamate autenticate (gli altri stanno sulla session)."""
@@ -487,12 +539,12 @@ class BaxiHybridAppAPI:
                 if delay is None:
                     _LOGGER.warning(
                         "⏳ Rate limit (429) su %s %s senza Retry-After utile — salto.",
-                        method, url,
+                        method, _mask_url(url),
                     )
                     return None
                 _LOGGER.warning(
                     "⏳ Rate limit (429) su %s %s, attendo %ss e riprovo.",
-                    method, url, delay,
+                    method, _mask_url(url), delay,
                 )
                 _sleep(delay)
                 response = send()
@@ -500,11 +552,11 @@ class BaxiHybridAppAPI:
             return response
         except requests.RequestException as e:
             # Rete/timeout: atteso durante un'interruzione del cloud.
-            _LOGGER.debug("❌ Richiesta %s %s non riuscita: %s", method, url, e)
+            _LOGGER.debug("❌ Richiesta %s %s non riuscita: %s", method, _mask_url(url), e)
             return None
         except Exception as e:
             # Inatteso: resta visibile con traceback.
-            _LOGGER.exception("❌ Eccezione nella richiesta %s %s: %s", method, url, e)
+            _LOGGER.exception("❌ Eccezione nella richiesta %s %s: %s", method, _mask_url(url), e)
             return None
 
     def _http_get_json(self, url: str):
@@ -514,13 +566,13 @@ class BaxiHybridAppAPI:
             return None
         if not response.ok:
             _LOGGER.debug(
-                "❌ HTTP %s su %s: %s", response.status_code, url, response.text[:300],
+                "❌ HTTP %s su %s: %s", response.status_code, _mask_url(url), response.text[:300],
             )
             return None
         try:
             return response.json()
         except ValueError as e:
-            _LOGGER.warning("❌ Risposta non JSON da %s: %s", url, e)
+            _LOGGER.warning("❌ Risposta non JSON da %s: %s", _mask_url(url), e)
             return None
 
     def _metric_url(self, metric_name: str) -> str:
@@ -616,9 +668,14 @@ class BaxiHybridAppAPI:
 
         Usa i campioni della lettura multipla del ciclo (fetch_all_metrics); le
         metriche assenti, o tutte se la lettura multipla non c'è, sono lette
-        singolarmente come prima.
+        singolarmente come prima. Le metriche che il modello non ha non vengono
+        lette (valore None).
         """
         for spec in SIMPLE_METRICS:
+            if not self.has_metric(spec.metric_name):
+                setattr(self, spec.attr, None)
+                setattr(self, f"{spec.attr}_timestamp", None)
+                continue
             sample = self._bulk_sample(spec.metric_name)
             if sample is None:
                 self._fetch_one(spec)
@@ -720,9 +777,14 @@ class BaxiHybridAppAPI:
 
         Usa i campioni della lettura multipla del ciclo (fetch_all_metrics); le
         metriche assenti, o tutte se la lettura multipla non c'è, sono lette
-        singolarmente come prima.
+        singolarmente come prima. Le metriche che il modello non ha non vengono
+        lette (valore None).
         """
         for desc in ENERGY_SENSOR_TYPES:
+            if not self.has_metric(desc.metric_name):
+                setattr(self, desc.key, None)
+                self.energy_timestamp[desc.key] = None
+                continue
             sample = self._bulk_sample(desc.metric_name)
             try:
                 if sample is None:
@@ -745,14 +807,16 @@ class BaxiHybridAppAPI:
         sono lette singolarmente con /data/values come prima: il risultato è lo
         stesso. Dopo LAST_VALUES_MAX_FAILURES fallimenti di fila mentre le
         letture singole riescono, la lettura multipla viene disattivata fino al
-        riavvio.
+        riavvio. Le metriche che il modello non ha (catalogo, vedi
+        fetch_model_metrics) non vengono chieste affatto.
         """
+        names = [n for n in WIRED_METRIC_NAMES if self.has_metric(n)]
         bulk_tried = self._last_values_enabled
-        self._bulk_samples = self._fetch_last_values(WIRED_METRIC_NAMES) if bulk_tried else None
+        self._bulk_samples = self._fetch_last_values(names) if bulk_tried else None
         bulk_failed = bulk_tried and self._bulk_samples is None
         if self._bulk_samples is not None:
             self._last_values_failures = 0
-            missing = [n for n in WIRED_METRIC_NAMES if n not in self._bulk_samples]
+            missing = [n for n in names if n not in self._bulk_samples]
             if missing:
                 _LOGGER.debug(
                     "📥 Metriche assenti da lastValues, lette singolarmente: %s",
@@ -782,6 +846,9 @@ class BaxiHybridAppAPI:
 
     def fetch_sanitary_scheduler(self):
         """Programma del sanitario: campione della lettura multipla del ciclo o lettura singola."""
+        if not self.has_metric(SANITARY_SCHEDULER_METRIC):
+            self.sanitary_scheduler_status = "empty"
+            return
         sample = self._bulk_sample(SANITARY_SCHEDULER_METRIC)
         data = None
         try:

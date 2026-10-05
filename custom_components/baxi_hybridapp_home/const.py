@@ -46,6 +46,7 @@ PARAM_ID_SETPOINT_COMFORT = "5bec6274dbdf4f0008a6e012"
 PARAM_ID_SETPOINT_ECO     = "5bec6275dbdf4f0008a6e013"
 PARAM_ID_SETPOINT_RAFFRESCAMENTO = "5bec6273dbdf4f0008a6e011"
 PARAM_ID_HOLIDAY_MODE_END = "5bec63132898ef0008034886"
+PARAM_ID_BOOST_MAX_DURATION = "5bec62ab2898ef0008034874"  # "Sanitario - Tempo max boost" (min)
 # Valore inviato per DISATTIVARE la vacanza: la stringa "-1".
 # NB: è una stringa, non un intero; l'attivazione invia invece l'epoch ms
 # come numero.
@@ -63,6 +64,10 @@ COMMAND_ID_SEASON_INVERNO    = "5bec6336dbdf4f0008a6e05c"
 COMMAND_ID_SEASON_AUTOMATICO = "5bec6337dbdf4f0008a6e05d"
 COMMAND_ID_SEASON_REMOTO     = "5bec6337dbdf4f0008a6e05e"
 
+# Command ID — Boost sanitario (stesso endpoint; stato nella metrica
+# "Stato attivazione BOOST sanitario" → api.boost_status)
+COMMAND_ID_BOOST_SANITARIO = "5bec6339dbdf4f0008a6e061"
+
 # Sanitary temperature limits
 SANITARY_MIN_TEMP = 30
 SANITARY_MAX_TEMP = 52
@@ -70,3 +75,7 @@ SANITARY_MAX_TEMP = 52
 # Cooling setpoint limits (range dal catalogo parametri: 7.0-30.0, step 1.0)
 COOLING_MIN_TEMP = 7
 COOLING_MAX_TEMP = 30
+
+# Durata massima del boost sanitario (range dal catalogo parametri: 10-120 min, step 1)
+BOOST_MIN_MINUTES = 10
+BOOST_MAX_MINUTES = 120

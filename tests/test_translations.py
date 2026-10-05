@@ -8,7 +8,7 @@ import pytest
 
 from custom_components.baxi_hybridapp_home import _SANITARY_SERVICES
 from custom_components.baxi_hybridapp_home.const import CONF_POLLING_INTERVAL, POLLING_INTERVAL_OPTIONS
-from custom_components.baxi_hybridapp_home.metrics import ENERGY_SENSOR_TYPES
+from custom_components.baxi_hybridapp_home.metrics import DAILY_MODE_TIME_METRICS, ENERGY_SENSOR_TYPES
 
 PKG = Path(__file__).resolve().parents[1] / "custom_components" / "baxi_hybridapp_home"
 # Stessa regola di hassfest per chiavi di traduzione e stati.
@@ -51,6 +51,7 @@ def code_keys():
         for pattern in (r'translation_key\s*=\s*"([^"]+)"', r'_raise_write_failed\("([^"]+)"'):
             found |= {(f.name, k) for k in re.findall(pattern, src)}
     found |= {("metrics.py", d.translation_key) for d in ENERGY_SENSOR_TYPES}
+    found |= {("metrics.py", attr) for attr, _ in DAILY_MODE_TIME_METRICS}
     found |= {("__init__.py", spec[-1]) for spec in _SANITARY_SERVICES.values()}
     return found
 

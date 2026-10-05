@@ -16,19 +16,22 @@ import asyncio
 import logging
 
 from homeassistant.components.number import NumberDeviceClass, NumberEntity
-from homeassistant.const import UnitOfTemperature
+from homeassistant.const import UnitOfTemperature, UnitOfTime
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 
 from .const import (
     DOMAIN,
+    PARAM_ID_BOOST_MAX_DURATION,
     PARAM_ID_SETPOINT_RAFFRESCAMENTO,
+    BOOST_MIN_MINUTES, BOOST_MAX_MINUTES,
     COOLING_MIN_TEMP, COOLING_MAX_TEMP,
     WRITE_GRACE_SECONDS,
 )
-from .device import build_device_info
+from .device import async_add_provided_entities, build_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,6 +57,7 @@ class BaxiCoolingSetpointNumber(CoordinatorEntity, NumberEntity):
     # Disabilitata di default (come i sensori energia): scrive un parametro
     # reale dell'impianto — chi la vuole la abilita consapevolmente dalla UI.
     _attr_entity_registry_enabled_default = False
+    _source_attr = "setpoint_raffrescamento_temp"
 
     def __init__(self, coordinator, api) -> None:
         super().__init__(coordinator)
@@ -134,7 +138,70 @@ class BaxiCoolingSetpointNumber(CoordinatorEntity, NumberEntity):
         await self.coordinator.async_request_refresh()
 
 
+class BaxiBoostDurationNumber(CoordinatorEntity, NumberEntity):
+    """Durata massima del boost sanitario (10-120 min), parametro "Sanitario - Tempo max boost"."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "boost_duration"
+    _attr_device_class = NumberDeviceClass.DURATION
+    _attr_native_unit_of_measurement = UnitOfTime.MINUTES
+    _attr_native_min_value = BOOST_MIN_MINUTES
+    _attr_native_max_value = BOOST_MAX_MINUTES
+    _attr_native_step = 1.0
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_unique_id = "baxi_boost_duration_number"
+    _source_attr = "boost_max_duration"
+
+    def __init__(self, coordinator, api) -> None:
+        super().__init__(coordinator)
+        self._api = api
+
+    @property
+    def native_value(self) -> float | None:
+        return getattr(self._api, "boost_max_duration", None)
+
+    @property
+    def available(self) -> bool:
+        return super().available and getattr(self._api, "boost_max_duration", None) is not None
+
+    @property
+    def device_info(self) -> dict:
+        return build_device_info(self._api)
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Scrive la durata del boost (PUT) con lo stesso flusso del setpoint raffrescamento."""
+        minutes = int(max(BOOST_MIN_MINUTES, min(BOOST_MAX_MINUTES, float(value))))
+
+        _LOGGER.info("🔄 Cambio durata boost sanitario → %s min", minutes)
+        ok = await self.hass.async_add_executor_job(
+            self._api.set_configuration_parameter, PARAM_ID_BOOST_MAX_DURATION, minutes,
+        )
+        if not ok:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="boost_duration_failed",
+                translation_placeholders={"value": str(minutes)},
+            )
+
+        self._api.boost_max_duration = float(minutes)
+        self.async_write_ha_state()
+        await self.hass.services.async_call(
+            "logbook", "log",
+            {"name": "Durata boost sanitario", "message": f"impostata a {minutes} min", "entity_id": self.entity_id},
+            blocking=False,
+        )
+        _LOGGER.info("✅ Durata boost sanitario impostata a %s min", minutes)
+        self.hass.async_create_task(self._grace_refresh())
+
+    async def _grace_refresh(self) -> None:
+        """Attende il read-back del device e riallinea dal cloud."""
+        await asyncio.sleep(WRITE_GRACE_SECONDS)
+        await self.coordinator.async_request_refresh()
+
+
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
-    async_add_entities([
-        BaxiCoolingSetpointNumber(entry.runtime_data.coordinator, entry.runtime_data.api),
-    ])
+    coordinator, api = entry.runtime_data.coordinator, entry.runtime_data.api
+    async_add_provided_entities(hass, api, "number", [
+        BaxiCoolingSetpointNumber(coordinator, api),
+        BaxiBoostDurationNumber(coordinator, api),
+    ], async_add_entities)

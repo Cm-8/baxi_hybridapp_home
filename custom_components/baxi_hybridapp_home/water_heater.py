@@ -19,7 +19,7 @@ from .const import (
     SANITARY_MIN_TEMP, SANITARY_MAX_TEMP,
     WRITE_GRACE_SECONDS,
 )
-from .device import build_device_info
+from .device import async_add_provided_entities, build_device_info
 from homeassistant.util import dt as dt_util
 
 # Scritture verso il device: una alla volta.
@@ -81,6 +81,7 @@ class BaxiSanitaryComfort(BaxiSanitaryBase, WaterHeaterEntity):
     _attr_has_entity_name = True
     _attr_translation_key = "dhw_comfort"
     _attr_unique_id = "baxi_water_heater_comfort"
+    _source_attr = "setpoint_comfort_temp"
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_supported_features = WaterHeaterEntityFeature.TARGET_TEMPERATURE
 
@@ -206,6 +207,7 @@ class BaxiSanitaryEco(BaxiSanitaryBase, WaterHeaterEntity):
     _attr_has_entity_name = True
     _attr_translation_key = "dhw_eco"
     _attr_unique_id = "baxi_water_heater_eco"
+    _source_attr = "setpoint_eco_temp"
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_supported_features = WaterHeaterEntityFeature.TARGET_TEMPERATURE
 
@@ -324,11 +326,7 @@ class BaxiSanitaryEco(BaxiSanitaryBase, WaterHeaterEntity):
 async def async_setup_entry(hass, entry, async_add_entities):
     api = entry.runtime_data.api
     coordinator = entry.runtime_data.coordinator
-    # Aggiungo sia l'entità read-only sia quella di test scrivibile
-    async_add_entities(
-        [
-            # BaxiSanitaryReadOnly(coordinator, api),
-            BaxiSanitaryComfort(coordinator, api),
-            BaxiSanitaryEco(coordinator, api),
-        ]
-    )
+    async_add_provided_entities(hass, api, "water_heater", [
+        BaxiSanitaryComfort(coordinator, api),
+        BaxiSanitaryEco(coordinator, api),
+    ], async_add_entities)

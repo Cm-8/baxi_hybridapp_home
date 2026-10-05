@@ -13,14 +13,18 @@ Custom integration for [Home Assistant](https://home-assistant.io) to monitor an
 💧 **Pressure Sensor**
 - Water Pressure (bar)
 
-⚡ **Power Sensors**
-- Boiler Instantaneous Power, PDC Instantaneous Power
+⚡ **Power and Flow Sensors**
+- Boiler Instantaneous Power, PDC Instantaneous Power, PDC Flow Rate (L/h)
 
 🧭 **Mode / Status Sensors**
 - System Mode, System Operation Mode, Season Mode
 - Sanitary On, Sanitary Request Status, Flame Status, Scheduler Status
 - Boiler Status, PDC Status, System Operation Icon
 - Holiday Mode (On/Off) + Holiday Mode End date
+- Heating request from the room thermostat, Electric heaters (On/Off)
+
+⏱️ **Daily Time per Mode** _(disabled by default)_
+- Heat pump, boiler, heating, cooling, DHW, solar thermal, standby
 
 🔋 **Energy Sensors** _(disabled by default, compatible with HA Energy dashboard)_
 - Total and partial energy for PDC, boiler, and electric resistances
@@ -37,6 +41,9 @@ Custom integration for [Home Assistant](https://home-assistant.io) to monitor an
 
 🛁 **Water Heater Entities**
 - Adjustable Comfort and Eco DHW setpoints (30–52 °C)
+
+🚀 **DHW Boost**
+- Boost button, boost state and maximum duration (10–120 min)
 
 🏖️ **Holiday Mode Control** _(disabled by default)_
 - Modo Vacanza Fine (datetime) + Modo Vacanza switch to apply/disable — when off, the date is staged and applied via the switch; when already on, changing the date is sent immediately (extend)

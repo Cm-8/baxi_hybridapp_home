@@ -29,7 +29,7 @@ from .const import (
     COMMAND_ID_SEASON_AUTOMATICO,
     COMMAND_ID_SEASON_REMOTO,
 )
-from .device import build_device_info
+from .device import async_add_provided_entities, build_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -69,6 +69,7 @@ class BaxiSystemModeSelect(CoordinatorEntity, SelectEntity):
     _attr_has_entity_name = True
     _attr_translation_key = "system_mode"
     _attr_options = MODE_OPTIONS
+    _source_attr = "system_mode"
 
     def __init__(self, coordinator, api) -> None:
         super().__init__(coordinator)
@@ -143,6 +144,7 @@ class BaxiSeasonModeSelect(CoordinatorEntity, SelectEntity):
     _attr_has_entity_name = True
     _attr_translation_key = "season_mode"
     _attr_options = SEASON_OPTIONS
+    _source_attr = "season_mode"
 
     def __init__(self, coordinator, api) -> None:
         super().__init__(coordinator)
@@ -206,7 +208,7 @@ class BaxiSeasonModeSelect(CoordinatorEntity, SelectEntity):
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
     api = entry.runtime_data.api
     coordinator = entry.runtime_data.coordinator
-    async_add_entities([
+    async_add_provided_entities(hass, api, "select", [
         BaxiSystemModeSelect(coordinator, api),
         BaxiSeasonModeSelect(coordinator, api),
-    ])
+    ], async_add_entities)
