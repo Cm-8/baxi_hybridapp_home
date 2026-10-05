@@ -17,7 +17,7 @@ from .const import (
     APIKEY, TENANT, DEV_BROWSER,
     DEV_MODEL, DEV_ID, PLATFORM,
 )
-from .metrics import SIMPLE_METRICS, SimpleMetricSpec, ENERGY_SENSOR_TYPES
+from .metrics import SIMPLE_METRICS, SimpleMetricSpec, ENERGY_SENSOR_TYPES, _parse_float
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -136,6 +136,9 @@ class BaxiHybridAppAPI:
         # Nomi delle metriche del modello (catalogo letto all'avvio, vedi
         # fetch_model_metrics). None = catalogo non ancora noto: si legge tutto.
         self.model_metrics: frozenset[str] | None = None
+        # Catalogo completo, riusato da fetch_capabilities: è statico per
+        # modello e scaricarlo di nuovo rallenta l'avvio con il debug attivo.
+        self._metric_catalog: list | None = None
 
         # Metriche "semplici": un attributo + timestamp per ciascuna voce della
         # tabella SIMPLE_METRICS (definita a livello modulo). Aggiungerne una
@@ -407,6 +410,9 @@ class BaxiHybridAppAPI:
             ("configuration_parameters", f"{base}/configurationParameters"),
             ("metrics", f"{base}/metrics"),
         ):
+            if key == "metrics" and self._metric_catalog is not None:
+                result[key] = self._metric_catalog  # già letto all'avvio
+                continue
             data = self._make_request(url)
             result[key] = data if isinstance(data, list) else []
         return result
@@ -427,6 +433,7 @@ class BaxiHybridAppAPI:
         if not isinstance(data, list):
             _LOGGER.debug("📚 Catalogo metriche del modello non disponibile, riprovo al prossimo ciclo")
             return False
+        self._metric_catalog = data
         self.model_metrics = frozenset(
             m["name"] for m in data if isinstance(m, dict) and m.get("name")
         )
@@ -627,8 +634,16 @@ class BaxiHybridAppAPI:
         """Applica il valore grezzo di una metrica semplice: stesse regole per lettura multipla e singola.
 
           - value in _NO_DATA_SENTINELS → attributo None, log debug
+          - None su metrica numerica    → valore precedente conservato, log debug
           - parsing fallito             → attributo None, log warning + estratto della risposta
         """
+        # Metrica numerica senza lettura in questo momento (es. "WiFi signal"
+        # alterna valori e vuoti ogni minuto): come una richiesta fallita, si
+        # tiene il valore precedente. Le metriche a codici usano None come
+        # valore vero (es. Modo Impianto null = Automatico): restano al parser.
+        if raw is None and spec.parser is _parse_float:
+            _LOGGER.debug("ℹ️ %s senza valore in questo momento, tengo il precedente", spec.metric_name)
+            return
         # Metrica esposta ma senza misura corrente (sentinella).
         if isinstance(raw, str) and raw.strip() in self._NO_DATA_SENTINELS:
             setattr(self, spec.attr, None)

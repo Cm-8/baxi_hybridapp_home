@@ -76,6 +76,28 @@ def test_catalog_failure_keeps_reading_everything(api, cloud):
     assert api.request_stats() == (0, [])  # non conta tra gli esiti del ciclo
 
 
+def test_catalog_read_once_and_reused_by_capabilities(api, cloud):
+    api.thingDefinitionId = "def-1"
+    cloud.catalog = [{"name": n} for n in NO_FLAME]
+    api.fetch_model_metrics()
+    caps = api.fetch_capabilities()
+    assert caps["metrics"] == cloud.catalog
+    assert cloud.calls.count(("catalog", None)) == 1  # niente seconda lettura
+
+
+def test_empty_numeric_value_keeps_the_previous_one(api, cloud, caplog):
+    # "WiFi signal" alterna valori e vuoti: un vuoto non è un errore.
+    api.wifi_signal = -68.0
+    cloud.last_values = {n: ("1", 1_700_000_000_000) for n in WIRED_METRIC_NAMES}
+    cloud.last_values["WiFi signal"] = (None, 1_700_000_000_001)
+    cloud.last_values["Modo Impianto"] = (None, 1_700_000_000_001)
+    with caplog.at_level("WARNING"):
+        api.fetch_all_metrics()
+    assert api.wifi_signal == -68.0
+    assert not [r for r in caplog.records if "WiFi signal" in r.getMessage()]
+    assert api.system_mode == "Automatico"  # ai codici None resta un valore vero
+
+
 def test_metric_not_on_model_is_never_requested(api, cloud):
     api.model_metrics = frozenset(NO_FLAME)
     cloud.last_values = {n: ("1", 1_700_000_000_000) for n in NO_FLAME}
