@@ -4,9 +4,11 @@ Diagnostics per Baxi Hybrid App custom integration.
 Scaricabile da: Impostazioni → Dispositivi e servizi → Baxi HybridApp Home
 → ⋮ → Scarica la diagnostica.
 
-Contiene lo snapshot dei valori correnti (già in RAM, nessuna chiamata extra)
-e i cataloghi statici del modello (comandi, parametri, metriche) scaricati
-on-demand al momento del download. Credenziali e seriale sono redatti.
+Contiene lo snapshot dei valori correnti (già in RAM, nessuna chiamata extra),
+i cataloghi statici del modello (comandi, parametri, metriche) e l'ultimo
+valore di ogni metrica del catalogo, scaricati on-demand al momento del
+download. Credenziali, seriale, thingId e valori personali (rete WiFi,
+seriale del gateway, nomi delle zone) sono redatti.
 
 custom_components/baxi_hybridapp_home/diagnostics.py
 """
@@ -27,6 +29,32 @@ from .metrics import ENERGY_SENSOR_TYPES, SIMPLE_METRICS
 # thingId: identificativo del device sul cloud, non serve per le segnalazioni
 # (il modello è già in thing_definition_*).
 TO_REDACT = {"username", "password", "serialNumber", "thingId"}
+# Metriche del catalogo con valori personali: nome della rete WiFi, seriale
+# del gateway, nomi delle zone scelti dall'utente.
+CATALOG_REDACT = {"WiFi ssid", "Serial Number Gateway", *(f"Nome zona {n}" for n in range(1, 9))}
+
+
+def _catalog_values(api, metrics: list) -> dict[str, Any]:
+    """Ultimo valore di ogni metrica del catalogo (lettura multipla, a blocchi da 50).
+
+    Serve a vedere i valori reali delle metriche che l'integrazione non legge
+    (unità, codici, metriche ferme) senza attivare il log di debug. Bloccante:
+    va chiamata nell'executor. Non solleva.
+    """
+    names = [m.get("name") for m in metrics if m.get("name")]
+    if not names:
+        return {"values": "catalogo non disponibile"}
+    try:
+        samples = api._fetch_last_values(names)
+    except Exception as err:  # diagnostica best-effort: mai un errore al download
+        return {"values": f"lettura non riuscita: {err}"}
+    if samples is None:
+        return {"values": "lettura non riuscita"}
+    return {
+        "values": async_redact_data({n: samples[n] for n in names if n in samples}, CATALOG_REDACT),
+        # Metriche del modello per cui il cloud non ha nessun valore su questo impianto.
+        "without_data": [n for n in names if n not in samples],
+    }
 
 
 def _compact_commands(items: list) -> list[dict]:
@@ -82,6 +110,10 @@ async def async_get_config_entry_diagnostics(
 
     # Cataloghi statici del modello: fetch on-demand (3 GET), sempre freschi.
     capabilities = await hass.async_add_executor_job(api.fetch_capabilities)
+    # Ultimo valore di tutte le metriche del catalogo (~7 richieste multiple).
+    catalog_values = await hass.async_add_executor_job(
+        _catalog_values, api, capabilities.get("metrics") or []
+    )
 
     # Snapshot dei valori correnti: tutto già in RAM, nessuna chiamata.
     simple_values = {
@@ -151,4 +183,7 @@ async def async_get_config_entry_diagnostics(
             ),
             "metrics": _compact_metrics(capabilities.get("metrics")),
         },
+        # Ultimo valore + timestamp di ogni metrica del catalogo (anche quelle
+        # che l'integrazione non legge); i valori personali sono redatti.
+        "catalog_values": catalog_values,
     }

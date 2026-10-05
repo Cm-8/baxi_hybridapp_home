@@ -126,7 +126,7 @@ Mirrors the Baxi app's on/off flag, avoiding accidental sends. Both entities are
 At startup the integration reads the list of metrics of your device model from the Baxi cloud. Metrics the model does not have are not requested, and their entities are not created (if a previous version created them, they are removed). For example, **Flame Status** does not appear on all-electric systems.
 
 ### 🩺 Diagnostics
-From the integration page (**⋮** > **Download diagnostics**) you can download a JSON report with the current sensor values and the full catalog of commands, configuration parameters and metrics supported by your device model. Credentials, serial number and device ID are redacted. Attach it when opening an issue — it makes troubleshooting much faster, especially for device models not yet fully supported.
+From the integration page (**⋮** > **Download diagnostics**) you can download a JSON report with the current sensor values, the full catalog of commands, configuration parameters and metrics supported by your device model, and the last value of every metric in the catalog (also those the integration does not read yet). Credentials, serial number, device ID, WiFi network name, gateway serial number and zone names are redacted. Attach it when opening an issue — it makes troubleshooting much faster, especially for device models not yet fully supported.
 
 ---
 
@@ -244,7 +244,7 @@ Then create an automation from the blueprint, select your mobile notify service 
     logs:
       custom_components.baxi_hybridapp_home: debug
   ```
-- **Diagnostics** — integration page > **⋮** > **Download diagnostics**, then attach the file to the issue (credentials, serial number and device ID are redacted; in the logs the serial number and the account and device IDs show only the last 4 characters).
+- **Diagnostics** — integration page > **⋮** > **Download diagnostics**, then attach the file to the issue (credentials, serial number, device ID and personal values such as the WiFi network name are redacted; in the logs the serial number and the account and device IDs show only the last 4 characters).
 
 ---
 
