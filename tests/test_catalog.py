@@ -1,19 +1,25 @@
 """Catalogo metriche del modello, entità create solo per i dati presenti, boost e nuovi sensori."""
 
 import asyncio
+from datetime import timedelta
 from types import SimpleNamespace
 
 import pytest
-from homeassistant.components.sensor import SensorDeviceClass
+from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+from homeassistant.const import UnitOfTime
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.entity import EntityCategory
+from homeassistant.util import dt as dt_util
 
 from custom_components.baxi_hybridapp_home import sensor
 from custom_components.baxi_hybridapp_home.api import WIRED_METRIC_NAMES, _mask_url
 from custom_components.baxi_hybridapp_home.button import BaxiBoostButton
 from custom_components.baxi_hybridapp_home.const import COMMAND_ID_BOOST_SANITARIO, PARAM_ID_BOOST_MAX_DURATION
 from custom_components.baxi_hybridapp_home.number import BaxiBoostDurationNumber
-from custom_components.baxi_hybridapp_home.sensor import DailyModeTimeSensor
+from custom_components.baxi_hybridapp_home.sensor import (
+    DailyModeTimeSensor, HeatingActiveSensor, HeatingRequestSensor, WifiSignalSensor,
+)
 
 from .conftest import values_response
 
@@ -155,13 +161,44 @@ def test_boost_duration_is_clamped_and_written(api, coordinator, monkeypatch):
 # --- Tempi giornalieri -------------------------------------------------------------
 
 
-def test_daily_time_sensor_has_no_statistics_until_unit_is_confirmed(api, coordinator):
-    api.daily_time_heat_pump, api.daily_time_heat_pump_timestamp = 3_600_000.0, 1_700_000_000_000
+def midnight_ms(days_ago=0):
+    day = dt_util.start_of_local_day() - timedelta(days=days_ago)
+    return int(day.timestamp() * 1000)
+
+
+def test_daily_time_counts_today_in_minutes(api, coordinator):
+    # Millisecondi dall'inizio del giorno (timestamp = mezzanotte di oggi).
+    api.daily_time_heat_pump, api.daily_time_heat_pump_timestamp = 1_990_891.0, midnight_ms()
     s = DailyModeTimeSensor(coordinator, api, "daily_time_heat_pump")
-    assert s.device_class == SensorDeviceClass.DURATION and s.state_class is None
+    assert s.device_class == SensorDeviceClass.DURATION
+    assert s.state_class == SensorStateClass.TOTAL_INCREASING
+    assert s.native_unit_of_measurement == UnitOfTime.MILLISECONDS
+    assert s.suggested_unit_of_measurement == UnitOfTime.MINUTES
     assert not s.entity_registry_enabled_default
-    assert s.native_value == 3_600_000.0
-    assert s.extra_state_attributes["metric_timestamp_utc"].startswith("2023-11-14")
+    assert s.native_value == 1_990_891.0
+
+
+def test_daily_time_from_a_previous_day_is_zero(api, coordinator):
+    api.daily_time_dhw, api.daily_time_dhw_timestamp = 1_572_581.0, midnight_ms(days_ago=1)
+    assert DailyModeTimeSensor(coordinator, api, "daily_time_dhw").native_value == 0.0
+
+
+# --- Stati e segnale -------------------------------------------------------------
+
+
+def test_thermostat_contact_is_disabled_by_default(api, coordinator):
+    # Con il pannello Wi-Fi il contatto 31/31 è ponticellato: sempre On.
+    assert not HeatingRequestSensor(coordinator, api).entity_registry_enabled_default
+    assert HeatingActiveSensor(coordinator, api).entity_registry_enabled_default
+
+
+def test_wifi_signal_is_a_diagnostic_signal_strength(api, coordinator):
+    api.wifi_signal = -62.0
+    s = WifiSignalSensor(coordinator, api)
+    assert s.device_class == SensorDeviceClass.SIGNAL_STRENGTH
+    assert s.native_unit_of_measurement == "dBm"
+    assert s.entity_category == EntityCategory.DIAGNOSTIC
+    assert s.native_value == -62.0
 
 
 # --- Identificativi mascherati ------------------------------------------------------

@@ -127,3 +127,21 @@ def test_status_boiler(raw, expected):
 )
 def test_status_pdc(raw, expected):
     assert parser_for("status_pdc")(raw) == expected
+
+
+@pytest.mark.parametrize(
+    ("attr", "raw", "expected"),
+    [
+        # Valore vuoto: sanitario in Standby, resistenze non abilitate → spenti.
+        ("sanitary_on", None, "Off"),
+        ("sanitary_on", "1", "On"),
+        ("resistances_on", None, "Off"),
+        ("resistances_on", "0001", "On"),
+        # Funzione in corso (metriche "per counter").
+        ("heating_active", "0001", "On"),
+        ("heating_active", "0000", "Off"),
+        ("dhw_active", "0001", "On"),
+    ],
+)
+def test_on_off_states(attr, raw, expected):
+    assert parser_for(attr)(raw) == expected

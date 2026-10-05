@@ -5,7 +5,9 @@ custom_components/baxi_hybridapp_home/sensor.py
 """
 
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
-from homeassistant.const import UnitOfTemperature, UnitOfPressure, UnitOfTime, PERCENTAGE
+from homeassistant.const import (
+    PERCENTAGE, SIGNAL_STRENGTH_DECIBELS_MILLIWATT, UnitOfPressure, UnitOfTemperature, UnitOfTime,
+)
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
@@ -680,9 +682,15 @@ class BoostStatusSensor(BaxiOnOffSensor):
 
 
 class HeatingRequestSensor(BaxiOnOffSensor):
-    """Richiesta di calore dal termostato ambiente (contatto TA 31/31)."""
+    """Richiesta di calore dal termostato ambiente (contatto TA 31/31).
+
+    Disabilitato di default: con il pannello Wi-Fi da esterno il contatto è
+    ponticellato e il valore resta On dalla messa in servizio. La richiesta
+    reale è in "Riscaldamento in corso" (HeatingActiveSensor).
+    """
 
     _icons = ("mdi:home-thermometer", "mdi:home-thermometer-outline")
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator, api):
         super().__init__(
@@ -705,6 +713,50 @@ class ResistancesOnSensor(BaxiOnOffSensor):
         )
 
 
+class HeatingActiveSensor(BaxiOnOffSensor):
+    """Riscaldamento in corso adesso (metrica "Riscaldamento per counter")."""
+
+    _icons = ("mdi:radiator", "mdi:radiator-off")
+
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator, api,
+            translation_key="heating_active",
+            unique_id="baxi_heating_active",
+            value_key="heating_active",
+        )
+
+
+class DhwActiveSensor(BaxiOnOffSensor):
+    """Produzione di acqua calda sanitaria in corso (metrica "Sanitario per counter")."""
+
+    _icons = ("mdi:water-boiler", "mdi:water-boiler-off")
+
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator, api,
+            translation_key="dhw_active",
+            unique_id="baxi_dhw_active",
+            value_key="dhw_active",
+        )
+
+
+class WifiSignalSensor(BaxiBaseSensor):
+    """Segnale WiFi del gateway dell'impianto (dBm)."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator, api,
+            translation_key="wifi_signal",
+            unique_id="baxi_wifi_signal",
+            value_key="wifi_signal",
+            unit=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
+            device_class=SensorDeviceClass.SIGNAL_STRENGTH,
+        )
+
+
 class PDCFlowRateSensor(BaxiBaseSensor):
     # L/h come nell'app Baxi. Nessuna device_class: L/h non è tra le unità di
     # portata della versione minima di HA supportata (2025.1).
@@ -720,16 +772,17 @@ class PDCFlowRateSensor(BaxiBaseSensor):
 
 
 class DailyModeTimeSensor(BaxiBaseSensor):
-    """Tempo trascorso in una modalità nel giorno (contatore calcolato dal cloud una volta al giorno).
+    """Tempo trascorso oggi in una modalità.
 
-    Unità da confermare sul campo: il valore del cloud è trattato come
-    millisecondi e mostrato in ore. Senza state_class finché l'unità non è
-    verificata, così non si registrano statistiche a lungo termine sbagliate.
+    Il cloud manda i millisecondi dall'inizio del giorno (timestamp =
+    mezzanotte) e riparte da zero il giorno dopo: TOTAL_INCREASING gestisce
+    l'azzeramento come un nuovo ciclo. Mostrato in minuti (valori tipici
+    sotto l'ora).
     """
 
     _attr_entity_registry_enabled_default = False
-    _attr_suggested_unit_of_measurement = UnitOfTime.HOURS
-    _attr_suggested_display_precision = 1
+    _attr_suggested_unit_of_measurement = UnitOfTime.MINUTES
+    _attr_suggested_display_precision = 0
 
     def __init__(self, coordinator, api, attr):
         super().__init__(
@@ -740,7 +793,19 @@ class DailyModeTimeSensor(BaxiBaseSensor):
             unit=UnitOfTime.MILLISECONDS,
             device_class=SensorDeviceClass.DURATION,
         )
-        self._attr_state_class = None
+        self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+
+    @property
+    def native_value(self):
+        # Ultimo valore di un giorno precedente (il cloud non l'ha ancora
+        # aggiornato oggi): oggi il tempo è zero, come per l'energia giornaliera.
+        value = getattr(self._api, self._value_key, None)
+        ts = getattr(self._api, f"{self._value_key}_timestamp", None)
+        if value is not None and ts:
+            sample_day = datetime.fromtimestamp(ts / 1000, tz=dt_util.DEFAULT_TIME_ZONE).date()
+            if sample_day != dt_util.now().date():
+                return 0.0
+        return value
 
     @property
     def extra_state_attributes(self):
@@ -865,6 +930,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
         PDCFlowRateSensor(coordinator, api),
         HeatingRequestSensor(coordinator, api),
         ResistancesOnSensor(coordinator, api),
+        HeatingActiveSensor(coordinator, api),
+        DhwActiveSensor(coordinator, api),
+        WifiSignalSensor(coordinator, api),
     ]
     # affianco i nuovi sensori energia
     sensors.extend(

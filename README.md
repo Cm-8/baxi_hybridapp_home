@@ -65,11 +65,14 @@ Readings may partly work; the controls use model-specific commands and may not. 
 - **Holiday Mode** — whether holiday mode is active (On / Off)
 - **Holiday Mode End** — end date/time of the active holiday period (unknown while holiday mode is off)
 - **System Operation Icon** — icon code from the Baxi cloud status (disabled by default)
-- **Richiesta Riscaldamento (TA)** — heat request from the room thermostat (On / Off)
-- **Resistenze** — electric heaters state (On / Off)
+- **Riscaldamento in corso** — heating is running right now (On / Off)
+- **Sanitario in corso** — domestic hot water is being produced right now (On / Off)
+- **Resistenze** — electric heaters state (On / Off; Off when they are not enabled)
+- **Richiesta Riscaldamento (TA)** — state of the room thermostat contact 31/31 (On / Off, disabled by default). With the external Wi-Fi control panel this contact is usually bridged and always reads On: use **Riscaldamento in corso** instead.
+- **Segnale WiFi** — WiFi signal of the system gateway (dBm, diagnostic)
 
 ### ⏱️ Daily Time per Mode
-Time spent by the system in each mode during the day: heat pump, boiler, heating, cooling, DHW, solar thermal and standby. The Baxi cloud computes these counters **once a day**. All are **disabled by default**. In this version they are shown in hours and record no long-term statistics, until the unit sent by the cloud is confirmed on real systems.
+Time spent today in each mode: heat pump, boiler, heating, cooling, DHW, solar thermal and standby. The value grows during the day and restarts from zero at midnight; it is shown in minutes and recorded in long-term statistics. All are **disabled by default**.
 
 ### ⚡ Energy Sensors
 All energy sensors are disabled by default and use `TOTAL_INCREASING` state class (compatible with the HA Energy dashboard).
@@ -126,7 +129,7 @@ Mirrors the Baxi app's on/off flag, avoiding accidental sends. Both entities are
 At startup the integration reads the list of metrics of your device model from the Baxi cloud. Metrics the model does not have are not requested, and their entities are not created (if a previous version created them, they are removed). For example, **Flame Status** does not appear on all-electric systems.
 
 ### 🩺 Diagnostics
-From the integration page (**⋮** > **Download diagnostics**) you can download a JSON report with the current sensor values, the full catalog of commands, configuration parameters and metrics supported by your device model, and the last value of every metric in the catalog (also those the integration does not read yet). Credentials, serial number, device ID, WiFi network name, gateway serial number and zone names are redacted. Attach it when opening an issue — it makes troubleshooting much faster, especially for device models not yet fully supported.
+From the integration page (**⋮** > **Download diagnostics**) you can download a JSON report with the current sensor values, the full catalog of commands, configuration parameters and metrics supported by your device model, the last value of every metric in the catalog (also those the integration does not read yet), and the last 10 changes of every metric the integration reads. Downloading it takes a few seconds. Credentials, serial number, device ID, WiFi network name, gateway serial number and zone names are redacted. Attach it when opening an issue — it makes troubleshooting much faster, especially for device models not yet fully supported.
 
 ---
 

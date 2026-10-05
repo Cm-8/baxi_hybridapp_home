@@ -5,9 +5,9 @@ Scaricabile da: Impostazioni → Dispositivi e servizi → Baxi HybridApp Home
 → ⋮ → Scarica la diagnostica.
 
 Contiene lo snapshot dei valori correnti (già in RAM, nessuna chiamata extra),
-i cataloghi statici del modello (comandi, parametri, metriche) e l'ultimo
-valore di ogni metrica del catalogo, scaricati on-demand al momento del
-download. Credenziali, seriale, thingId e valori personali (rete WiFi,
+i cataloghi statici del modello (comandi, parametri, metriche), l'ultimo
+valore di ogni metrica del catalogo e gli ultimi 10 cambi di ogni metrica
+letta dall'integrazione, scaricati on-demand al momento del download. Credenziali, seriale, thingId e valori personali (rete WiFi,
 seriale del gateway, nomi delle zone) sono redatti.
 
 custom_components/baxi_hybridapp_home/diagnostics.py
@@ -55,6 +55,29 @@ def _catalog_values(api, metrics: list) -> dict[str, Any]:
         # Metriche del modello per cui il cloud non ha nessun valore su questo impianto.
         "without_data": [n for n in names if n not in samples],
     }
+
+
+# Cambi recenti mostrati per ogni metrica letta dall'integrazione.
+HISTORY_SIZE = 10
+
+
+def _recent_changes(api) -> dict[str, Any]:
+    """Ultimi HISTORY_SIZE cambi di ogni metrica letta dall'integrazione.
+
+    Mostra sequenze e codici che un solo valore non rivela (es. Stato PDC
+    0002 → 0001 → 0000). Una richiesta /data/values per metrica, solo al
+    download. Bloccante: va chiamata nell'executor. Non solleva.
+    """
+    changes: dict[str, Any] = {}
+    for name in WIRED_METRIC_NAMES:
+        if not api.has_metric(name):
+            continue
+        try:
+            history = api.fetch_metric_history(name, HISTORY_SIZE)
+        except Exception as err:  # diagnostica best-effort: mai un errore al download
+            history = f"lettura non riuscita: {err}"
+        changes[name] = history if history is not None else "lettura non riuscita"
+    return changes
 
 
 def _compact_commands(items: list) -> list[dict]:
@@ -114,6 +137,8 @@ async def async_get_config_entry_diagnostics(
     catalog_values = await hass.async_add_executor_job(
         _catalog_values, api, capabilities.get("metrics") or []
     )
+    # Ultimi 10 cambi delle metriche lette (~48 richieste singole).
+    recent_changes = await hass.async_add_executor_job(_recent_changes, api)
 
     # Snapshot dei valori correnti: tutto già in RAM, nessuna chiamata.
     simple_values = {
@@ -186,4 +211,6 @@ async def async_get_config_entry_diagnostics(
         # Ultimo valore + timestamp di ogni metrica del catalogo (anche quelle
         # che l'integrazione non legge); i valori personali sono redatti.
         "catalog_values": catalog_values,
+        # Ultimi 10 cambi (dal più recente) di ogni metrica letta dall'integrazione.
+        "recent_changes": recent_changes,
     }

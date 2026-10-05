@@ -92,7 +92,9 @@ _STATUS_ON_OFF = {
 
 
 # Tempi giornalieri per modalità: attributo api (anche translation_key del
-# sensore) → metricName. Contatori calcolati dal cloud una volta al giorno.
+# sensore) → metricName. Millisecondi trascorsi nella modalità dall'inizio del
+# giorno: il valore cresce durante la giornata (timestamp = mezzanotte) e
+# riparte da zero il giorno dopo. Unità verificata sul campo il 5/10/2026.
 DAILY_MODE_TIME_METRICS: tuple[tuple[str, str], ...] = (
     ("daily_time_heat_pump", "Pompa di calore giornaliero"),
     ("daily_time_boiler", "Caldaia giornaliero"),
@@ -136,11 +138,13 @@ SIMPLE_METRICS: tuple[SimpleMetricSpec, ...] = (
     SimpleMetricSpec("sanitary_request_status", "Stato richiesta sanitario", _parse_float),
     SimpleMetricSpec("pdc_flow_rate", "Portata flusso pdc", _parse_float),  # L/h
     SimpleMetricSpec("boost_max_duration", "Sanitario - Tempo max boost", _parse_float),  # min
+    SimpleMetricSpec("wifi_signal", "WiFi signal", _parse_float),  # dBm
 
     # --- Stringhe mappate (codici Servitly → testo leggibile) ---------------
     SimpleMetricSpec(
         "sanitary_on", "Sanitario on",
-        _make_mapper({"0": "Off", "0_1": "On", "1": "On"}),
+        # None: valore vuoto mandato in Standby (sanitario non attivo).
+        _make_mapper({"0": "Off", "0_1": "On", "1": "On", None: "Off"}),
     ),
     SimpleMetricSpec(
         "system_mode", "Modo Impianto",
@@ -204,6 +208,18 @@ SIMPLE_METRICS: tuple[SimpleMetricSpec, ...] = (
     ),
     SimpleMetricSpec(
         "resistances_on", "Resistenze on",
+        # Valore vuoto (None) con le resistenze non abilitate: sono spente.
+        _make_mapper({**_STATUS_ON_OFF, "none": "Off"}, normalize=True),
+    ),
+    # Funzione in corso adesso (le metriche "per counter" alimentano i tempi
+    # giornalieri): indicano la richiesta reale anche con il pannello Wi-Fi,
+    # dove il contatto TA 31/31 è ponticellato e resta sempre On.
+    SimpleMetricSpec(
+        "heating_active", "Riscaldamento per counter",
+        _make_mapper(_STATUS_ON_OFF, normalize=True),
+    ),
+    SimpleMetricSpec(
+        "dhw_active", "Sanitario per counter",
         _make_mapper(_STATUS_ON_OFF, normalize=True),
     ),
     *(SimpleMetricSpec(attr, name, _parse_float, log_emoji="⏱️") for attr, name in DAILY_MODE_TIME_METRICS),

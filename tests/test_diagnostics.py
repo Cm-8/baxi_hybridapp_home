@@ -41,6 +41,26 @@ def test_last_value_of_every_catalog_metric(api, cloud):
     assert "CasaRossi" not in dump and "Camera di Marco" not in dump and "thing-test" not in dump
 
 
+def test_last_ten_changes_of_each_read_metric(api, cloud, monkeypatch):
+    api.model_metrics = frozenset({"Stato PDC"})  # una sola metrica letta, per semplicità
+    cloud["Stato PDC"] = {"data": [
+        {"timestamp": 3, "values": [{"value": "0000"}]},
+        {"timestamp": 2, "values": [{"value": "0001"}]},
+        {"timestamp": 1, "values": [{"value": "0002"}]},
+    ]}
+    urls = []
+    get_json = api._http_get_json
+    monkeypatch.setattr(api, "_http_get_json", lambda url: urls.append(url) or get_json(url))
+
+    changes = diagnostics(api)["recent_changes"]
+    assert changes == {"Stato PDC": [
+        {"timestamp": 3, "value": "0000"},
+        {"timestamp": 2, "value": "0001"},
+        {"timestamp": 1, "value": "0002"},
+    ]}
+    assert any("pageSize=10" in u and "Stato%20PDC" in u.replace("+", "%20") for u in urls)
+
+
 def test_catalog_values_never_break_the_download(api, cloud):
     # Catalogo non leggibile (cloud.catalog = None): la diagnostica si scarica comunque.
     api.thingDefinitionId = "def-1"

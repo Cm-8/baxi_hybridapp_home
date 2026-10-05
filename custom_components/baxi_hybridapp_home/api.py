@@ -24,7 +24,7 @@ _LOGGER = logging.getLogger(__name__)
 # metricName dello scheduler sanitario (parsing proprio, fuori dalle tabelle di metrics.py).
 SANITARY_SCHEDULER_METRIC = "Schedulatore - Sanitario"
 # Tutte le metriche lette a ogni ciclo: semplici, scheduler sanitario, energia
-# (46 nomi, sotto il limite di 50 di /data/lastValues).
+# (49 nomi, sotto il limite di 50 di /data/lastValues: oltre servono 2 richieste).
 WIRED_METRIC_NAMES: tuple[str, ...] = tuple(dict.fromkeys(
     [spec.metric_name for spec in SIMPLE_METRICS]
     + [SANITARY_SCHEDULER_METRIC]
@@ -585,15 +585,33 @@ class BaxiHybridAppAPI:
             _LOGGER.warning("❌ Risposta non JSON da %s: %s", _mask_url(url), e)
             return None
 
-    def _metric_url(self, metric_name: str) -> str:
+    def _metric_url(self, metric_name: str, page_size: int = 1) -> str:
         if not self.thingId:
             raise RuntimeError("thingId non inizializzato")
         return (
             f"{self.BASE_URL}/data/values?"
             f"thingId={self.thingId}"
-            f"&pageSize=1"
+            f"&pageSize={page_size}"
             f"&metricName={quote_plus(metric_name)}"
         )
+
+    def fetch_metric_history(self, metric_name: str, size: int) -> list[dict] | None:
+        """Ultimi `size` campioni di una metrica, dal più recente (solo per la diagnostica).
+
+        Il cloud salva un campione solo quando il valore cambia: sono gli
+        ultimi cambi, ognuno con il suo timestamp. Una richiesta per metrica,
+        non conta negli esiti del ciclo. None se la richiesta non riesce.
+        """
+        data = self._http_get_json(self._metric_url(metric_name, page_size=size))
+        if not isinstance(data, dict):
+            return None
+        history = []
+        for item in data.get("data") or []:
+            try:
+                history.append({"timestamp": item["timestamp"], "value": item["values"][0]["value"]})
+            except (KeyError, IndexError, TypeError):
+                continue
+        return history
 
     # Sentinelle "no data" pubblicate da Servitly: il valore esiste ma la misura
     # è assente (tipico per metriche non applicabili al device, es. flame status
