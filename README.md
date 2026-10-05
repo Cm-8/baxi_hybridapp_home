@@ -264,6 +264,19 @@ Contributions are welcome! If you find a bug or want to request a feature:
 
 ---
 
+## Acknowledgements
+
+Thanks to everyone who helped with pull requests, tests on real systems and reports:
+
+- [@arizz96](https://github.com/arizz96) — reading all metrics in one request with `/data/lastValues`, tested on a live device ([#14](https://github.com/Cm-8/baxi_hybridapp_home/pull/14))
+- [@riccardorossi92](https://github.com/riccardorossi92) — refresh token renewal ([#15](https://github.com/Cm-8/baxi_hybridapp_home/pull/15)), holiday mode service proposal ([#13](https://github.com/Cm-8/baxi_hybridapp_home/pull/13)), reports on all-electric systems ([#6](https://github.com/Cm-8/baxi_hybridapp_home/issues/6), [#8](https://github.com/Cm-8/baxi_hybridapp_home/issues/8))
+- [@astorelli](https://github.com/astorelli) — season mode select and authentication error handling ([#10](https://github.com/Cm-8/baxi_hybridapp_home/pull/10))
+- [@jacoporunchi](https://github.com/jacoporunchi) — holiday mode ([#12](https://github.com/Cm-8/baxi_hybridapp_home/issues/12)) and configurable update interval ([#11](https://github.com/Cm-8/baxi_hybridapp_home/issues/11)) requests
+- [@Max6502](https://github.com/Max6502) — early reports and the cooling setpoint request ([#1](https://github.com/Cm-8/baxi_hybridapp_home/issues/1), [#2](https://github.com/Cm-8/baxi_hybridapp_home/issues/2), [#4](https://github.com/Cm-8/baxi_hybridapp_home/issues/4), [#5](https://github.com/Cm-8/baxi_hybridapp_home/issues/5), [#9](https://github.com/Cm-8/baxi_hybridapp_home/issues/9))
+- [@cudiz27](https://github.com/cudiz27) ([#3](https://github.com/Cm-8/baxi_hybridapp_home/issues/3)) and [@greggioalessandro71-web](https://github.com/greggioalessandro71-web) ([#7](https://github.com/Cm-8/baxi_hybridapp_home/issues/7)) — bug reports
+
+---
+
 ## Author
 
 [@Cm-8](https://github.com/Cm-8)
