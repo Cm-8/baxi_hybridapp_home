@@ -15,6 +15,7 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import entity_registry as er
 
 from .api import BaxiHybridAppAPI
 from .const import (
@@ -31,12 +32,14 @@ PLATFORMS = ["sensor", "water_heater", "button", "binary_sensor", "select", "num
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 # Servizi setpoint sanitario: nome → (parameter ID, attributo api, nome nel
-# Logbook, entità del Logbook, chiave dell'errore tradotto).
+# Logbook, unique_id del water_heater per il Logbook, chiave dell'errore tradotto).
+# L'entity_id si risolve dal registro: dipende dal nome del dispositivo e
+# dagli eventuali rinomi, non va scritto fisso.
 _SANITARY_SERVICES = {
     "set_comfort": (PARAM_ID_SETPOINT_COMFORT, "setpoint_comfort_temp", "Sanitario Comfort",
-                    "water_heater.sanitario_comfort", "comfort_setpoint_failed"),
+                    "baxi_water_heater_comfort", "comfort_setpoint_failed"),
     "set_eco": (PARAM_ID_SETPOINT_ECO, "setpoint_eco_temp", "Sanitario Eco",
-                "water_heater.sanitario_eco", "eco_setpoint_failed"),
+                "baxi_water_heater_eco", "eco_setpoint_failed"),
 }
 
 _SET_SCHEMA = vol.Schema({
@@ -70,7 +73,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
     async def handle_set_sanitary(call: ServiceCall) -> None:
         """Imposta il setpoint sanitario Comfort o Eco (solo temperatura)."""
-        param_id, attr, label, entity_id, error_key = _SANITARY_SERVICES[call.service]
+        param_id, attr, label, unique_id, error_key = _SANITARY_SERVICES[call.service]
         runtime = _loaded_runtime(hass)
         value = call.data["value"]  # range già validato dallo schema
 
@@ -89,11 +92,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         # UI il valore vecchio (il device ri-pubblica la misura con ritardo).
         setattr(runtime.api, attr, float(value))
         runtime.coordinator.async_update_listeners()
-        await hass.services.async_call(
-            "logbook", "log",
-            {"name": label, "message": f"impostato a {value}°C", "entity_id": entity_id},
-            blocking=False,
-        )
+        logbook = {"name": label, "message": f"impostato a {value}°C"}
+        if entity_id := er.async_get(hass).async_get_entity_id("water_heater", DOMAIN, unique_id):
+            logbook["entity_id"] = entity_id
+        await hass.services.async_call("logbook", "log", logbook, blocking=False)
         hass.async_create_task(_grace_refresh(runtime.coordinator))
 
     for service in _SANITARY_SERVICES:

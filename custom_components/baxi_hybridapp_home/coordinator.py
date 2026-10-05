@@ -116,6 +116,10 @@ class BaxiDataUpdateCoordinator(DataUpdateCoordinator):
         # Historical alerts (FAILURE/WARNING): popola active/last/conteggi
         # sull'istanza API e accoda i nuovi alert in api.new_alerts_pending.
         await self.hass.async_add_executor_job(self.api.fetch_historical_alerts)
+        # Token scaduto, rinnovo non riuscito e password rifiutata durante il
+        # ciclo: ri-autenticazione subito, non al ciclo successivo.
+        if self.api.auth_rejected:
+            raise ConfigEntryAuthFailed("Credenziali Baxi non più valide")
         # Una richiesta fallita conserva il valore precedente. Se però non ne è
         # riuscita nessuna il cloud è irraggiungibile: UpdateFailed rende le
         # entità non disponibili e il coordinator lo logga una volta sola

@@ -85,6 +85,26 @@ def test_rejected_renewal_falls_back_to_login(logged_in, monkeypatch):
     assert api.token == "fresh"
 
 
+def test_rejected_password_stops_further_logins(logged_in):
+    # Token scaduto, rinnovo rifiutato, login con password rifiutato: le
+    # richieste successive del ciclo non ritentano il login.
+    api = logged_in
+    api._session = FakeSession(FakeResponse(401), FakeResponse(403), FakeResponse(401))
+    assert api._make_request(URL) is None
+    assert api.auth_rejected
+    calls = len(api._session.calls)
+    assert api._make_request(URL) is None
+    assert api.set_configuration_parameter("param", 45) is False
+    assert len(api._session.calls) == calls  # nessun altro tentativo
+
+
+def test_successful_login_clears_rejection(api):
+    api.auth_rejected = True
+    api._session = FakeSession(FakeResponse(200, {"token": "t", "refreshToken": "r"}))
+    api.login()
+    assert not api.auth_rejected
+
+
 def test_renewal_needs_identity_from_login(api):
     # Senza userId/tenantId (es. login di una versione precedente) non si tenta il rinnovo.
     api.token, api.refreshToken = "old", "r1"

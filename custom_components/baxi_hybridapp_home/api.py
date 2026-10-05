@@ -122,6 +122,10 @@ class BaxiHybridAppAPI:
         self.userId = None
         self.tenantId = None
         self.tokenExpirationTimestamp = None  # epoch ms, solo informativo
+        # Password rifiutata da un login di ripiego (token scaduto e non
+        # rinnovabile): niente altri tentativi finché un login non riesce; il
+        # coordinator avvia la ri-autenticazione (vedi _request).
+        self.auth_rejected = False
         self.thingId = None
         self.thingModel = None
         self.thingSwVersion = None
@@ -227,6 +231,7 @@ class BaxiHybridAppAPI:
             raise BaxiAuthError("Login senza token nella risposta")
 
         self.token = token
+        self.auth_rejected = False
         self.refreshToken = data.get("refreshToken")
         self.userId = data.get("userId")
         self.tenantId = data.get("tenantId")
@@ -247,9 +252,10 @@ class BaxiHybridAppAPI:
             # Credenziali rifiutate: invalida il token stantio, così il prossimo
             # ciclo del coordinator ripassa da login() e propaga l'errore tipizzato
             # (→ ConfigEntryAuthFailed → re-auth flow), invece di insistere con
-            # un token morto.
+            # un token morto. auth_rejected ferma gli altri login del ciclo.
             self.token = None
             self.refreshToken = None
+            self.auth_rejected = True
             _LOGGER.error("❌ BAXI Login failed: %s", e)
         except BaxiApiError as e:
             _LOGGER.error("❌ BAXI Login failed: %s", e)
@@ -502,7 +508,11 @@ class BaxiHybridAppAPI:
         autenticarsi, il 429 non è ritentabile o la richiesta non va a buon fine.
         Gli errori di rete sono loggati solo in debug: il riepilogo per ciclo
         (o l'indisponibilità) lo logga il coordinator.
+        Con la password già rifiutata (auth_rejected) non parte nessuna
+        richiesta: ogni richiesta rifarebbe il login con la password sbagliata.
         """
+        if self.auth_rejected:
+            return None
         if not self.token:
             _LOGGER.warning("⚠️ Nessun token: provo a ri-autenticare.")
             self.authenticate()
