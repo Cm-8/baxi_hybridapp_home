@@ -18,7 +18,8 @@ from custom_components.baxi_hybridapp_home.button import BaxiBoostButton
 from custom_components.baxi_hybridapp_home.const import COMMAND_ID_BOOST_SANITARIO, PARAM_ID_BOOST_MAX_DURATION
 from custom_components.baxi_hybridapp_home.number import BaxiBoostDurationNumber
 from custom_components.baxi_hybridapp_home.sensor import (
-    DailyModeTimeSensor, HeatingActiveSensor, HeatingRequestSensor, WifiSignalSensor,
+    DailyModeTimeSensor, HeatingActiveSensor, HeatingRequestSensor, PowerBoiler, PowerPDC,
+    WifiSignalSensor,
 )
 
 from .conftest import values_response
@@ -206,6 +207,12 @@ def test_daily_time_from_a_previous_day_is_zero(api, coordinator):
 
 
 # --- Stati e segnale -------------------------------------------------------------
+
+
+def test_instant_power_sensors_are_disabled_by_default(api, coordinator):
+    # Su alcuni impianti la potenza istantanea non viene pubblicata (sempre 0 %).
+    assert not PowerBoiler(coordinator, api).entity_registry_enabled_default
+    assert not PowerPDC(coordinator, api).entity_registry_enabled_default
 
 
 def test_thermostat_contact_is_disabled_by_default(api, coordinator):

@@ -485,6 +485,9 @@ class StatusPDC(BaxiBaseSensor):
     
 class PowerBoiler(BaxiBaseSensor):
     _attr_state_class = SensorStateClass.MEASUREMENT # percentuale
+    # Disabilitato di default: alcuni impianti non pubblicano la potenza
+    # istantanea (resta a 0 % senza mai cambiare).
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator, api):
         super().__init__(
@@ -530,6 +533,8 @@ class PowerBoiler(BaxiBaseSensor):
 
 class PowerPDC(BaxiBaseSensor):
     _attr_state_class = SensorStateClass.MEASUREMENT # percentuale
+    # Come PowerBoiler: disabilitato di default (valore spesso fermo a 0 %).
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator, api):
         super().__init__(

@@ -5,6 +5,9 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://hacs.xyz/)
 [![GitHub Release](https://img.shields.io/github/v/release/Cm-8/baxi_hybridapp_home.svg?style=for-the-badge&color=blue)](https://github.com/Cm-8/baxi_hybridapp_home/releases)
 [![Integration Usage](https://img.shields.io/badge/dynamic/json?color=41BDF5&style=for-the-badge&logo=home-assistant&label=usage&suffix=%20installs&cacheSeconds=15600&url=https://analytics.home-assistant.io/custom_integrations.json&query=$['baxi_hybridapp_home'].total)](https://analytics.home-assistant.io/)
+[![CI](https://img.shields.io/github/actions/workflow/status/Cm-8/baxi_hybridapp_home/validate.yaml?branch=main&style=for-the-badge&label=CI)](https://github.com/Cm-8/baxi_hybridapp_home/actions/workflows/validate.yaml)
+[![Home Assistant](https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/Cm-8/baxi_hybridapp_home/main/hacs.json&query=$.homeassistant&label=Home%20Assistant&prefix=%E2%89%A5&style=for-the-badge&logo=home-assistant)](https://www.home-assistant.io/)
+[![License](https://img.shields.io/github/license/Cm-8/baxi_hybridapp_home?style=for-the-badge)](LICENSE)
 
 > **Disclaimer:** This is an unofficial integration and is not affiliated with or endorsed by Baxi in any way.
 
@@ -49,13 +52,13 @@ Readings may partly work; the controls use model-specific commands and may not. 
 - **Water Pressure** — hydraulic circuit pressure (bar)
 
 ### ⚡ Power and Flow Sensors
-- **Boiler Instantaneous Power** — current boiler power output
-- **PDC Instantaneous Power** — current heat pump power output
+- **Boiler Instantaneous Power** — current boiler power output (disabled by default: some systems do not publish it and it stays at 0 %)
+- **PDC Instantaneous Power** — current heat pump power output (disabled by default, same reason)
 - **Portata PDC** — heat pump flow rate (L/h)
 
 ### 🧭 Mode / Status Sensors
 - **System Mode** — current operating mode (Automatico, Standby, Solo Sanitario)
-- **System Operation Mode** — firmware-level operating mode (Automatico, Standby, Solo Sanitario)
+- **System Operation Mode** — firmware-level operating mode (Automatico, Standby, Solo Sanitario; "Remoto - Inverno" / "Remoto - Estate" when the season is set by a hardwired remote control)
 - **Season Mode** — current seasonal configuration (Estate, Inverno, Estate/Inverno automatico, Estate/Inverno remoto)
 - **Sanitary On** — whether sanitary mode is active (On / Off)
 - **Scheduler Status** — DHW scheduler state (active, off, or error)

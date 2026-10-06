@@ -165,10 +165,14 @@ SIMPLE_METRICS: tuple[SimpleMetricSpec, ...] = (
         # Aggiunte anche le forme senza zeri ("1", "7", "d") per robustezza.
         # normalize=True porta il raw in minuscolo: le chiavi esadecimali
         # vanno quindi scritte in minuscolo ("000d", non "000D").
+        # 0005/0006: stagione decisa da un comando remoto cablato (Modo Stagione
+        # "Estate/Inverno remoto"), inverno e estate; segnalati da un utente (#23).
         _make_mapper({
-            "0001": "Automatico",     "1": "Automatico",
-            "0007": "Standby",        "7": "Standby",
-            "000d": "Solo Sanitario", "d": "Solo Sanitario",
+            "0001": "Automatico",       "1": "Automatico",
+            "0005": "Remoto - Inverno", "5": "Remoto - Inverno",
+            "0006": "Remoto - Estate",  "6": "Remoto - Estate",
+            "0007": "Standby",          "7": "Standby",
+            "000d": "Solo Sanitario",   "d": "Solo Sanitario",
         }, normalize=True),
     ),
     SimpleMetricSpec(

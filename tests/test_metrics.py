@@ -89,6 +89,18 @@ def test_system_operation_mode(raw, expected):
     assert parser_for("system_operation_mode")(raw) == expected
 
 
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        # Stagione decisa da un comando remoto cablato (#23).
+        ("0005", "Remoto - Inverno"), ("5", "Remoto - Inverno"),
+        ("0006", "Remoto - Estate"), ("6", "Remoto - Estate"),
+    ],
+)
+def test_system_operation_mode_remote_season(raw, expected):
+    assert parser_for("system_operation_mode")(raw) == expected
+
+
 def test_unknown_code_is_reported_not_hidden():
     assert parser_for("system_operation_mode")("0009") == "Sconosciuto (0009)"
 
