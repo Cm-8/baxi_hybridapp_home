@@ -28,7 +28,7 @@ Other systems supported by the Baxi HybridApp, **not yet tested** with this inte
 - Artemis systems
 - Luna OpenTherm built-in systems
 
-Readings may partly work; the controls use model-specific commands and may not. If you own one of these systems, please [open an issue](https://github.com/Cm-8/baxi_hybridapp_home/issues) and attach the diagnostics (see [Troubleshooting](#troubleshooting)).
+Readings may partly work; the controls use model-specific commands and may not. **Help us support more systems:** download the diagnostics and attach it to [the diagnostics collection issue](https://github.com/Cm-8/baxi_hybridapp_home/issues/25) — especially hybrid systems with a gas boiler, solar thermal, multi-zone, Artemis and Luna OpenTherm systems.
 
 
 ---
