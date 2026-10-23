@@ -7,8 +7,8 @@ rules:
   action-setup: done
   appropriate-polling: done
   brands:
-    status: todo
-    comment: No brand images yet; the HACS validation skips them (ignore brands).
+    status: done
+    comment: Icon and logo in the brand/ folder (Home Assistant 2026.3+) and in home-assistant/brands for older versions.
   common-modules:
     status: todo
     comment: The coordinator is in coordinator.py; there is no shared entity.py base class yet.
