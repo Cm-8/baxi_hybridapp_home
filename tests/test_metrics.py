@@ -95,9 +95,11 @@ def test_system_operation_mode(raw, expected):
         # Stagione decisa da un comando remoto cablato (#23).
         ("0005", "Remoto - Inverno"), ("5", "Remoto - Inverno"),
         ("0006", "Remoto - Estate"), ("6", "Remoto - Estate"),
+        # Estate con la stagione manuale (#25).
+        ("0002", "Estate"), ("2", "Estate"),
     ],
 )
-def test_system_operation_mode_remote_season(raw, expected):
+def test_system_operation_mode_season_codes(raw, expected):
     assert parser_for("system_operation_mode")(raw) == expected
 
 
@@ -144,11 +146,13 @@ def test_status_pdc(raw, expected):
 @pytest.mark.parametrize(
     ("attr", "raw", "expected"),
     [
-        # Valore vuoto: sanitario in Standby, resistenze non abilitate → spenti.
+        # Valore vuoto: sanitario in Standby → spento.
         ("sanitary_on", None, "Off"),
         ("sanitary_on", "1", "On"),
-        ("resistances_on", None, "Off"),
+        # Resistenze: il vuoto arriva anche mentre lavorano → nessuno stato.
+        ("resistances_on", None, None),
         ("resistances_on", "0001", "On"),
+        ("resistances_on", "0000", "Off"),
         # Funzione in corso (metriche "per counter").
         ("heating_active", "0001", "On"),
         ("heating_active", "0000", "Off"),

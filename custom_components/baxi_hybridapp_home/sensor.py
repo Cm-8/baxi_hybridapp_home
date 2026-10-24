@@ -707,7 +707,14 @@ class HeatingRequestSensor(BaxiOnOffSensor):
 
 
 class ResistancesOnSensor(BaxiOnOffSensor):
+    """Stato delle resistenze elettriche (metrica "Resistenze on").
+
+    Disabilitato di default: su più impianti la metrica resta vuota anche
+    mentre le resistenze lavorano (il loro contatore di energia sale).
+    """
+
     _icons = ("mdi:flash", "mdi:flash-off")
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator, api):
         super().__init__(

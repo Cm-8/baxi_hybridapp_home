@@ -19,7 +19,7 @@ from custom_components.baxi_hybridapp_home.const import COMMAND_ID_BOOST_SANITAR
 from custom_components.baxi_hybridapp_home.number import BaxiBoostDurationNumber
 from custom_components.baxi_hybridapp_home.sensor import (
     DailyModeTimeSensor, HeatingActiveSensor, HeatingRequestSensor, PowerBoiler, PowerPDC,
-    WifiSignalSensor,
+    ResistancesOnSensor, WifiSignalSensor,
 )
 
 from .conftest import values_response
@@ -219,6 +219,14 @@ def test_thermostat_contact_is_disabled_by_default(api, coordinator):
     # Con il pannello Wi-Fi il contatto 31/31 è ponticellato: sempre On.
     assert not HeatingRequestSensor(coordinator, api).entity_registry_enabled_default
     assert HeatingActiveSensor(coordinator, api).entity_registry_enabled_default
+
+
+def test_resistances_sensor_is_disabled_and_empty_is_not_off(api, coordinator):
+    # La metrica arriva vuota anche con le resistenze al lavoro (#25).
+    s = ResistancesOnSensor(coordinator, api)
+    assert not s.entity_registry_enabled_default
+    api.resistances_on = None
+    assert not s.available
 
 
 def test_wifi_signal_is_a_diagnostic_signal_strength(api, coordinator):

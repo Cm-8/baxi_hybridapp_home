@@ -167,8 +167,12 @@ SIMPLE_METRICS: tuple[SimpleMetricSpec, ...] = (
         # vanno quindi scritte in minuscolo ("000d", non "000D").
         # 0005/0006: stagione decisa da un comando remoto cablato (Modo Stagione
         # "Estate/Inverno remoto"), inverno e estate; segnalati da un utente (#23).
+        # 0002: estate con la stagione manuale (Modo Stagione "Estate", #25).
+        # Lo 0001 corrisponde all'inverno manuale: resta "Automatico" per non
+        # rompere le automazioni che confrontano lo stato.
         _make_mapper({
             "0001": "Automatico",       "1": "Automatico",
+            "0002": "Estate",           "2": "Estate",
             "0005": "Remoto - Inverno", "5": "Remoto - Inverno",
             "0006": "Remoto - Estate",  "6": "Remoto - Estate",
             "0007": "Standby",          "7": "Standby",
@@ -212,8 +216,9 @@ SIMPLE_METRICS: tuple[SimpleMetricSpec, ...] = (
     ),
     SimpleMetricSpec(
         "resistances_on", "Resistenze on",
-        # Valore vuoto (None) con le resistenze non abilitate: sono spente.
-        _make_mapper({**_STATUS_ON_OFF, "none": "Off"}, normalize=True),
+        # Valore vuoto (None) anche con le resistenze al lavoro (#25): non
+        # indica che sono spente, è un dato mancante → nessuno stato.
+        _make_mapper({**_STATUS_ON_OFF, "none": None}, normalize=True),
     ),
     # Funzione in corso adesso (le metriche "per counter" alimentano i tempi
     # giornalieri): indicano la richiesta reale anche con il pannello Wi-Fi,

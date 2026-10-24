@@ -24,6 +24,14 @@ This extension is only compatible with devices:
 - [Cronotermostato modulante - Kit pannello di controllo wi fi da esterno (Baxi website)](https://www.youtube.com/redirect?event=video_description&redir_token=QUFFLUhqa2tDRmdtdDdKWFViSkpSbkViWmtqUldxX2o3UXxBQ3Jtc0tsZ0VnT0hxN2ZhUEk0MkVMU1ZvOE5fMVhDZEZnalkwNFhCRHBYU2lFQ2ljZnRFQ3JtdmFjcnRfZWtNYXNQVC1FOEx3SEwyd00zRUVGVzlTMDU2Ym1KR29SdjNvMWxsTlIzNlB6eU9ZcFNPbEZ4MHQzTQ&q=https%3A%2F%2Fwww.baxi.it%2Fprodotti%2Fdigital%2Fkit-pannello-di-controllo-wi-fi-da-esterno&v=RW-ZO0UKzrE)
 - [Pannello di controllo WI-FI - (Youtube video)](https://www.youtube.com/watch?v=RW-ZO0UKzrE)
 
+Systems confirmed with this integration (all of them use the **CSI IN SPLIT E** model in the Baxi cloud, so they share the same readings and controls):
+
+| Model reported by the Baxi cloud | System | Confirmed by |
+|---|---|---|
+| MOD.IDR.CSI IN HPS E Wi-Fi | heat pump, external Wi-Fi control panel | [@Cm-8](https://github.com/Cm-8) (maintainer) |
+| MOD.IDRAUL.CSI IN SPLIT E WiFi | heat pump, 3 zones, summer/winter set by a hardwired remote control | [@jacoporunchi](https://github.com/jacoporunchi) ([#23](https://github.com/Cm-8/baxi_hybridapp_home/issues/23)) |
+| IDU CSI Alya E 4-6 | heat pump with cooling | [@riccardorossi92](https://github.com/riccardorossi92) ([#25](https://github.com/Cm-8/baxi_hybridapp_home/issues/25)) |
+
 Other systems supported by the Baxi HybridApp, **not yet tested** with this integration:
 - Artemis systems
 - Luna OpenTherm built-in systems
@@ -58,7 +66,7 @@ Readings may partly work; the controls use model-specific commands and may not. 
 
 ### 🧭 Mode / Status Sensors
 - **System Mode** — current operating mode (Automatico, Standby, Solo Sanitario)
-- **System Operation Mode** — firmware-level operating mode (Automatico, Standby, Solo Sanitario; "Remoto - Inverno" / "Remoto - Estate" when the season is set by a hardwired remote control)
+- **System Operation Mode** — firmware-level operating mode (Automatico, Estate, Standby, Solo Sanitario; "Remoto - Inverno" / "Remoto - Estate" when the season is set by a hardwired remote control). With the season set manually, "Automatico" is shown in winter and "Estate" in summer
 - **Season Mode** — current seasonal configuration (Estate, Inverno, Estate/Inverno automatico, Estate/Inverno remoto)
 - **Sanitary On** — whether sanitary mode is active (On / Off)
 - **Scheduler Status** — DHW scheduler state (active, off, or error)
@@ -70,7 +78,7 @@ Readings may partly work; the controls use model-specific commands and may not. 
 - **System Operation Icon** — icon code from the Baxi cloud status (disabled by default)
 - **Riscaldamento in corso** — heating is running right now (On / Off)
 - **Sanitario in corso** — domestic hot water is being produced right now (On / Off)
-- **Resistenze** — electric heaters state (On / Off; Off when they are not enabled)
+- **Resistenze** — electric heaters state (On / Off, disabled by default: on several systems the cloud sends no value, even while the heaters are running)
 - **Richiesta Riscaldamento (TA)** — state of the room thermostat contact 31/31 (On / Off, disabled by default). With the external Wi-Fi control panel this contact is usually bridged and always reads On: use **Riscaldamento in corso** instead.
 - **Segnale WiFi** — WiFi signal of the system gateway (dBm, diagnostic)
 
@@ -275,9 +283,9 @@ Contributions are welcome! If you find a bug or want to request a feature:
 Thanks to everyone who helped with pull requests, tests on real systems and reports:
 
 - [@arizz96](https://github.com/arizz96) — reading all metrics in one request with `/data/lastValues`, tested on a live device ([#14](https://github.com/Cm-8/baxi_hybridapp_home/pull/14))
-- [@riccardorossi92](https://github.com/riccardorossi92) — refresh token renewal ([#15](https://github.com/Cm-8/baxi_hybridapp_home/pull/15)), holiday mode service proposal ([#13](https://github.com/Cm-8/baxi_hybridapp_home/pull/13)), reports on all-electric systems ([#6](https://github.com/Cm-8/baxi_hybridapp_home/issues/6), [#8](https://github.com/Cm-8/baxi_hybridapp_home/issues/8))
+- [@riccardorossi92](https://github.com/riccardorossi92) — refresh token renewal ([#15](https://github.com/Cm-8/baxi_hybridapp_home/pull/15)), holiday mode service proposal ([#13](https://github.com/Cm-8/baxi_hybridapp_home/pull/13)), reports on all-electric systems ([#6](https://github.com/Cm-8/baxi_hybridapp_home/issues/6), [#8](https://github.com/Cm-8/baxi_hybridapp_home/issues/8)), diagnostics of an IDU CSI Alya E with the summer operating mode code ([#25](https://github.com/Cm-8/baxi_hybridapp_home/issues/25))
 - [@astorelli](https://github.com/astorelli) — season mode select and authentication error handling ([#10](https://github.com/Cm-8/baxi_hybridapp_home/pull/10))
-- [@jacoporunchi](https://github.com/jacoporunchi) — holiday mode ([#12](https://github.com/Cm-8/baxi_hybridapp_home/issues/12)) and configurable update interval ([#11](https://github.com/Cm-8/baxi_hybridapp_home/issues/11)) requests
+- [@jacoporunchi](https://github.com/jacoporunchi) — holiday mode ([#12](https://github.com/Cm-8/baxi_hybridapp_home/issues/12)) and configurable update interval ([#11](https://github.com/Cm-8/baxi_hybridapp_home/issues/11)) requests, diagnostics with the remote season codes ([#23](https://github.com/Cm-8/baxi_hybridapp_home/issues/23))
 - [@Max6502](https://github.com/Max6502) — early reports and the cooling setpoint request ([#1](https://github.com/Cm-8/baxi_hybridapp_home/issues/1), [#2](https://github.com/Cm-8/baxi_hybridapp_home/issues/2), [#4](https://github.com/Cm-8/baxi_hybridapp_home/issues/4), [#5](https://github.com/Cm-8/baxi_hybridapp_home/issues/5), [#9](https://github.com/Cm-8/baxi_hybridapp_home/issues/9))
 - [@cudiz27](https://github.com/cudiz27) ([#3](https://github.com/Cm-8/baxi_hybridapp_home/issues/3)) and [@greggioalessandro71-web](https://github.com/greggioalessandro71-web) ([#7](https://github.com/Cm-8/baxi_hybridapp_home/issues/7)) — bug reports
 
