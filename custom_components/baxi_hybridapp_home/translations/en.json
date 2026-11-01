@@ -73,6 +73,7 @@
   },
   "entity": {
     "binary_sensor": {
+      "connection": { "name": "Connection" },
       "failure_alert": { "name": "Failure" },
       "warning_alert": { "name": "Warning" }
     },

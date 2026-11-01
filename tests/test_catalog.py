@@ -5,6 +5,7 @@ from datetime import timedelta
 from types import SimpleNamespace
 
 import pytest
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.const import UnitOfTime
 from homeassistant.exceptions import HomeAssistantError
@@ -14,6 +15,7 @@ from homeassistant.util import dt as dt_util
 
 from custom_components.baxi_hybridapp_home import sensor
 from custom_components.baxi_hybridapp_home.api import WIRED_METRIC_NAMES, _mask_url
+from custom_components.baxi_hybridapp_home.binary_sensor import BaxiConnectionBinarySensor
 from custom_components.baxi_hybridapp_home.button import BaxiBoostButton
 from custom_components.baxi_hybridapp_home.const import COMMAND_ID_BOOST_SANITARIO, PARAM_ID_BOOST_MAX_DURATION
 from custom_components.baxi_hybridapp_home.number import BaxiBoostDurationNumber
@@ -219,6 +221,21 @@ def test_thermostat_contact_is_disabled_by_default(api, coordinator):
     # Con il pannello Wi-Fi il contatto 31/31 è ponticellato: sempre On.
     assert not HeatingRequestSensor(coordinator, api).entity_registry_enabled_default
     assert HeatingActiveSensor(coordinator, api).entity_registry_enabled_default
+
+
+def test_connection_sensor(api, coordinator):
+    s = BaxiConnectionBinarySensor(coordinator, api)
+    assert s.device_class == BinarySensorDeviceClass.CONNECTIVITY
+    assert s.entity_category == EntityCategory.DIAGNOSTIC
+    assert s.entity_registry_enabled_default
+    assert not s.available  # nessun valore ancora letto
+    api.connection_status, api.connection_status_timestamp = "Online", 1_793_513_174_505
+    assert s.available and s.is_on is True
+    assert s.extra_state_attributes["metric_timestamp_utc"].startswith("2026-11-01T06:06:14")
+    api.connection_status = "Offline"
+    assert s.is_on is False
+    api.connection_status = "Sconosciuto (2)"
+    assert s.is_on is None
 
 
 def test_resistances_sensor_is_disabled_and_empty_is_not_off(api, coordinator):

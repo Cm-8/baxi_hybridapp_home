@@ -157,6 +157,11 @@ def test_status_pdc(raw, expected):
         ("heating_active", "0001", "On"),
         ("heating_active", "0000", "Off"),
         ("dhw_active", "0001", "On"),
+        # Collegamento al cloud: intero 1/0 (-1 irraggiungibile).
+        ("connection_status", 1, "Online"),
+        ("connection_status", "1", "Online"),
+        ("connection_status", 0, "Offline"),
+        ("connection_status", -1, "Offline"),
     ],
 )
 def test_on_off_states(attr, raw, expected):

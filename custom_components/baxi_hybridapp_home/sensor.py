@@ -829,7 +829,7 @@ class DailyModeTimeSensor(BaxiBaseSensor):
 
 
 # 🚨 Contatori alert FAILURE (per dashboard).
-# Letti da BaxiHybridAppAPI.fetch_historical_alerts. I binary_sensor con
+# Letti da BaxiHybridAppAPI.fetch_alerts. I binary_sensor con
 # device_class=PROBLEM vivono in binary_sensor.py — questi sono solo
 # aggregati storici utili per pannelli "Salute impianto".
 class FailureCount24hSensor(BaxiBaseSensor):

@@ -98,14 +98,15 @@ All energy sensors are disabled by default and use `TOTAL_INCREASING` state clas
 - **Energia parziale resistenze** — partial electric resistance energy (kWh)
 
 ### 🔔 Alert Monitoring
-The integration polls the Baxi cloud for historical FAILURE and WARNING alerts and exposes them as diagnostic entities.
+The integration polls the Baxi cloud for open and resolved FAILURE and WARNING alerts and for the device connection, and exposes them as diagnostic entities.
 
-- **Failure** — binary sensor (Problem / OK); active when a FAILURE alert is open
-- **Warning** — binary sensor (Problem / OK); active when a WARNING alert is open (disabled by default)
+- **Connessione** — binary sensor (Connected / Disconnected); whether your system is connected to the Baxi cloud. It changes at the first update after the cloud marks the device offline, while the "OFFLINE" alert only comes after one hour. While the system is offline the cloud keeps returning the last values it received, so the other sensors stay frozen: use this sensor to know whether they are current. The `metric_timestamp_utc` attribute is the time of the last change.
+- **Failure** — binary sensor (Problem / OK); active while a FAILURE alert is open
+- **Warning** — binary sensor (Problem / OK); active while a WARNING alert is open, e.g. the system offline for at least one hour (disabled by default)
 - **Failure ultime 24h** — count of FAILURE alerts in the last 24 hours
 - **Failure ultimi 7g** — count of FAILURE alerts in the last 7 days
 
-Each new alert fires a `baxi_hybridapp_alert` event on the Home Assistant event bus, which can be used as a trigger for automations. The event payload includes `severity`, `code`, `description`, `title`, `start_ts`, and `end_ts`.
+Each new alert fires a `baxi_hybridapp_alert` event on the Home Assistant event bus as soon as it opens (or when it is resolved, if it opened and closed between two updates), which can be used as a trigger for automations. The event payload includes `severity`, `code`, `description`, `title`, `start_ts`, and `end_ts` (empty or 0 while the alert is open).
 
 A ready-made **blueprint** for push notifications is included — see [blueprints/automation/baxi_hybridapp_home/notifica_avvisi.yaml](blueprints/automation/baxi_hybridapp_home/notifica_avvisi.yaml).
 

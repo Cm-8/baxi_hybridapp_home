@@ -231,6 +231,14 @@ SIMPLE_METRICS: tuple[SimpleMetricSpec, ...] = (
         "dhw_active", "Sanitario per counter",
         _make_mapper(_STATUS_ON_OFF, normalize=True),
     ),
+    # Collegamento del prodotto al cloud, calcolato dal cloud: 1 online,
+    # 0 offline (-1 = irraggiungibile nella codifica Servitly). Cambia alla
+    # disconnessione; l'alert "OFFLINE" arriva solo dopo un'ora.
+    SimpleMetricSpec(
+        "connection_status", "Connection Status",
+        _make_mapper({"1": "Online", "0": "Offline", "-1": "Offline"}, normalize=True),
+        log_emoji="📶",
+    ),
     *(SimpleMetricSpec(attr, name, _parse_float, log_emoji="⏱️") for attr, name in DAILY_MODE_TIME_METRICS),
 
     # --- Passthrough: il sensore HA decide come interpretare il raw ---------

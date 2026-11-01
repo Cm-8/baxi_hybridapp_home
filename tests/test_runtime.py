@@ -50,7 +50,7 @@ def test_rejected_password_during_cycle_starts_reauth_at_once(api, monkeypatch):
         api.token, api.auth_rejected = None, True  # come authenticate() dopo un 401
 
     monkeypatch.setattr(api, "fetch_all_metrics", fetch_all_metrics)
-    monkeypatch.setattr(api, "fetch_historical_alerts", lambda: None)
+    monkeypatch.setattr(api, "fetch_alerts", lambda: None)
     with pytest.raises(ConfigEntryAuthFailed):
         asyncio.run(bare_coordinator(api, FakeHass())._async_update_data())
 

@@ -24,7 +24,7 @@ _LOGGER = logging.getLogger(__name__)
 # metricName dello scheduler sanitario (parsing proprio, fuori dalle tabelle di metrics.py).
 SANITARY_SCHEDULER_METRIC = "Schedulatore - Sanitario"
 # Tutte le metriche lette a ogni ciclo: semplici, scheduler sanitario, energia
-# (49 nomi, sotto il limite di 50 di /data/lastValues: oltre servono 2 richieste).
+# (50 nomi, al limite di 50 di /data/lastValues: oltre servono 2 richieste).
 WIRED_METRIC_NAMES: tuple[str, ...] = tuple(dict.fromkeys(
     [spec.metric_name for spec in SIMPLE_METRICS]
     + [SANITARY_SCHEDULER_METRIC]
@@ -88,9 +88,12 @@ class BaxiHybridAppAPI:
     RENEW_URL = BASE_URL + "/identity/users/me/renewToken"
     LOGOUT_URL = BASE_URL + "/identity/users/me/logout"
     THINGS_URL = BASE_URL + "/v2/identity/users/me/things"
-    # Endpoint user-level (NON per-thing): ritorna gli alert di tutti i device
-    # dell'account. Filtriamo per self.thingId in fetch_historical_alerts.
-    ALERTS_URL = BASE_URL + (
+    # Endpoint user-level (NON per-thing): ritornano gli alert di tutti i device
+    # dell'account. Filtriamo per self.thingId in fetch_alerts.
+    # Alert aperti in questo momento.
+    ACTIVE_ALERTS_URL = BASE_URL + "/identity/users/me/alerts"
+    # Alert già risolti: un alert compare qui solo quando si chiude.
+    HISTORICAL_ALERTS_URL = BASE_URL + (
         "/identity/users/me/historicalAlerts"
         "?field=severity&field=date&field=customer.name&field=location.name"
         "&field=thing.serialNumber&field=title&field=description&field=duration"
@@ -161,8 +164,8 @@ class BaxiHybridAppAPI:
             setattr(self, desc.key, None)
         self.energy_timestamp = {}
 
-        # Historical alerts: tracking FAILURE/WARNING + event sul bus HA.
-        # active_*  → alert ancora aperto (endTimestamp==0 o >= now). Pilota i binary_sensor.
+        # Alert: tracking FAILURE/WARNING + event sul bus HA.
+        # active_*  → alert ancora aperto (elenco degli alert aperti). Pilota i binary_sensor.
         # last_*    → ultimo alert (anche risolto) per severity. Per attributi dashboard.
         # *_count_* → conteggio aggregato per dashboard.
         self.active_failure_alert = None
@@ -174,10 +177,10 @@ class BaxiHybridAppAPI:
         self.warning_count_24h = None
         self.warning_count_7d = None
         # Dedup degli event SOLO in RAM (sopravvive ai polling, non al restart HA).
-        # Al primo fetch post-startup si fa seed senza firing → niente notifiche
-        # spam al riavvio per alert già attivi prima del restart.
+        # Al primo fetch riuscito di ogni elenco (aperti, risolti) si fa seed
+        # senza firing → niente notifiche spam al riavvio per alert già visti.
         self._seen_alert_ids: set[str] = set()
-        self._alerts_initialized = False
+        self._alert_sources_seeded: set[str] = set()
         # Coda dei "nuovi" alert dell'ultimo fetch: il coordinator la consuma
         # nell'event loop per fire event + log su Logbook.
         self.new_alerts_pending: list[dict] = []
@@ -1041,9 +1044,32 @@ class BaxiHybridAppAPI:
 
 
 
-    # 🚨 Historical alerts (user-level): FAILURE + WARNING
+    # 🚨 Alert (user-level): FAILURE + WARNING
     # Regex per estrarre il codice errore dalla description ("E60", "E14", ...).
     _ALERT_CODE_RE = re.compile(r"\bE\d{1,3}\b")
+
+    @staticmethod
+    def _alert_severity(a: dict):
+        """Severity dell'alert: CRITICAL (nome usato in alcune risposte) vale FAILURE."""
+        sev = a.get("severity")
+        return "FAILURE" if sev == "CRITICAL" else sev
+
+    @staticmethod
+    def _alert_list(data, key: str) -> list[dict] | None:
+        """Elenco di alert da una risposta: lista semplice, {key: [...]} o paginata {"content": [...]}.
+
+        None se la risposta manca (richiesta fallita) o non ha un elenco.
+        """
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            for field in (key, "content"):
+                items = data.get(field)
+                if isinstance(items, list):
+                    return items
+            # Risposta senza elenco: nessun alert (come prima per lo storico).
+            return []
+        return None
 
     def _normalize_alert(self, a: dict) -> dict:
         """Estrae i campi utili da un alert grezzo + prova a leggere il codice errore."""
@@ -1054,7 +1080,7 @@ class BaxiHybridAppAPI:
             code = "OFFLINE"
         return {
             "id": a.get("id"),
-            "severity": a.get("severity"),
+            "severity": self._alert_severity(a),
             "title": a.get("title"),
             "description": desc,
             "code": code,
@@ -1062,109 +1088,119 @@ class BaxiHybridAppAPI:
             "end_ts": a.get("endTimestamp"),
         }
 
-    def fetch_historical_alerts(self) -> None:
+    def fetch_alerts(self) -> None:
         """
-        Legge gli alert storici user-level e popola:
+        Legge gli alert user-level e popola:
           - active_failure_alert / active_warning_alert (alert aperto, se c'è)
           - last_failure_alert / last_warning_alert (ultimo per severity, anche risolto)
           - failure_count_24h / failure_count_7d (per dashboard)
           - warning_count_24h / warning_count_7d
           - new_alerts_pending → consumata dal coordinator per fire event + Logbook
 
-        Dedup degli event in RAM: al primo fetch della sessione si fa solo
-        seed di _seen_alert_ids (niente firing → niente notifiche al riavvio HA).
-        Dai fetch successivi, gli id mai visti generano event.
+        Due elenchi: gli alert aperti (/alerts) e quelli risolti
+        (/historicalAlerts, dove un alert compare solo alla chiusura). Un alert
+        mai visto genera l'evento appena compare in uno dei due: all'apertura,
+        oppure alla chiusura se si è aperto e chiuso tra due letture.
+        Una richiesta fallita conserva i valori che dipendono da lei.
+
+        Dedup degli event in RAM: al primo fetch riuscito di ogni elenco si fa
+        solo seed di _seen_alert_ids (niente firing → niente notifiche al
+        riavvio HA). Dai fetch successivi, gli id mai visti generano event.
         """
         self.new_alerts_pending = []
-        data = self._make_request(self.ALERTS_URL)
-        if not data:
-            return
+        active_data = self._make_request(self.ACTIVE_ALERTS_URL)
+        history_data = self._make_request(self.HISTORICAL_ALERTS_URL)
         try:
-            alerts = data.get("historicalAlerts", []) or []
+            active = self._alert_list(active_data, "alerts")
+            history = self._alert_list(history_data, "historicalAlerts")
+            if active is None and history is None:
+                return
             # Filtra per il thing dell'utente (se più di un device sull'account).
             if self.thingId:
-                alerts = [
-                    a for a in alerts
-                    if (a.get("thing") or {}).get("id") == self.thingId
-                ]
+                def mine(items):
+                    if items is None:
+                        return None
+                    return [a for a in items if (a.get("thing") or {}).get("id") == self.thingId]
+                active, history = mine(active), mine(history)
 
             now_ms = int(dt_util.utcnow().timestamp() * 1000)
             ms_24h = 24 * 3600 * 1000
             ms_7d = 7 * ms_24h
 
-            current_ids = {a["id"] for a in alerts if a.get("id")}
-            if not self._alerts_initialized:
-                self._seen_alert_ids = current_ids
-                self._alerts_initialized = True
-                _LOGGER.info(
-                    "🚨 Alerts: seeding iniziale (%d alert già visti, niente firing)",
-                    len(current_ids),
-                )
-            else:
-                new_ids = current_ids - self._seen_alert_ids
-                self._seen_alert_ids = current_ids
-                self.new_alerts_pending = [
-                    self._normalize_alert(a) for a in alerts
-                    if a.get("id") in new_ids
+            # Nuovi alert: per ogni elenco riuscito, seed alla prima lettura.
+            new_alerts = {}
+            for source, items in (("active", active), ("history", history)):
+                if items is None:
+                    continue
+                by_id = {a["id"]: a for a in items if a.get("id")}
+                if source not in self._alert_sources_seeded:
+                    self._alert_sources_seeded.add(source)
+                    self._seen_alert_ids |= set(by_id)
+                    _LOGGER.info(
+                        "🚨 Alert (%s): seeding iniziale (%d già visti, niente firing)",
+                        "aperti" if source == "active" else "risolti", len(by_id),
+                    )
+                    continue
+                for alert_id, a in by_id.items():
+                    if alert_id not in self._seen_alert_ids:
+                        new_alerts[alert_id] = a
+                self._seen_alert_ids |= set(by_id)
+            self.new_alerts_pending = [
+                self._normalize_alert(a)
+                for a in sorted(new_alerts.values(), key=lambda a: a.get("startTimestamp") or 0)
+            ]
+
+            def most_recent(items, severity):
+                matching = [a for a in items if self._alert_severity(a) == severity]
+                return max(matching, key=lambda a: a.get("startTimestamp") or 0, default=None)
+
+            # Alert aperti: solo con l'elenco degli aperti letto (altrimenti
+            # restano quelli del ciclo precedente). Per sicurezza anche un
+            # alert dello storico senza fine conta come aperto.
+            if active is not None:
+                still_open = [
+                    a for a in history or []
+                    if not (a.get("endTimestamp") or 0) or (a.get("endTimestamp") or 0) >= now_ms
                 ]
+                open_alerts = active + still_open
+                active_failure = most_recent(open_alerts, "FAILURE")
+                active_warning = most_recent(open_alerts, "WARNING")
+                self.active_failure_alert = self._normalize_alert(active_failure) if active_failure else None
+                self.active_warning_alert = self._normalize_alert(active_warning) if active_warning else None
 
-            active_failure = None
-            active_warning = None
-            last_failure = None
-            last_warning = None
-            failure_24h = 0
-            failure_7d = 0
-            warning_24h = 0
-            warning_7d = 0
+            # Ultimo alert e conteggi: aperti + risolti, solo con lo storico letto.
+            if history is not None:
+                every = list({a.get("id") or id(a): a for a in history + (active or [])}.values())
+                last_failure = most_recent(every, "FAILURE")
+                last_warning = most_recent(every, "WARNING")
 
-            for a in alerts:
-                sev = a.get("severity")
-                start = a.get("startTimestamp") or 0
-                end = a.get("endTimestamp") or 0
-                is_active = (end == 0 or end >= now_ms)
-                in_24h = bool(start) and (now_ms - start) <= ms_24h
-                in_7d = bool(start) and (now_ms - start) <= ms_7d
+                def count(severity, window_ms):
+                    return sum(
+                        1 for a in every
+                        if self._alert_severity(a) == severity
+                        and a.get("startTimestamp")
+                        and (now_ms - a["startTimestamp"]) <= window_ms
+                    )
 
-                if sev == "FAILURE":
-                    if is_active and active_failure is None:
-                        active_failure = a
-                    if last_failure is None or start > (last_failure.get("startTimestamp") or 0):
-                        last_failure = a
-                    if in_24h:
-                        failure_24h += 1
-                    if in_7d:
-                        failure_7d += 1
-                elif sev == "WARNING":
-                    if is_active and active_warning is None:
-                        active_warning = a
-                    if last_warning is None or start > (last_warning.get("startTimestamp") or 0):
-                        last_warning = a
-                    if in_24h:
-                        warning_24h += 1
-                    if in_7d:
-                        warning_7d += 1
-
-            self.active_failure_alert = self._normalize_alert(active_failure) if active_failure else None
-            self.active_warning_alert = self._normalize_alert(active_warning) if active_warning else None
-            self.last_failure_alert = self._normalize_alert(last_failure) if last_failure else None
-            self.last_warning_alert = self._normalize_alert(last_warning) if last_warning else None
-            self.failure_count_24h = failure_24h
-            self.failure_count_7d = failure_7d
-            self.warning_count_24h = warning_24h
-            self.warning_count_7d = warning_7d
+                self.last_failure_alert = self._normalize_alert(last_failure) if last_failure else None
+                self.last_warning_alert = self._normalize_alert(last_warning) if last_warning else None
+                self.failure_count_24h = count("FAILURE", ms_24h)
+                self.failure_count_7d = count("FAILURE", ms_7d)
+                self.warning_count_24h = count("WARNING", ms_24h)
+                self.warning_count_7d = count("WARNING", ms_7d)
 
             # Debug, non info: gira a ogni ciclo di polling (~144 righe/giorno).
             # I nuovi alert restano visibili via evento sul bus + Logbook.
             _LOGGER.debug(
-                "🚨 Alerts: FAILURE attivo=%s, WARNING attivo=%s, FAILURE 24h=%d, 7g=%d, nuovi=%d",
-                "sì" if active_failure else "no",
-                "sì" if active_warning else "no",
-                failure_24h, failure_7d, len(self.new_alerts_pending),
+                "🚨 Alerts: FAILURE attivo=%s, WARNING attivo=%s, FAILURE 24h=%s, 7g=%s, nuovi=%d",
+                "sì" if self.active_failure_alert else "no",
+                "sì" if self.active_warning_alert else "no",
+                self.failure_count_24h, self.failure_count_7d, len(self.new_alerts_pending),
             )
-        except (KeyError, IndexError, ValueError, TypeError) as e:
+        except (KeyError, IndexError, ValueError, TypeError, AttributeError) as e:
             _LOGGER.warning(
-                "⚠️ Parsing fallito (historicalAlerts): %s — response: %s",
-                e, json.dumps(data)[:300],
+                "⚠️ Parsing fallito (alert): %s — response: %s",
+                e, json.dumps([active_data, history_data], default=str)[:300],
             )
 
     # 🔴🔴 API di scrittura (PUT)

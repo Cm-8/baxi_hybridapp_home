@@ -1,7 +1,10 @@
 """
 Binary sensor platform for Baxi Hybrid App custom integration.
 
-Esponde due binary_sensor per gli alert storici Servitly:
+Connessione (baxi_connection): prodotto collegato al cloud (metrica
+"Connection Status"), abilitato di default.
+
+Due binary_sensor per gli alert Servitly aperti:
 - baxi_failure_alert_active (abilitato di default)
 - baxi_warning_alert_active (DISABILITATO di default — l'utente lo abilita
   manualmente dal Registro Entità se vuole tracciare anche i WARNING tipo
@@ -11,12 +14,14 @@ device_class=PROBLEM → HA usa la semantica standard "se PROBLEM è on,
 allora qualcosa non va" e l'icona di errore appropriata.
 
 I valori (active_*_alert / last_*_alert) sono popolati da
-BaxiHybridAppAPI.fetch_historical_alerts (vedi api.py).
+BaxiHybridAppAPI.fetch_alerts (vedi api.py).
 
 custom_components/baxi_hybridapp_home/binary_sensor.py
 """
 
 from __future__ import annotations
+
+from datetime import datetime, timezone
 
 from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
@@ -25,7 +30,7 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .device import build_device_info
+from .device import async_add_provided_entities, build_device_info
 
 # Sola lettura, aggiornata dal coordinator: nessun limite al parallelismo.
 PARALLEL_UPDATES = 0
@@ -101,10 +106,53 @@ class BaxiAlertBinarySensor(CoordinatorEntity, BinarySensorEntity):
         return build_device_info(self._api)
 
 
+class BaxiConnectionBinarySensor(CoordinatorEntity, BinarySensorEntity):
+    """Prodotto collegato al cloud Baxi (metrica "Connection Status"): on = online.
+
+    Con il prodotto offline il cloud continua a restituire gli ultimi valori
+    ricevuti: questo sensore dice se sono ancora attuali. Segnala la
+    disconnessione al primo ciclo, l'alert "OFFLINE" solo dopo un'ora.
+    """
+
+    _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_has_entity_name = True
+    _attr_translation_key = "connection"
+    _attr_unique_id = "baxi_connection"
+    _source_attr = "connection_status"
+
+    def __init__(self, coordinator, api) -> None:
+        super().__init__(coordinator)
+        self._api = api
+
+    @property
+    def is_on(self) -> bool | None:
+        # Codice ignoto ("Sconosciuto (…)"): stato sconosciuto.
+        return {"Online": True, "Offline": False}.get(self._api.connection_status)
+
+    @property
+    def available(self) -> bool:
+        return super().available and self._api.connection_status is not None
+
+    @property
+    def extra_state_attributes(self):
+        # Il cloud salva un campione solo quando il valore cambia: è l'ora
+        # dell'ultimo cambio di stato, anche dopo un riavvio di HA.
+        ts = self._api.connection_status_timestamp
+        if not ts:
+            return {}
+        return {"metric_timestamp_utc": datetime.fromtimestamp(ts / 1000, tz=timezone.utc).isoformat()}
+
+    @property
+    def device_info(self):
+        return build_device_info(self._api)
+
+
 async def async_setup_entry(hass, entry, async_add_entities):
     api = entry.runtime_data.api
     coordinator = entry.runtime_data.coordinator
-    async_add_entities([
+    async_add_provided_entities(hass, api, "binary_sensor", [
+        BaxiConnectionBinarySensor(coordinator, api),
         BaxiAlertBinarySensor(
             coordinator, api,
             severity="FAILURE",
@@ -119,4 +167,4 @@ async def async_setup_entry(hass, entry, async_add_entities):
             unique_id="baxi_warning_alert_active",
             enabled_default=False,
         ),
-    ])
+    ], async_add_entities)

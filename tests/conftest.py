@@ -37,14 +37,18 @@ class FakeCloud(dict):
       presenti nella risposta multipla.
     - cloud.catalog: catalogo metriche del modello (lista di {"name": ...});
       None = la richiesta del catalogo fallisce (default).
+    - cloud.active_alerts / cloud.historical_alerts: risposte di /alerts e
+      /historicalAlerts; None = la richiesta fallisce (default).
     - cloud.calls: elenco delle richieste fatte, come ("values", nome),
-      ("lastValues", [nomi]) o ("catalog", None).
+      ("lastValues", [nomi]), ("catalog", None) o ("alerts", None).
     """
 
     def __init__(self):
         super().__init__()
         self.last_values = None
         self.catalog = None
+        self.active_alerts = None
+        self.historical_alerts = None
         self.calls = []
 
     def get_json(self, url):
@@ -52,6 +56,12 @@ class FakeCloud(dict):
         if parsed.path.endswith("/metrics"):
             self.calls.append(("catalog", None))
             return self.catalog
+        if parsed.path.endswith("/alerts"):
+            self.calls.append(("alerts", None))
+            return self.active_alerts
+        if parsed.path.endswith("/historicalAlerts"):
+            self.calls.append(("historicalAlerts", None))
+            return self.historical_alerts
         names = parse_qs(parsed.query).get("metricName", [])
         if parsed.path.endswith("/data/lastValues"):
             self.calls.append(("lastValues", names))

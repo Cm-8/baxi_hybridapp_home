@@ -113,9 +113,9 @@ class BaxiDataUpdateCoordinator(DataUpdateCoordinator):
         # /data/lastValues; letture singole solo per le metriche assenti.
         # Tutto nell'executor (lo scheduler usa ZoneInfo, che legge file).
         await self.hass.async_add_executor_job(self.api.fetch_all_metrics)
-        # Historical alerts (FAILURE/WARNING): popola active/last/conteggi
+        # Alert aperti e risolti (FAILURE/WARNING): popola active/last/conteggi
         # sull'istanza API e accoda i nuovi alert in api.new_alerts_pending.
-        await self.hass.async_add_executor_job(self.api.fetch_historical_alerts)
+        await self.hass.async_add_executor_job(self.api.fetch_alerts)
         # Token scaduto, rinnovo non riuscito e password rifiutata durante il
         # ciclo: ri-autenticazione subito, non al ciclo successivo.
         if self.api.auth_rejected:
