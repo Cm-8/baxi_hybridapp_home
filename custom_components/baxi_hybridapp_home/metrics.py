@@ -165,8 +165,8 @@ SIMPLE_METRICS: tuple[SimpleMetricSpec, ...] = (
         # Aggiunte anche le forme senza zeri ("1", "7", "d") per robustezza.
         # normalize=True porta il raw in minuscolo: le chiavi esadecimali
         # vanno quindi scritte in minuscolo ("000d", non "000D").
-        # 0005/0006: stagione decisa da un comando remoto cablato (Modo Stagione
-        # "Estate/Inverno remoto"), inverno e estate; segnalati da un utente (#23).
+        # 0005/0006: inverno e estate con Modo Stagione "Estate/Inverno remoto",
+        # sia con un comando cablato (#23) sia impostato dall'app (#25).
         # 0002: estate con la stagione manuale (Modo Stagione "Estate", #25).
         # Lo 0001 corrisponde all'inverno manuale: resta "Automatico" per non
         # rompere le automazioni che confrontano lo stato.

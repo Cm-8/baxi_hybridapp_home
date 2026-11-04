@@ -66,7 +66,7 @@ Readings may partly work; the controls use model-specific commands and may not. 
 
 ### 🧭 Mode / Status Sensors
 - **System Mode** — current operating mode (Automatico, Standby, Solo Sanitario)
-- **System Operation Mode** — firmware-level operating mode (Automatico, Estate, Standby, Solo Sanitario; "Remoto - Inverno" / "Remoto - Estate" when the season is set by a hardwired remote control). With the season set manually, "Automatico" is shown in winter and "Estate" in summer
+- **System Operation Mode** — firmware-level operating mode (Automatico, Estate, Standby, Solo Sanitario; "Remoto - Inverno" / "Remoto - Estate" when Season Mode is set to Estate/Inverno remoto, whether from the app or by a hardwired control). With the season set manually, "Automatico" is shown in winter and "Estate" in summer
 - **Season Mode** — current seasonal configuration (Estate, Inverno, Estate/Inverno automatico, Estate/Inverno remoto)
 - **Sanitary On** — whether sanitary mode is active (On / Off)
 - **Scheduler Status** — DHW scheduler state (active, off, or error)

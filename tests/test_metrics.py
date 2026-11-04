@@ -92,7 +92,7 @@ def test_system_operation_mode(raw, expected):
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [
-        # Stagione decisa da un comando remoto cablato (#23).
+        # Modo Stagione "Estate/Inverno remoto" (#23, #25).
         ("0005", "Remoto - Inverno"), ("5", "Remoto - Inverno"),
         ("0006", "Remoto - Estate"), ("6", "Remoto - Estate"),
         # Estate con la stagione manuale (#25).
