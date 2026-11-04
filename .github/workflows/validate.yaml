@@ -55,3 +55,23 @@ jobs:
 
         - name: "Run tests"
           run: pytest
+
+  tests-latest:
+    name: "Tests (latest Home Assistant)"
+    runs-on: "ubuntu-latest"
+    # Avviso anticipato: una nuova versione di HA non deve bloccare la CI.
+    continue-on-error: true
+    steps:
+        - name: "Checkout the repository"
+          uses: "actions/checkout@v5"
+
+        - name: "Set up Python"
+          uses: "actions/setup-python@v6"
+          with:
+            python-version: "3.14"
+
+        - name: "Install test dependencies"
+          run: pip install homeassistant "pytest>=8,<9" tzdata
+
+        - name: "Run tests"
+          run: pytest
