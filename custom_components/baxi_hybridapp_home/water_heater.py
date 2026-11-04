@@ -82,7 +82,7 @@ class BaxiSanitaryComfort(BaxiSanitaryBase, WaterHeaterEntity):
     _attr_translation_key = "dhw_comfort"
     _attr_unique_id = "baxi_water_heater_comfort"
     _source_attr = "setpoint_comfort_temp"
-    _attr_temperature_unit = UnitOfTemperature.CELSIUS
+    _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_supported_features = WaterHeaterEntityFeature.TARGET_TEMPERATURE
 
     def __init__(self, coordinator, api):
@@ -94,7 +94,7 @@ class BaxiSanitaryComfort(BaxiSanitaryBase, WaterHeaterEntity):
     # ---------------- Base ----------------
 
     @property
-    def current_temperature(self):
+    def native_current_temperature(self):
         # mostriamo la temperatura di accumulo come "current"
         return self._api.dhw_storage_temp
 
@@ -139,7 +139,7 @@ class BaxiSanitaryComfort(BaxiSanitaryBase, WaterHeaterEntity):
 
     # ---------------- Target Temperature (setpoint) ----------------   
     @property
-    def target_temperature(self):
+    def native_target_temperature(self):
         return self._api.setpoint_comfort_temp
 
     @property
@@ -208,7 +208,7 @@ class BaxiSanitaryEco(BaxiSanitaryBase, WaterHeaterEntity):
     _attr_translation_key = "dhw_eco"
     _attr_unique_id = "baxi_water_heater_eco"
     _source_attr = "setpoint_eco_temp"
-    _attr_temperature_unit = UnitOfTemperature.CELSIUS
+    _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_supported_features = WaterHeaterEntityFeature.TARGET_TEMPERATURE
 
     def __init__(self, coordinator, api):
@@ -220,7 +220,7 @@ class BaxiSanitaryEco(BaxiSanitaryBase, WaterHeaterEntity):
     # ---------------- Base ----------------
         
     @property
-    def current_temperature(self):
+    def native_current_temperature(self):
         # mostriamo la temperatura di accumulo come "current"
         return self._api.dhw_storage_temp
 
@@ -265,7 +265,7 @@ class BaxiSanitaryEco(BaxiSanitaryBase, WaterHeaterEntity):
 
     # ---------------- Target Temperature (setpoint) ----------------  
     @property
-    def target_temperature(self):
+    def native_target_temperature(self):
         return self._api.setpoint_eco_temp
 
     @property
@@ -321,6 +321,20 @@ class BaxiSanitaryEco(BaxiSanitaryBase, WaterHeaterEntity):
     @property
     def device_info(self):
         return build_device_info(self._api)
+
+
+# Home Assistant < 2026.11 non conosce i nomi "native_*": lì le proprietà
+# vengono ancora lette con i nomi vecchi. Li esponiamo solo in quel caso,
+# così su HA >= 2026.11 non compare il warning di deprecazione.
+if not hasattr(WaterHeaterEntity, "native_current_temperature"):
+    for _cls in (BaxiSanitaryComfort, BaxiSanitaryEco):
+        _cls._attr_temperature_unit = UnitOfTemperature.CELSIUS
+        _cls.current_temperature = property(
+            lambda self: self.native_current_temperature
+        )
+        _cls.target_temperature = property(
+            lambda self: self.native_target_temperature
+        )
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
