@@ -298,4 +298,4 @@ Thanks to everyone who helped with pull requests, tests on real systems and repo
 
 ---
 
-**Disclaimer:** This integration is not affiliated with or endorsed by Baxi.
+**Disclaimer:** This is an independent, non-commercial project, free of charge and not affiliated with, endorsed by or sponsored by Baxi. "Baxi" and the Baxi logos are trademarks of their respective owner and are used here only to identify the compatible products. The MIT license covers the code of this integration and grants no rights to those trademarks.
