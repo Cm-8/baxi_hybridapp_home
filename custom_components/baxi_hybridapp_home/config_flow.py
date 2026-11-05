@@ -57,6 +57,18 @@ class BaxiHybridAppHomeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         await self.hass.async_add_executor_job(api.close)
         return {}
 
+    def _async_update_credentials_and_abort(self, entry, updates: dict, reason: str):
+        """Salva le credenziali, ricarica la entry e chiude il flusso.
+
+        Non usa async_update_reload_and_abort: da HA 2026.11 non va usato con un
+        update listener sulla entry, e qui c'è _async_options_updated (applica
+        l'intervallo senza ricaricare). async_update_and_abort non esiste sulla
+        versione minima supportata.
+        """
+        self.hass.config_entries.async_update_entry(entry, data=entry.data | updates)
+        self.hass.config_entries.async_schedule_reload(entry.entry_id)
+        return self.async_abort(reason=reason)
+
     async def async_step_user(self, user_input=None):
         """Primo step di configurazione, richiede e valida le credenziali utente."""
         errors = {}
@@ -93,9 +105,10 @@ class BaxiHybridAppHomeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             errors = await self._async_validate_login(username, user_input["password"])
             if not errors:
-                return self.async_update_reload_and_abort(
+                return self._async_update_credentials_and_abort(
                     reauth_entry,
-                    data_updates={"password": user_input["password"]},
+                    {"password": user_input["password"]},
+                    "reauth_successful",
                 )
 
         return self.async_show_form(
@@ -120,7 +133,7 @@ class BaxiHybridAppHomeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
             errors = await self._async_validate_login(user_input["username"], user_input["password"])
             if not errors:
-                return self.async_update_reload_and_abort(entry, data_updates=user_input)
+                return self._async_update_credentials_and_abort(entry, user_input, "reconfigure_successful")
 
         return self.async_show_form(
             step_id="reconfigure",

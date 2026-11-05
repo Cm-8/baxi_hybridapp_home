@@ -172,6 +172,24 @@ def test_reconfigure_same_account_updates_credentials():
     assert hass.config_entries.reloaded == ["entry-1"]
 
 
+@pytest.mark.parametrize(
+    ("source", "step", "user_input"),
+    [
+        ("reauth", "async_step_reauth_confirm", {"password": "new"}),
+        ("reconfigure", "async_step_reconfigure", {"username": "user@example.com", "password": "new"}),
+    ],
+)
+def test_credentials_flows_do_not_use_the_reload_helper(monkeypatch, source, step, user_input):
+    # Da HA 2026.11 l'helper non va usato con un update listener sulla entry,
+    # e la nostra ha quello che applica l'intervallo di aggiornamento.
+    def refused(*args, **kwargs):
+        raise AssertionError("async_update_reload_and_abort con un update listener")
+
+    handler = flow(FakeHass([existing_entry()]), source, "entry-1")
+    monkeypatch.setattr(handler, "async_update_reload_and_abort", refused)
+    assert run(getattr(handler, step)(user_input))["type"] is FlowResultType.ABORT
+
+
 def test_reconfigure_other_account_is_rejected(fake_api):
     entry = existing_entry()
     other = {"username": "someone.else@example.com", "password": "x"}
