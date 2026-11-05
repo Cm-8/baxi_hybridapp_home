@@ -97,6 +97,10 @@ def test_system_operation_mode(raw, expected):
         ("0006", "Remoto - Estate"), ("6", "Remoto - Estate"),
         # Estate con la stagione manuale (#25).
         ("0002", "Estate"), ("2", "Estate"),
+        # Modo Stagione "Estate/Inverno automatico", in inverno (#25).
+        ("0003", "Auto - Inverno"), ("3", "Auto - Inverno"),
+        # L'estate automatica non è ancora stata osservata.
+        ("0004", "Sconosciuto (0004)"),
     ],
 )
 def test_system_operation_mode_season_codes(raw, expected):

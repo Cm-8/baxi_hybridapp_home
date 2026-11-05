@@ -165,14 +165,18 @@ SIMPLE_METRICS: tuple[SimpleMetricSpec, ...] = (
         # Aggiunte anche le forme senza zeri ("1", "7", "d") per robustezza.
         # normalize=True porta il raw in minuscolo: le chiavi esadecimali
         # vanno quindi scritte in minuscolo ("000d", non "000D").
-        # 0005/0006: inverno e estate con Modo Stagione "Estate/Inverno remoto",
-        # sia con un comando cablato (#23) sia impostato dall'app (#25).
+        # 0005/0006: inverno e estate con Modo Stagione "Estate/Inverno remoto"
+        # (stagione decisa da un contatto esterno al sistema, #23, #25).
+        # 0003: Modo Stagione "Estate/Inverno automatico" (stagione decisa dalla
+        # temperatura esterna mediata, #25), visto solo in inverno. L'estate è
+        # presumibilmente 0004: non ancora osservato, resta "Sconosciuto".
         # 0002: estate con la stagione manuale (Modo Stagione "Estate", #25).
         # Lo 0001 corrisponde all'inverno manuale: resta "Automatico" per non
         # rompere le automazioni che confrontano lo stato.
         _make_mapper({
             "0001": "Automatico",       "1": "Automatico",
             "0002": "Estate",           "2": "Estate",
+            "0003": "Auto - Inverno",   "3": "Auto - Inverno",
             "0005": "Remoto - Inverno", "5": "Remoto - Inverno",
             "0006": "Remoto - Estate",  "6": "Remoto - Estate",
             "0007": "Standby",          "7": "Standby",
