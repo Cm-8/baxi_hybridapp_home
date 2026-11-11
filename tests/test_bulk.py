@@ -17,6 +17,7 @@ SCHEDULE = json.dumps({
     for d in DAYS
 })
 DAY = next(d for d in ENERGY_SENSOR_TYPES if d.key == "energia_totale_globale_day")
+HYBRID_METRICS = [n for n in WIRED_METRIC_NAMES if n != "Flame status"]
 
 
 def now_ms(days_ago=0):
@@ -37,9 +38,11 @@ def single_calls(cloud):
 
 
 def test_whole_cycle_in_one_request(api, cloud):
+    # Catalogo del CSI IN SPLIT E (senza Flame status): 50 metriche, una richiesta.
+    api.model_metrics = frozenset(HYBRID_METRICS)
     fill_bulk(cloud)
     api.fetch_all_metrics()
-    assert cloud.calls == [("lastValues", list(WIRED_METRIC_NAMES))]
+    assert cloud.calls == [("lastValues", HYBRID_METRICS)]
     assert api.request_stats() == (1, [])
     assert api.temp_ext == 1.0
     assert api.sanitary_scheduler_status == "ok"

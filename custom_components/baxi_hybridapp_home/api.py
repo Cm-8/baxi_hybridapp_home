@@ -17,14 +17,17 @@ from .const import (
     APIKEY, TENANT, DEV_BROWSER,
     DEV_MODEL, DEV_ID, PLATFORM,
 )
-from .metrics import SIMPLE_METRICS, SimpleMetricSpec, ENERGY_SENSOR_TYPES, _parse_float
+from .metrics import (
+    DISABLED_BY_CONFIG, SIMPLE_METRICS, SimpleMetricSpec, ENERGY_SENSOR_TYPES, _parse_float,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 # metricName dello scheduler sanitario (parsing proprio, fuori dalle tabelle di metrics.py).
 SANITARY_SCHEDULER_METRIC = "Schedulatore - Sanitario"
 # Tutte le metriche lette a ogni ciclo: semplici, scheduler sanitario, energia
-# (50 nomi, al limite di 50 di /data/lastValues: oltre servono 2 richieste).
+# (51 nomi; /data/lastValues ne accetta 50 per richiesta, oltre ne servono 2.
+# Si chiedono solo quelle del modello: 50 sul CSI IN SPLIT E, senza Flame status).
 WIRED_METRIC_NAMES: tuple[str, ...] = tuple(dict.fromkeys(
     [spec.metric_name for spec in SIMPLE_METRICS]
     + [SANITARY_SCHEDULER_METRIC]
@@ -453,7 +456,14 @@ class BaxiHybridAppAPI:
         return self.model_metrics is None or metric_name in self.model_metrics
 
     def provides(self, attr: str) -> bool:
-        """Il modello fornisce il valore dell'attributo? (True se non dipende da una metrica)."""
+        """L'impianto fornisce il valore dell'attributo? (True se non dipende da una metrica).
+
+        False se il modello non ha la metrica, oppure se la configurazione
+        dell'impianto ha disattivato quella parte (DISABLED_BY_CONFIG).
+        """
+        config = DISABLED_BY_CONFIG.get(attr)
+        if config and getattr(self, config[0], None) == config[1]:
+            return False
         metric = METRIC_OF_ATTR.get(attr)
         return metric is None or self.has_metric(metric)
 

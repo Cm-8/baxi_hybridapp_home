@@ -170,3 +170,17 @@ def test_status_pdc(raw, expected):
 )
 def test_on_off_states(attr, raw, expected):
     assert parser_for(attr)(raw) == expected
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        # Il cloud manda il valore già tradotto.
+        ("Abilitato", "Abilitato"),
+        ("Disabilitato", "Disabilitato"),
+        (None, None),
+        ("0001", "Sconosciuto (0001)"),
+    ],
+)
+def test_dhw_aux_storage_enabled(raw, expected):
+    assert parser_for("dhw_aux_storage_enabled")(raw) == expected

@@ -20,8 +20,8 @@ from custom_components.baxi_hybridapp_home.button import BaxiBoostButton
 from custom_components.baxi_hybridapp_home.const import COMMAND_ID_BOOST_SANITARIO, PARAM_ID_BOOST_MAX_DURATION
 from custom_components.baxi_hybridapp_home.number import BaxiBoostDurationNumber
 from custom_components.baxi_hybridapp_home.sensor import (
-    DailyModeTimeSensor, HeatingActiveSensor, HeatingRequestSensor, PowerBoiler, PowerPDC,
-    ResistancesOnSensor, WifiSignalSensor,
+    DailyModeTimeSensor, DHWAuxStorageSensor, HeatingActiveSensor, HeatingRequestSensor,
+    PowerBoiler, PowerPDC, ResistancesOnSensor, WifiSignalSensor,
 )
 
 from .conftest import values_response
@@ -156,6 +156,25 @@ def test_all_sensors_created_without_catalog(api, coordinator, monkeypatch):
     assert "baxi_flame_status" in created and not registry.removed
 
 
+def test_aux_storage_temperature_follows_configuration(api):
+    assert api.provides("dhw_aux_storage_temp")  # configurazione non ancora letta
+    api.dhw_aux_storage_enabled = "Abilitato"
+    assert api.provides("dhw_aux_storage_temp")
+    api.dhw_aux_storage_enabled = "Disabilitato"
+    assert not api.provides("dhw_aux_storage_temp")
+    assert api.provides("dhw_aux_storage_enabled")  # il sensore della configurazione resta
+
+
+def test_aux_storage_temperature_removed_when_disabled(api, coordinator, monkeypatch):
+    # Accumulo ausiliario disabilitato: la sonda manda solo "---" (#25).
+    api.dhw_aux_storage_enabled = "Disabilitato"
+    existing = {("sensor", "baxi_dhw_aux_storage_temperature"): "sensor.temp_accumulo_ausiliario"}
+    created, registry = setup_sensors(api, coordinator, monkeypatch, existing)
+    assert "baxi_dhw_aux_storage_temperature" not in created
+    assert "baxi_dhw_aux_storage" in created
+    assert registry.removed == ["sensor.temp_accumulo_ausiliario"]
+
+
 # --- Boost sanitario -----------------------------------------------------------------
 
 
@@ -244,6 +263,16 @@ def test_resistances_sensor_is_disabled_and_empty_is_not_off(api, coordinator):
     assert not s.entity_registry_enabled_default
     api.resistances_on = None
     assert not s.available
+
+
+def test_aux_storage_sensor_is_a_diagnostic_text(api, coordinator):
+    s = DHWAuxStorageSensor(coordinator, api)
+    assert s.entity_category == EntityCategory.DIAGNOSTIC
+    assert s.entity_registry_enabled_default
+    assert s.state_class is None and s.native_unit_of_measurement is None
+    assert not s.available  # nessun valore ancora letto
+    api.dhw_aux_storage_enabled = "Abilitato"
+    assert s.available and s.native_value == "Abilitato"
 
 
 def test_wifi_signal_is_a_diagnostic_signal_strength(api, coordinator):

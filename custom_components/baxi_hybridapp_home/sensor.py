@@ -753,6 +753,27 @@ class DhwActiveSensor(BaxiOnOffSensor):
         )
 
 
+class DHWAuxStorageSensor(BaxiBaseSensor):
+    """Accumulo sanitario ausiliario abilitato nella configurazione (Abilitato / Disabilitato).
+
+    Con "Disabilitato" la temperatura dell'accumulo ausiliario non viene creata
+    (DISABLED_BY_CONFIG in metrics.py): la sonda manderebbe solo "---".
+    """
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator, api,
+            translation_key="dhw_aux_storage",
+            unique_id="baxi_dhw_aux_storage",
+            value_key="dhw_aux_storage_enabled",
+            unit=None,
+            device_class=None,
+        )
+        self._attr_state_class = None
+
+
 class WifiSignalSensor(BaxiBaseSensor):
     """Segnale WiFi del gateway dell'impianto (dBm)."""
 
@@ -916,6 +937,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         SeasonModeSensor(coordinator, api),
         SystemModeSensor(coordinator, api),
         DHWAuxStorageTempSensor(coordinator, api),
+        DHWAuxStorageSensor(coordinator, api),
         PDCExitTempSensor(coordinator, api),
         PDCReturnTempSensor(coordinator, api),
         SetpointInstantTempSensor(coordinator, api),

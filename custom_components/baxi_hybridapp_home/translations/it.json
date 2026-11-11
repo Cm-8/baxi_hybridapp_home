@@ -99,6 +99,7 @@
       "boiler_flow_temperature": { "name": "Temp. Mandata Caldaia" },
       "dhw_storage_temperature": { "name": "Temp. Accumulo Sanitario" },
       "dhw_aux_storage_temperature": { "name": "Temp. Accumulo Ausiliario" },
+      "dhw_aux_storage": { "name": "Accumulo Ausiliario" },
       "pdc_exit_temperature": { "name": "Temp. Uscita PDC" },
       "pdc_return_temperature": { "name": "Temp. Ritorno PDC" },
       "setpoint_instant": { "name": "Setpoint Sanitario Istantaneo" },

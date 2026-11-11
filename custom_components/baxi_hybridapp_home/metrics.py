@@ -31,6 +31,7 @@ __all__ = [
     "SimpleMetricSpec",
     "SIMPLE_METRICS",
     "DAILY_MODE_TIME_METRICS",
+    "DISABLED_BY_CONFIG",
     "BaxiEnergySensorEntityDescription",
     "ENERGY_SENSOR_TYPES",
 ]
@@ -243,6 +244,14 @@ SIMPLE_METRICS: tuple[SimpleMetricSpec, ...] = (
         _make_mapper({"1": "Online", "0": "Offline", "-1": "Offline"}, normalize=True),
         log_emoji="📶",
     ),
+    # Configurazione dell'impianto: accumulo sanitario ausiliario abilitato.
+    # Il cloud manda il valore già tradotto ("Abilitato" / "Disabilitato").
+    SimpleMetricSpec(
+        "dhw_aux_storage_enabled", "Sanitario - Abilitazione accumulo ausiliario",
+        _make_mapper({
+            "abilitato": "Abilitato", "disabilitato": "Disabilitato", "none": None,
+        }, normalize=True),
+    ),
     *(SimpleMetricSpec(attr, name, _parse_float, log_emoji="⏱️") for attr, name in DAILY_MODE_TIME_METRICS),
 
     # --- Passthrough: il sensore HA decide come interpretare il raw ---------
@@ -252,6 +261,16 @@ SIMPLE_METRICS: tuple[SimpleMetricSpec, ...] = (
     # il sensore timestamp (issue #12)
     SimpleMetricSpec("holiday_mode_end", "Data/Ora fine modo vacanza", _parse_epoch_ms),
 )
+
+
+# Attributo → (attributo di configurazione, valore): le entità che leggono il
+# primo non vengono create se l'impianto ha quella parte disattivata nella
+# configurazione, anche se il modello ne ha la metrica (vedi api.provides).
+# Con la configurazione non ancora letta l'entità si crea come prima.
+DISABLED_BY_CONFIG: dict[str, tuple[str, str]] = {
+    # Senza accumulo ausiliario la sonda manda solo "---".
+    "dhw_aux_storage_temp": ("dhw_aux_storage_enabled", "Disabilitato"),
+}
 
 
 # ---------------------------------------------------------------------------

@@ -48,7 +48,7 @@ Readings may partly work; the controls use model-specific commands and may not. 
 - **Internal Temperature** — indoor room temperature (if available)
 - **Boiler Flow Temperature** — heating circuit flow temperature
 - **DHW Storage Temperature** — domestic hot water storage temperature
-- **DHW Auxiliary Storage Temperature** — auxiliary tank temperature
+- **DHW Auxiliary Storage Temperature** — auxiliary tank temperature (created only when the auxiliary storage is enabled in the system configuration, see **Accumulo Ausiliario**)
 - **PDC Exit Temperature** — heat pump outlet temperature
 - **PDC Return Temperature** — heat pump return temperature
 - **Sanitary Setpoint Instantaneous** — current target DHW temperature
@@ -81,6 +81,7 @@ Readings may partly work; the controls use model-specific commands and may not. 
 - **Resistenze** — electric heaters state (On / Off, disabled by default: on several systems the cloud sends no value, even while the heaters are running)
 - **Richiesta Riscaldamento (TA)** — state of the room thermostat contact 31/31 (On / Off, disabled by default). With the external Wi-Fi control panel this contact is usually bridged and always reads On: use **Riscaldamento in corso** instead.
 - **Segnale WiFi** — WiFi signal of the system gateway (dBm, diagnostic)
+- **Accumulo Ausiliario** — whether the auxiliary DHW storage is enabled in the system configuration (Abilitato / Disabilitato, diagnostic). When it is Disabilitato the auxiliary storage temperature is not created, and it is removed if an earlier version created it; after a configuration change, reload the integration
 
 ### ⏱️ Daily Time per Mode
 Time spent today in each mode: heat pump, boiler, heating, cooling, DHW, solar thermal and standby. The value grows during the day and restarts from zero at midnight; it is shown in minutes and recorded in long-term statistics. All are **disabled by default**.

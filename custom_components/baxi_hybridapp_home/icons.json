@@ -32,6 +32,7 @@
       "boiler_flow_temperature": { "default": "mdi:thermometer" },
       "dhw_storage_temperature": { "default": "mdi:thermometer" },
       "dhw_aux_storage_temperature": { "default": "mdi:thermometer" },
+      "dhw_aux_storage": { "default": "mdi:water-boiler" },
       "pdc_exit_temperature": { "default": "mdi:thermometer" },
       "pdc_return_temperature": { "default": "mdi:thermometer" },
       "setpoint_instant": { "default": "mdi:target" },

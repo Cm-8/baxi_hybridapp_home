@@ -99,6 +99,7 @@
       "boiler_flow_temperature": { "name": "Boiler flow temperature" },
       "dhw_storage_temperature": { "name": "DHW storage temperature" },
       "dhw_aux_storage_temperature": { "name": "DHW auxiliary storage temperature" },
+      "dhw_aux_storage": { "name": "DHW auxiliary storage" },
       "pdc_exit_temperature": { "name": "Heat pump outlet temperature" },
       "pdc_return_temperature": { "name": "Heat pump return temperature" },
       "setpoint_instant": { "name": "DHW instantaneous setpoint" },

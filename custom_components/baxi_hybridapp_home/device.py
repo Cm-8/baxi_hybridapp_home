@@ -34,12 +34,13 @@ def build_device_info(api) -> dict:
 
 
 def async_add_provided_entities(hass, api, platform: str, entities, async_add_entities, *args) -> None:
-    """Aggiunge solo le entità i cui dati esistono sul modello dell'impianto.
+    """Aggiunge solo le entità i cui dati esistono sull'impianto.
 
     Ogni entità indica in `_source_attr` l'attributo dell'API che legge; se la
-    metrica corrispondente non è nel catalogo del modello (api.provides) l'entità
-    non viene creata e, se registrata da una versione precedente, viene tolta
-    dal registro, altrimenti resterebbe come "non disponibile". Con il catalogo
+    metrica corrispondente non è nel catalogo del modello, o la configurazione
+    dell'impianto ha disattivato quella parte (api.provides), l'entità non
+    viene creata e, se registrata da una versione precedente, viene tolta dal
+    registro, altrimenti resterebbe come "non disponibile". Con il catalogo
     non ancora noto si crea tutto, come prima.
     """
     registry = er.async_get(hass)
@@ -52,5 +53,5 @@ def async_add_provided_entities(hass, api, platform: str, entities, async_add_en
         entity_id = registry.async_get_entity_id(platform, DOMAIN, entity.unique_id)
         if entity_id:
             registry.async_remove(entity_id)
-            _LOGGER.info("🧹 %s rimossa: dato non presente su questo modello", entity_id)
+            _LOGGER.info("🧹 %s rimossa: dato non presente su questo impianto", entity_id)
     async_add_entities(provided, *args)
