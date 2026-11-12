@@ -27,7 +27,10 @@ from .const import (
 from .coordinator import BaxiConfigEntry, BaxiDataUpdateCoordinator, BaxiRuntimeData, polling_interval
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS = ["sensor", "water_heater", "button", "binary_sensor", "select", "number", "datetime", "switch"]
+PLATFORMS = [
+    "sensor", "water_heater", "button", "binary_sensor", "select", "number", "datetime", "switch",
+    "climate",
+]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 

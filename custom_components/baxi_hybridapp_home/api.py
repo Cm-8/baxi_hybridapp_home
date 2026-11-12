@@ -20,17 +20,21 @@ from .const import (
 from .metrics import (
     DISABLED_BY_CONFIG, SIMPLE_METRICS, SimpleMetricSpec, ENERGY_SENSOR_TYPES, _parse_float,
 )
+from .schedule import heating_schedule_state
 
 _LOGGER = logging.getLogger(__name__)
 
 # metricName dello scheduler sanitario (parsing proprio, fuori dalle tabelle di metrics.py).
 SANITARY_SCHEDULER_METRIC = "Schedulatore - Sanitario"
-# Tutte le metriche lette a ogni ciclo: semplici, scheduler sanitario, energia
-# (51 nomi; /data/lastValues ne accetta 50 per richiesta, oltre ne servono 2.
-# Si chiedono solo quelle del modello: 50 sul CSI IN SPLIT E, senza Flame status).
+# Programma settimanale del riscaldamento della zona 1 (parsing in schedule.py).
+HEATING_SCHEDULE_METRIC = "Riscaldamento - Zona 1"
+# Tutte le metriche lette a ogni ciclo: semplici, scheduler sanitario e del
+# riscaldamento, energia (55 nomi; /data/lastValues ne accetta 50 per
+# richiesta, oltre ne servono 2. Si chiedono solo quelle del modello: 54 sul
+# CSI IN SPLIT E, senza Flame status, quindi 2 richieste).
 WIRED_METRIC_NAMES: tuple[str, ...] = tuple(dict.fromkeys(
     [spec.metric_name for spec in SIMPLE_METRICS]
-    + [SANITARY_SCHEDULER_METRIC]
+    + [SANITARY_SCHEDULER_METRIC, HEATING_SCHEDULE_METRIC]
     + [desc.metric_name for desc in ENERGY_SENSOR_TYPES]
 ))
 # Attributo dell'istanza API → metrica da cui dipende: le entità che lo leggono
@@ -39,6 +43,7 @@ METRIC_OF_ATTR: dict[str, str] = {
     **{spec.attr: spec.metric_name for spec in SIMPLE_METRICS},
     **{desc.key: desc.metric_name for desc in ENERGY_SENSOR_TYPES},
     "sanitary_mode_now": SANITARY_SCHEDULER_METRIC,
+    "zone1_schedule_temp": HEATING_SCHEDULE_METRIC,
 }
 
 
@@ -161,6 +166,15 @@ class BaxiHybridAppAPI:
         self.sanitary_today_summary = None           # "Comfort fino alle HH:MM" | "Eco fino alle HH:MM"
         self.sanitary_scheduler_status = None        # "ok" | "empty" | "error"
         self.setpoint_eco_fallback = None            # int/str se presente nel fallback ECO
+
+        # Programma del riscaldamento della zona 1 (vedi fetch_heating_schedule).
+        self.zone1_schedule_raw = None               # JSON string proveniente dall'API
+        self.zone1_schedule_temp = None              # temperatura programmata adesso (°C)
+        self.zone1_schedule_next_change = None       # datetime (tz-aware) del prossimo cambio
+        self.zone1_schedule_next_temp = None         # temperatura dal prossimo cambio
+        self.zone1_schedule_base = None              # temperatura fuori dalle fasce, oggi
+        self.zone1_schedule_today = None             # fasce di oggi [{dalle, alle, temperatura}]
+        self.zone1_schedule_status = None            # "ok" | "empty" | "error"
 
         # Sensori energia: tabellari via ENERGY_SENSOR_TYPES in const.py.
         for desc in ENERGY_SENSOR_TYPES:
@@ -885,6 +899,7 @@ class BaxiHybridAppAPI:
         try:
             self.fetch_simple_metrics()
             self.fetch_sanitary_scheduler()
+            self.fetch_heating_schedule()
             self.fetch_energy_metrics()
         finally:
             self._bulk_samples = None
@@ -928,6 +943,53 @@ class BaxiHybridAppAPI:
             response = json.dumps(data if data is not None else sample, default=str)
             _LOGGER.warning("⚠️ Parsing fallito (Schedulatore sanitario): %s — response 📦: %s", e, response[:300])
             _LOGGER.debug("📦 Contenuto (Schedulatore sanitario): %s", response)
+
+    def fetch_heating_schedule(self, now: datetime | None = None) -> None:
+        """Programma del riscaldamento della zona 1: temperatura programmata e prossimo cambio.
+
+        Campione della lettura multipla del ciclo o lettura singola. Richiesta
+        fallita → si ricalcola dal programma precedente (l'ora è cambiata, il
+        programma no). Sentinella no-data → valori None, stato "empty".
+        Programma non valido → valori None, stato "error", warning. Non solleva.
+        """
+        if not self.has_metric(HEATING_SCHEDULE_METRIC):
+            self.zone1_schedule_status = "empty"
+            return
+        sample = self._bulk_sample(HEATING_SCHEDULE_METRIC)
+        data = None
+        try:
+            if sample is None:
+                data = self._make_request(self._metric_url(HEATING_SCHEDULE_METRIC))
+                if data:
+                    entries = data.get("data") or []
+                    raw = entries[0]["values"][0]["value"] if entries else None
+                else:
+                    raw = self.zone1_schedule_raw  # richiesta fallita: programma precedente
+                    if raw is None:
+                        return
+            else:
+                raw = sample["value"]
+            if raw is None or (isinstance(raw, str) and raw.strip() in self._NO_DATA_SENTINELS):
+                self._set_heating_schedule(None, "empty")
+                return
+            state = heating_schedule_state(raw, now)
+            self.zone1_schedule_raw = raw
+            self._set_heating_schedule(state, "ok")
+            _LOGGER.debug("📅 Programma riscaldamento zona 1: %s °C adesso", state["temperature"])
+        except (KeyError, IndexError, ValueError, TypeError, AttributeError) as e:
+            self.zone1_schedule_raw = None
+            self._set_heating_schedule(None, "error")
+            response = json.dumps(data if data is not None else sample, default=str)
+            _LOGGER.warning("⚠️ Parsing fallito (Programma riscaldamento zona 1): %s — response 📦: %s", e, response[:300])
+
+    def _set_heating_schedule(self, state: dict | None, status: str) -> None:
+        state = state or {}
+        self.zone1_schedule_temp = state.get("temperature")
+        self.zone1_schedule_next_change = state.get("next_change")
+        self.zone1_schedule_next_temp = state.get("next_temperature")
+        self.zone1_schedule_base = state.get("base_temperature")
+        self.zone1_schedule_today = state.get("today")
+        self.zone1_schedule_status = status
 
     def _compute_sanitary_schedule_state(self, raw_str, now_dt: datetime | None = None):
         """

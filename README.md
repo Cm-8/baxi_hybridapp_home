@@ -83,6 +83,12 @@ Readings may partly work; the controls use model-specific commands and may not. 
 - **Segnale WiFi** — WiFi signal of the system gateway (dBm, diagnostic)
 - **Accumulo Ausiliario** — whether the auxiliary DHW storage is enabled in the system configuration (Abilitato / Disabilitato, diagnostic). When it is Disabilitato the auxiliary storage temperature is not created, and it is removed if an earlier version created it; after a configuration change, reload the integration
 
+### 🌡️ Zone 1 Thermostat (pre-release, read-only)
+For systems where the zone 1 weekly schedule drives the heating, such as the LUNA IN PLUS boilers ([#27](https://github.com/Cm-8/baxi_hybridapp_home/issues/27)). On the hybrid systems seen so far the schedule keeps its factory values and the heating follows the Wi-Fi control panel instead.
+
+- **Termostato Zona 1** — climate entity: room temperature; mode (Automatico = auto, Comfort and Risparmio = heat, Spento = off); requested temperature (the current slot of the schedule in Automatico, the Comfort temperature while a Comfort is active, until the time shown in the `comfort_fino_alle` attribute). Changing temperature or mode is not supported yet.
+- **Programma Riscaldamento Zona 1** — temperature of the current schedule slot, with the next change, the temperature outside the slots and today's slots as attributes.
+
 ### ⏱️ Daily Time per Mode
 Time spent today in each mode: heat pump, boiler, heating, cooling, DHW, solar thermal and standby. The value grows during the day and restarts from zero at midnight; it is shown in minutes and recorded in long-term statistics. All are **disabled by default**.
 

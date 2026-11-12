@@ -106,7 +106,7 @@ def test_metric_not_on_model_is_never_requested(api, cloud):
     cloud.last_values = {n: ("1", 1_700_000_000_000) for n in NO_FLAME}
     api.flame_status = "On"
     api.fetch_all_metrics()
-    assert cloud.calls[0] == ("lastValues", NO_FLAME)
+    assert [n for kind, names in cloud.calls if kind == "lastValues" for n in names] == NO_FLAME
     assert not [c for c in cloud.calls if c[0] == "values"]  # nessuna lettura singola
     assert api.flame_status is None
 

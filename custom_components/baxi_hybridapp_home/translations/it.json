@@ -82,6 +82,9 @@
       "test_failure": { "name": "Test Failure" },
       "boost": { "name": "Boost Sanitario" }
     },
+    "climate": {
+      "zone_1": { "name": "Termostato Zona 1" }
+    },
     "datetime": {
       "holiday_mode_end": { "name": "Modo Vacanza Fine" }
     },
@@ -100,6 +103,7 @@
       "dhw_storage_temperature": { "name": "Temp. Accumulo Sanitario" },
       "dhw_aux_storage_temperature": { "name": "Temp. Accumulo Ausiliario" },
       "dhw_aux_storage": { "name": "Accumulo Ausiliario" },
+      "heating_schedule_zone_1": { "name": "Programma Riscaldamento Zona 1" },
       "pdc_exit_temperature": { "name": "Temp. Uscita PDC" },
       "pdc_return_temperature": { "name": "Temp. Ritorno PDC" },
       "setpoint_instant": { "name": "Setpoint Sanitario Istantaneo" },
@@ -177,6 +181,9 @@
     },
     "holiday_end_required": {
       "message": "Imposta prima una data di fine futura in Modo Vacanza Fine, poi attiva lo switch."
+    },
+    "climate_read_only": {
+      "message": "Il termostato per ora è in sola lettura: cambia temperatura e modalità dall'app Baxi."
     },
     "holiday_on_failed": {
       "message": "Attivazione del modo vacanza non riuscita: il cloud Baxi non ha accettato la richiesta."

@@ -19,6 +19,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -41,6 +42,9 @@ __all__ = [
 # Metriche "semplici" — un singolo valore per metricName Servitly.
 # Lette in sequenza dal dispatcher fetch_simple_metrics in api.py.
 # ---------------------------------------------------------------------------
+
+_LOCAL_TZ = ZoneInfo("Europe/Rome")
+
 
 def _parse_float(raw: Any) -> float:
     """Parser per metriche numeriche float."""
@@ -65,6 +69,15 @@ def _parse_epoch_ms(raw: Any) -> Any:
     if ms <= 0:
         return None
     return datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
+
+
+def _parse_local_datetime(raw: Any) -> datetime:
+    """Parser per data/ora locale "AAAA-MM-GG HH:MM" (es. "Durata comfort zona 1").
+
+    Il cloud la manda nell'ora italiana: datetime tz-aware Europe/Rome.
+    Formato diverso → ValueError, gestita dal dispatcher (warning + None).
+    """
+    return datetime.strptime(str(raw).strip(), "%Y-%m-%d %H:%M").replace(tzinfo=_LOCAL_TZ)
 
 
 def _make_mapper(mapping: dict, *, normalize: bool = False) -> Callable[[Any], str]:
@@ -252,6 +265,23 @@ SIMPLE_METRICS: tuple[SimpleMetricSpec, ...] = (
             "abilitato": "Abilitato", "disabilitato": "Disabilitato", "none": None,
         }, normalize=True),
     ),
+    # Termostato della zona 1 (#27): modalità della zona e Comfort temporaneo
+    # (temperatura fissa fino a un'ora scelta). Codici dalle condizioni dei
+    # comandi "Automatico/Risparmio/Comfort/Spento - Zona 1", uguali su
+    # ibridi e LUNA. Il programma settimanale ha un parsing proprio
+    # (schedule.py, api.fetch_heating_schedule).
+    SimpleMetricSpec(
+        "zone1_mode", "Modo zona 1",
+        _make_mapper({
+            "0000": "Spento",     "0": "Spento",
+            "0001": "Automatico", "1": "Automatico",
+            "0002": "Risparmio",  "2": "Risparmio",
+            "0003": "Comfort",    "3": "Comfort",
+        }, normalize=True),
+    ),
+    SimpleMetricSpec("zone1_comfort_setpoint", "Set-point comfort zona 1", _parse_float, log_emoji="🌡️"),
+    # Fine del Comfort: senza Comfort attivo vale la mezzanotte successiva.
+    SimpleMetricSpec("zone1_comfort_end", "Durata comfort zona 1", _parse_local_datetime),
     *(SimpleMetricSpec(attr, name, _parse_float, log_emoji="⏱️") for attr, name in DAILY_MODE_TIME_METRICS),
 
     # --- Passthrough: il sensore HA decide come interpretare il raw ---------

@@ -37,13 +37,16 @@ def single_calls(cloud):
     return [name for kind, name in cloud.calls if kind == "values"]
 
 
-def test_whole_cycle_in_one_request(api, cloud):
-    # Catalogo del CSI IN SPLIT E (senza Flame status): 50 metriche, una richiesta.
+def test_whole_cycle_in_bulk_requests(api, cloud):
+    # Catalogo del CSI IN SPLIT E (senza Flame status): solo letture multiple,
+    # a blocchi di 50 (54 metriche con la zona 1 → 2 richieste).
     api.model_metrics = frozenset(HYBRID_METRICS)
     fill_bulk(cloud)
     api.fetch_all_metrics()
-    assert cloud.calls == [("lastValues", HYBRID_METRICS)]
-    assert api.request_stats() == (1, [])
+    assert all(kind == "lastValues" for kind, _ in cloud.calls)
+    assert [n for _, names in cloud.calls for n in names] == HYBRID_METRICS
+    assert len(cloud.calls) == -(-len(HYBRID_METRICS) // api.LAST_VALUES_MAX_METRICS)
+    assert api.request_stats() == (len(cloud.calls), [])
     assert api.temp_ext == 1.0
     assert api.sanitary_scheduler_status == "ok"
     assert all(getattr(api, d.key) == 12.5 for d in ENERGY_SENSOR_TYPES)

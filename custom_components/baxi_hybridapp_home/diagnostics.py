@@ -192,6 +192,14 @@ async def async_get_config_entry_diagnostics(
                 "next_change": api.sanitary_next_change,
                 "today_summary": api.sanitary_today_summary,
             },
+            "heating_schedule_zone_1": {
+                "status": api.zone1_schedule_status,
+                "temperature_now": api.zone1_schedule_temp,
+                "next_change": api.zone1_schedule_next_change,
+                "next_temperature": api.zone1_schedule_next_temp,
+                "base_temperature": api.zone1_schedule_base,
+                "today": api.zone1_schedule_today,
+            },
             "alerts": {
                 "active_failure": api.active_failure_alert is not None,
                 "active_warning": api.active_warning_alert is not None,

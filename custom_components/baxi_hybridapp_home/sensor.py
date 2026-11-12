@@ -659,6 +659,37 @@ class SanitaryScheduleStateSensor(BaxiBaseSensor):
             "scheduler_status": getattr(self._api, "sanitary_scheduler_status", None),
         }
 
+class HeatingScheduleZone1Sensor(BaxiBaseSensor):
+    """Temperatura programmata adesso dal programma del riscaldamento della zona 1.
+
+    Stato: temperatura della fascia in corso (metrica "Riscaldamento - Zona 1",
+    calcolata in schedule.py). Attributi: prossimo cambio, temperatura fuori
+    dalle fasce, fasce di oggi. È il programma, non la temperatura richiesta:
+    con il Comfort attivo o la zona spenta vale il termostato (climate).
+    """
+
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator, api,
+            translation_key="heating_schedule_zone_1",
+            unique_id="baxi_heating_schedule_zone_1",
+            value_key="zone1_schedule_temp",
+            unit=UnitOfTemperature.CELSIUS,
+            device_class=SensorDeviceClass.TEMPERATURE,
+        )
+
+    @property
+    def extra_state_attributes(self):
+        nxt = self._api.zone1_schedule_next_change
+        return {
+            "prossimo_cambio": nxt.isoformat() if nxt else None,
+            "prossima_temperatura": self._api.zone1_schedule_next_temp,
+            "temperatura_fuori_fasce": self._api.zone1_schedule_base,
+            "oggi": self._api.zone1_schedule_today,
+            "stato_programma": self._api.zone1_schedule_status,
+        }
+
+
 class BaxiOnOffSensor(BaxiBaseSensor):
     """Stato On/Off già mappato dall'API: testo, non una misura; icona per stato (on, off)."""
 
@@ -956,6 +987,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         SystemOperationMode(coordinator, api),
         # fine nuovi sensori caldaia
         SanitaryScheduleStateSensor(coordinator, api),
+        HeatingScheduleZone1Sensor(coordinator, api),
         # contatori alert per dashboard
         FailureCount24hSensor(coordinator, api),
         FailureCount7dSensor(coordinator, api),

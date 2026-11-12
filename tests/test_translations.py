@@ -17,6 +17,7 @@ PLATFORM_OF = {
     "sensor.py": "sensor", "metrics.py": "sensor", "binary_sensor.py": "binary_sensor",
     "button.py": "button", "select.py": "select", "number.py": "number",
     "water_heater.py": "water_heater", "switch.py": "switch", "datetime.py": "datetime",
+    "climate.py": "climate",
 }
 
 
