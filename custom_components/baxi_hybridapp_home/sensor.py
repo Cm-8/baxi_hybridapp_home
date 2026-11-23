@@ -690,6 +690,32 @@ class HeatingScheduleZone1Sensor(BaxiBaseSensor):
         }
 
 
+class ComfortEndZone1Sensor(BaxiBaseSensor):
+    """Fine del Comfort della zona 1 ("Durata comfort zona 1").
+
+    Valida solo con il Comfort attivo: negli altri modi l'API la azzera e il
+    sensore resta disponibile con stato "sconosciuto", come la fine vacanza.
+    """
+
+    _attr_state_class = None  # non è una misura
+
+    def __init__(self, coordinator, api):
+        super().__init__(
+            coordinator, api,
+            translation_key="zone1_comfort_end",
+            unique_id="baxi_zone1_comfort_end",
+            value_key="zone1_comfort_end",
+            unit=None,
+            device_class=SensorDeviceClass.TIMESTAMP,
+        )
+        self._attr_state_class = None
+
+    @property
+    def available(self) -> bool:
+        # Dipende dal modo della zona, non dalla presenza dell'ora di fine.
+        return self.coordinator.last_update_success and self._api.zone1_mode is not None
+
+
 class BaxiOnOffSensor(BaxiBaseSensor):
     """Stato On/Off già mappato dall'API: testo, non una misura; icona per stato (on, off)."""
 
@@ -988,6 +1014,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         # fine nuovi sensori caldaia
         SanitaryScheduleStateSensor(coordinator, api),
         HeatingScheduleZone1Sensor(coordinator, api),
+        ComfortEndZone1Sensor(coordinator, api),
         # contatori alert per dashboard
         FailureCount24hSensor(coordinator, api),
         FailureCount7dSensor(coordinator, api),

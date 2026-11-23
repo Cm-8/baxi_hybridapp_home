@@ -83,7 +83,14 @@
       "boost": { "name": "DHW boost" }
     },
     "climate": {
-      "zone_1": { "name": "Zone 1 thermostat" }
+      "zone_1": {
+        "name": "Zone 1 thermostat",
+        "state_attributes": {
+          "preset_mode": {
+            "state": { "none": "None", "comfort": "Comfort", "eco": "Eco" }
+          }
+        }
+      }
     },
     "datetime": {
       "holiday_mode_end": { "name": "Holiday mode end" }
@@ -104,6 +111,7 @@
       "dhw_aux_storage_temperature": { "name": "DHW auxiliary storage temperature" },
       "dhw_aux_storage": { "name": "DHW auxiliary storage" },
       "heating_schedule_zone_1": { "name": "Zone 1 heating schedule" },
+      "zone1_comfort_end": { "name": "Zone 1 comfort end" },
       "pdc_exit_temperature": { "name": "Heat pump outlet temperature" },
       "pdc_return_temperature": { "name": "Heat pump return temperature" },
       "setpoint_instant": { "name": "DHW instantaneous setpoint" },

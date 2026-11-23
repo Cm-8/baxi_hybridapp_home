@@ -83,7 +83,14 @@
       "boost": { "name": "Boost Sanitario" }
     },
     "climate": {
-      "zone_1": { "name": "Termostato Zona 1" }
+      "zone_1": {
+        "name": "Termostato Zona 1",
+        "state_attributes": {
+          "preset_mode": {
+            "state": { "none": "Nessuno", "comfort": "Comfort", "eco": "Risparmio" }
+          }
+        }
+      }
     },
     "datetime": {
       "holiday_mode_end": { "name": "Modo Vacanza Fine" }
@@ -104,6 +111,7 @@
       "dhw_aux_storage_temperature": { "name": "Temp. Accumulo Ausiliario" },
       "dhw_aux_storage": { "name": "Accumulo Ausiliario" },
       "heating_schedule_zone_1": { "name": "Programma Riscaldamento Zona 1" },
+      "zone1_comfort_end": { "name": "Fine Comfort Zona 1" },
       "pdc_exit_temperature": { "name": "Temp. Uscita PDC" },
       "pdc_return_temperature": { "name": "Temp. Ritorno PDC" },
       "setpoint_instant": { "name": "Setpoint Sanitario Istantaneo" },

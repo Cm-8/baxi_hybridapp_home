@@ -15,6 +15,7 @@ from custom_components.baxi_hybridapp_home.api import HEATING_SCHEDULE_METRIC, W
 from custom_components.baxi_hybridapp_home.climate import BaxiZone1Climate
 from custom_components.baxi_hybridapp_home.metrics import SIMPLE_METRICS
 from custom_components.baxi_hybridapp_home.schedule import SCHEDULE_TZ, heating_schedule_state
+from custom_components.baxi_hybridapp_home.sensor import ComfortEndZone1Sensor
 
 from .conftest import values_response
 
@@ -147,6 +148,15 @@ def test_comfort_end_is_local_time():
         parser_for("zone1_comfort_end")("1794089470755")
 
 
+@pytest.mark.parametrize(("mode", "kept"), [("0003", True), ("0001", False), ("0002", False)])
+def test_comfort_end_only_while_comfort(api, cloud, mode, kept):
+    # Dopo la fine del Comfort la metrica conserva l'ultima ora scelta.
+    cloud["Modo zona 1"] = values_response(mode)
+    cloud["Durata comfort zona 1"] = values_response("2026-11-12 10:18")
+    api.fetch_simple_metrics()
+    assert api.zone1_comfort_end == (at(12, 10, 18) if kept else None)
+
+
 # --- Termostato ----------------------------------------------------------------------------
 
 
@@ -159,41 +169,71 @@ def coordinator():
 def thermostat(api, coordinator):
     api.temp_int = 21.9
     api.zone1_schedule_temp = 20.5
-    api.zone1_comfort_setpoint = 23.0
-    api.zone1_comfort_end = at(7, 19, 41)
+    api.zone1_comfort_setpoint = 20.5
     return BaxiZone1Climate(coordinator, api)
 
 
 def test_thermostat_follows_the_schedule_in_automatico(api, thermostat):
     api.zone1_mode = "Automatico"
     assert thermostat.available
-    assert thermostat.hvac_mode == HVACMode.AUTO
+    assert thermostat.hvac_mode == HVACMode.AUTO and thermostat.preset_mode == "none"
     assert thermostat.current_temperature == 21.9 and thermostat.target_temperature == 20.5
     assert thermostat.extra_state_attributes["comfort_fino_alle"] is None
-    assert thermostat.supported_features == ClimateEntityFeature.TARGET_TEMPERATURE
+    assert thermostat.supported_features == (
+        ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
+    )
+    assert thermostat.preset_modes == ["none", "comfort", "eco"]
+
+
+def test_automatico_ignores_the_setpoint_still_changing(api, thermostat):
+    # Nei secondi dopo la fine del Comfort il setpoint è ancora quello del Comfort.
+    api.zone1_mode, api.zone1_comfort_setpoint = "Automatico", 22.5
+    assert thermostat.target_temperature == 20.5
+    api.zone1_schedule_temp = None
+    assert thermostat.target_temperature == 22.5
 
 
 def test_thermostat_in_comfort(api, thermostat):
-    api.zone1_mode = "Comfort"
-    assert thermostat.hvac_mode == HVACMode.HEAT and thermostat.target_temperature == 23.0
-    assert thermostat.extra_state_attributes["comfort_fino_alle"] == at(7, 19, 41).isoformat()
+    api.zone1_mode, api.zone1_comfort_setpoint = "Comfort", 22.5
+    api.zone1_comfort_end = at(12, 10, 18)
+    assert thermostat.hvac_mode == HVACMode.HEAT and thermostat.preset_mode == "comfort"
+    assert thermostat.target_temperature == 22.5
+    assert thermostat.extra_state_attributes["comfort_fino_alle"] == at(12, 10, 18).isoformat()
 
 
-def test_thermostat_in_risparmio_and_off(api, thermostat):
-    api.zone1_mode = "Risparmio"
-    assert thermostat.hvac_mode == HVACMode.HEAT and thermostat.target_temperature is None
+def test_thermostat_in_risparmio(api, thermostat):
+    # In Risparmio il setpoint della zona vale la temperatura di risparmio (#27).
+    api.zone1_mode, api.zone1_comfort_setpoint = "Risparmio", 17.5
+    assert thermostat.hvac_mode == HVACMode.HEAT and thermostat.preset_mode == "eco"
+    assert thermostat.target_temperature == 17.5
+
+
+def test_thermostat_off(api, thermostat):
     api.zone1_mode = "Spento"
-    assert thermostat.hvac_mode == HVACMode.OFF and thermostat.target_temperature is None
+    assert thermostat.hvac_mode == HVACMode.OFF and thermostat.preset_mode == "none"
+    assert thermostat.target_temperature is None
     assert thermostat.hvac_action == HVACAction.OFF
 
 
 def test_thermostat_action_from_heating_running(api, thermostat):
     api.zone1_mode = "Automatico"
-    assert thermostat.hvac_action is None  # modello senza "Riscaldamento per counter"
+    assert thermostat.hvac_action is None  # né "Riscaldamento per counter" né fiamma
     api.heating_active = "On"
     assert thermostat.hvac_action == HVACAction.HEATING
     api.heating_active = "Off"
+    api.flame_status = "On"  # sugli ibridi conta il riscaldamento in corso
     assert thermostat.hvac_action == HVACAction.IDLE
+
+
+@pytest.mark.parametrize(
+    ("flame", "dhw", "action"),
+    [("On", "Off", HVACAction.HEATING), ("On", None, HVACAction.HEATING),
+     ("On", "On", HVACAction.IDLE),  # fiamma per l'acqua calda
+     ("Off", "Off", HVACAction.IDLE), (None, "Off", None)],
+)
+def test_boiler_action_from_flame(api, thermostat, flame, dhw, action):
+    api.zone1_mode, api.flame_status, api.sanitary_on = "Automatico", flame, dhw
+    assert thermostat.hvac_action == action
 
 
 def test_thermostat_without_values_is_unavailable(api, coordinator):
@@ -202,10 +242,21 @@ def test_thermostat_without_values_is_unavailable(api, coordinator):
 
 def test_thermostat_is_read_only(thermostat):
     for call in (thermostat.async_set_temperature(temperature=22),
-                 thermostat.async_set_hvac_mode(HVACMode.OFF)):
+                 thermostat.async_set_hvac_mode(HVACMode.OFF),
+                 thermostat.async_set_preset_mode("comfort")):
         with pytest.raises(ServiceValidationError) as err:
             asyncio.run(call)
         assert err.value.translation_key == "climate_read_only"
+
+
+def test_comfort_end_sensor(api, coordinator):
+    sensor = ComfortEndZone1Sensor(coordinator, api)
+    assert not sensor.available  # modo della zona non letto
+    api.zone1_mode = "Automatico"
+    assert sensor.available and sensor.native_value is None
+    api.zone1_mode, api.zone1_comfort_end = "Comfort", at(12, 10, 18)
+    assert sensor.native_value == at(12, 10, 18)
+    assert sensor.state_class is None
 
 
 class FakeRegistry:

@@ -759,6 +759,11 @@ class BaxiHybridAppAPI:
         if self.holiday_mode != "On":
             self.holiday_mode_end = None
             self.holiday_mode_end_timestamp = None
+        # "Durata comfort zona 1" conserva l'ultima ora scelta anche dopo la
+        # fine del Comfort (e a volte cambia da sola): vale solo in Comfort.
+        if self.zone1_mode != "Comfort":
+            self.zone1_comfort_end = None
+            self.zone1_comfort_end_timestamp = None
 
     # ----- I vecchi fetch_<metrica> per-attributo sono stati collassati in -----
     # fetch_simple_metrics() + SIMPLE_METRICS (dispatcher tabellare, vedi sopra).
