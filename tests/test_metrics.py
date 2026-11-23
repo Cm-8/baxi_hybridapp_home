@@ -153,6 +153,10 @@ def test_status_pdc(raw, expected):
         # Valore vuoto: sanitario in Standby → spento.
         ("sanitary_on", None, "Off"),
         ("sanitary_on", "1", "On"),
+        ("sanitary_on", "0_1", "On"),
+        # Caldaie LUNA: 0/1 come numeri.
+        ("sanitary_on", 0, "Off"),
+        ("sanitary_on", 1, "On"),
         # Resistenze: il vuoto arriva anche mentre lavorano → nessuno stato.
         ("resistances_on", None, None),
         ("resistances_on", "0001", "On"),
