@@ -158,7 +158,8 @@ SIMPLE_METRICS: tuple[SimpleMetricSpec, ...] = (
     SimpleMetricSpec(
         "sanitary_on", "Sanitario on",
         # None: valore vuoto mandato in Standby (sanitario non attivo).
-        _make_mapper({"0": "Off", "0_1": "On", "1": "On", None: "Off"}),
+        # Le caldaie LUNA mandano 0/1 come numeri: confronto sul testo.
+        _make_mapper({"0": "Off", "0_1": "On", "1": "On", "none": "Off"}, normalize=True),
     ),
     SimpleMetricSpec(
         "system_mode", "Modo Impianto",
